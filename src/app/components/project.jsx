@@ -46,8 +46,8 @@ const projects = [
     shortDesc: "Web portal for online purchase of fashion items.",
     description: [
       "Built with a team of 2. No frameworks, just pure JS, HTML, and PHP.",
-      "Actually got grade A- for this module!",
-      "",
+      "Implemented a shopping cart, user authentication, and a product catalog.",
+      "Designed and planned the DB schema, wireframing, and UI/UX.",
     ],
     tech: ["Javascript", "php", "MySQL", "HTML", "CSS"],
     github: "https://github.com/keefhub/WebApp-Design",

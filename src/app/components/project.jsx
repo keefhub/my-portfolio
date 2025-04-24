@@ -49,7 +49,7 @@ const projects = [
       "Implemented a shopping cart, user authentication, and a product catalog.",
       "Designed and planned the DB schema, wireframing, and UI/UX.",
     ],
-    tech: ["Javascript", "php", "MySQL", "HTML", "CSS"],
+    tech: ["Javascript", "PHP", "MySQL", "HTML", "CSS"],
     github: "https://github.com/keefhub/WebApp-Design",
     demo: "",
   },

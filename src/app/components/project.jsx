@@ -5,6 +5,20 @@ import { motion } from "framer-motion";
 
 const projects = [
   {
+    title: "Prime Unity Electronics Pte Ltd",
+    shortDesc:
+      "Responsive corporate site for a semiconductor supplier, built and deployed with Next.js SSR.",
+    description: [
+      "Problem statement: Client needed a clean, professional online presence to showcase their semiconductor sourcing services.",
+      "Built and deployed a static corporate site with Next.js and SSR for performance, SEO, and responsive design.",
+      "Embedded microsoft excel as product catalog for easy updates by client.",
+    ],
+
+    tech: ["Next.js", "Tailwind", "Vercel"],
+    github: "",
+    demo: "https://www.primeunity.biz/",
+  },
+  {
     title: "Portfolio Website",
     shortDesc:
       "A website highlighting my skills and projects — essentially, my interactive resume.",
@@ -13,7 +27,7 @@ const projects = [
       "Showcases my frontend skills with scroll animations, flip cards, and a fully responsive UI.",
     ],
     tech: ["Next.js", "Tailwind", "Framer Motion"],
-    github: "https://github.com/yourusername/portfolio",
+    github: "https://github.com/keefhub/my-portfolio",
     demo: "",
   },
   {

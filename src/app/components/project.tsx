@@ -1,9 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { motion } from "framer-motion";
 
-const projects = [
+interface Project {
+  title: string;
+  shortDesc: string;
+  description: string[];
+  tech: string[];
+  github: string;
+  demo: string;
+}
+
+const projects: Project[] = [
   {
     title: "Prime Unity Electronics Pte Ltd",
     shortDesc:
@@ -13,7 +22,6 @@ const projects = [
       "Built and deployed a static corporate site with Next.js and SSR for performance, SEO, and responsive design.",
       "Embedded microsoft excel as product catalog for easy updates by client.",
     ],
-
     tech: ["Next.js", "Tailwind", "Vercel"],
     github: "",
     demo: "https://www.primeunity.biz/",
@@ -23,7 +31,7 @@ const projects = [
     shortDesc:
       "A website highlighting my skills and projects — essentially, my interactive resume.",
     description: [
-      "Problem statement: Fear of missing out… many software engineers have a portfolio, so here’s mine.",
+      "Problem statement: Fear of missing out… many software engineers have a portfolio, so here's mine.",
       "Showcases my frontend skills with scroll animations, flip cards, and a fully responsive UI.",
     ],
     tech: ["Next.js", "Tailwind", "Framer Motion"],
@@ -80,70 +88,126 @@ const projects = [
   },
 ];
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.08 },
+  },
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 30, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+  },
+};
+
 export default function ProjectCards() {
-  const [flipped, setFlipped] = useState(null);
+  const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set());
+
+  const toggleCard = (index: number) => {
+    setFlippedCards((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
+
+  const handleKeyDown = (e: KeyboardEvent, index: number) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggleCard(index);
+    }
+  };
+
+  const isFlipped = (index: number) => flippedCards.has(index);
 
   return (
-    <section id="projects" className="py-16">
-      <h2 className="text-3xl font-bold text-center mb-12 text-[#333]">
+    <section className="py-16">
+      <h2 className="text-3xl sm:text-4xl font-bold text-center mb-12 text-[var(--foreground)]">
         Projects
       </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 px-4 max-w-6xl mx-auto">
+      <motion.div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 px-4 sm:px-6 max-w-6xl mx-auto"
+        variants={containerVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-30px" }}
+      >
         {projects.map((project, index) => (
           <motion.div
             key={index}
-            onClick={() => setFlipped(flipped === index ? null : index)}
-            whileHover={{ scale: 1.02 }}
-            className="cursor-pointer card-flip-inner relative h-64"
+            variants={cardVariants}
+            onClick={() => toggleCard(index)}
+            onKeyDown={(e) => handleKeyDown(e, index)}
+            whileHover={{ y: -4 }}
+            className="cursor-pointer card-flip-container relative h-72"
+            role="button"
+            tabIndex={0}
+            aria-label={`${project.title} — ${isFlipped(index) ? "Click to see overview" : "Click to see details"}`}
+            aria-expanded={isFlipped(index)}
           >
             <div
               className={`relative w-full h-full card-flip ${
-                flipped === index ? "rotate-y-180" : ""
+                isFlipped(index) ? "rotate-y-180" : ""
               }`}
             >
               {/* Front */}
-              <div className="card-front bg-white flex flex-col justify-center p-4 rounded-lg shadow-lg">
-                <h3 className="text-lg font-semibold text-[#333]">
+              <div className="card-front justify-center">
+                <h3 className="text-lg font-bold text-[var(--foreground)] mb-2">
                   {project.title}
                 </h3>
-                <p className="text-sm text-[#555] mt-2">{project.shortDesc}</p>
-                <div className="flex flex-wrap gap-2 mt-4 text-xs text-[#444]">
-                  {project.tech.map((t, i) => (
+                <p className="text-sm text-[var(--muted)] mb-4 leading-relaxed">
+                  {project.shortDesc}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {project.tech.map((t) => (
                     <span
-                      key={i}
-                      className="px-2 py-1 bg-[#E0ECF9] rounded-full"
+                      key={t}
+                      className="px-2.5 py-1 text-xs font-medium rounded-full bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)] border border-[var(--accent-blue)]/15"
                     >
                       {t}
                     </span>
                   ))}
                 </div>
+                <p className="mt-4 text-xs text-[var(--accent-blue)] font-medium">
+                  Click to see details →
+                </p>
               </div>
 
               {/* Back */}
-              <div className="card-back bg-[#FDF6F0] p-4 rounded-lg shadow-lg overflow-auto">
-                <h4 className="text-md font-semibold text-[#333] mb-2">
+              <div className="card-back">
+                <h4 className="text-md font-bold text-[var(--foreground)] mb-3">
                   {project.title}
                 </h4>
-                {Array.isArray(project.description) ? (
-                  <ul className="list-disc list-inside text-sm text-[#555] space-y-1 mb-4">
-                    {project.description.map((line, i) => (
-                      <li key={i}>{line}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-[#555] mb-4">
-                    {project.description}
-                  </p>
-                )}
-                <div className="flex gap-4 text-sm">
+                <ul className="space-y-2 text-sm text-[var(--foreground-soft)] mb-4 flex-1">
+                  {project.description.map((line, i) => (
+                    <li key={i} className="flex gap-2">
+                      <span className="text-[var(--accent-rose)] mt-1 shrink-0">
+                        •
+                      </span>
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex gap-3 text-sm font-medium mt-auto pt-2 border-t border-[var(--border)]">
                   {project.github && (
                     <a
                       href={project.github}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[#A3C4F3] font-semibold"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-[var(--accent-blue)] hover:underline"
                     >
-                      GitHub
+                      GitHub ↗
                     </a>
                   )}
                   {project.demo && (
@@ -151,17 +215,21 @@ export default function ProjectCards() {
                       href={project.demo}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[#A3C4F3] font-semibold"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-[var(--accent-blue)] hover:underline"
                     >
-                      Live Demo
+                      Live Demo ↗
                     </a>
                   )}
                 </div>
+                <p className="mt-2 text-xs text-[var(--accent-rose)] font-medium">
+                  ← Click to go back
+                </p>
               </div>
             </div>
           </motion.div>
         ))}
-      </div>
+      </motion.div>
     </section>
   );
 }

@@ -2,10 +2,14 @@
   "hosting": {
     "public": "out",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [
+    "trailingSlash": true,
+    "cleanUrls": false,
+    "headers": [
       {
-        "source": "**",
-        "destination": "/index.html"
+        "source": "/rss.xml",
+        "headers": [
+          { "key": "Content-Type", "value": "application/rss+xml; charset=utf-8" }
+        ]
       }
     ]
   }

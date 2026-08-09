@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   useEffect,
   useState,
@@ -18,6 +20,8 @@ export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const pathname = usePathname();
+  const isHome = pathname === "/";
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -84,13 +88,35 @@ export default function Header() {
     id: string;
     mobile?: boolean;
   }) => {
-    const isActive = activeSection === id;
+    const isActive = isHome && activeSection === id;
+    const label = id.charAt(0).toUpperCase() + id.slice(1);
+    const className = `${linkBase} ${isActive ? linkActive : linkInactive} ${
+      mobile ? "block w-full px-4 py-3 text-base" : ""
+    }`;
+    const pill = isActive && !mobile && (
+      <motion.span
+        layoutId="active-pill"
+        className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-0.5 w-5 rounded-full bg-[var(--accent-blue)]"
+        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      />
+    );
+
+    if (!isHome) {
+      return (
+        <Link
+          href={`/#${id}`}
+          className={className}
+          onClick={mobile ? closeMenu : undefined}
+        >
+          {label}
+        </Link>
+      );
+    }
+
     return (
       <a
         href={`#${id}`}
-        className={`${linkBase} ${isActive ? linkActive : linkInactive} ${
-          mobile ? "block w-full px-4 py-3 text-base" : ""
-        }`}
+        className={className}
         onClick={mobile ? closeMenu : undefined}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -100,14 +126,8 @@ export default function Header() {
           }
         }}
       >
-        {id.charAt(0).toUpperCase() + id.slice(1)}
-        {isActive && !mobile && (
-          <motion.span
-            layoutId="active-pill"
-            className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-0.5 w-5 rounded-full bg-[var(--accent-blue)]"
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          />
-        )}
+        {label}
+        {pill}
       </a>
     );
   };
@@ -126,23 +146,44 @@ export default function Header() {
           aria-label="Main navigation"
         >
           {/* Brand */}
-          <a
-            href="#"
-            className="flex items-center gap-2 text-lg font-bold text-[var(--foreground)] hover:opacity-80 transition-opacity shrink-0"
-            aria-label="thegoldenpothos — Back to top"
-          >
-            <span className="text-xl">🌿</span>
-            <span className="hidden sm:inline gradient-text">
-              thegoldenpothos
-            </span>
-            <span className="sm:hidden gradient-text">tgp</span>
-          </a>
+          {isHome ? (
+            <a
+              href="#"
+              className="flex items-center gap-2 text-lg font-bold text-[var(--foreground)] hover:opacity-80 transition-opacity shrink-0"
+              aria-label="thegoldenpothos — Back to top"
+            >
+              <span className="text-xl">🌿</span>
+              <span className="hidden sm:inline gradient-text">
+                thegoldenpothos
+              </span>
+              <span className="sm:hidden gradient-text">tgp</span>
+            </a>
+          ) : (
+            <Link
+              href="/"
+              className="flex items-center gap-2 text-lg font-bold text-[var(--foreground)] hover:opacity-80 transition-opacity shrink-0"
+              aria-label="thegoldenpothos — Back to home"
+            >
+              <span className="text-xl">🌿</span>
+              <span className="hidden sm:inline gradient-text">
+                thegoldenpothos
+              </span>
+              <span className="sm:hidden gradient-text">tgp</span>
+            </Link>
+          )}
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-1">
             {sections.map((id) => (
               <NavLink key={id} id={id} />
             ))}
+            {/* Blog link */}
+            <Link
+              href="/blog"
+              className={`${linkBase} text-[var(--muted)] hover:text-[var(--foreground)]`}
+            >
+              Blog
+            </Link>
             <div className="w-px h-5 bg-[var(--border)] mx-3" />
             <button
               onClick={toggleTheme}
@@ -212,6 +253,13 @@ export default function Header() {
                 {sections.map((id) => (
                   <NavLink key={id} id={id} mobile />
                 ))}
+                <Link
+                  href="/blog"
+                  className={`${linkBase} block w-full px-4 py-3 text-base text-[var(--muted)] hover:text-[var(--foreground)]`}
+                  onClick={closeMenu}
+                >
+                  Blog
+                </Link>
               </div>
             </motion.div>
           </>

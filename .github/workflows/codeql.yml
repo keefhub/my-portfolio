@@ -1,0 +1,41 @@
+name: Code Scanning
+
+# Advisory only: findings here never block pipeline.yml's deploy jobs.
+# Blocking prod on a dependency CVE would take down an already-working site
+# over a risk that isn't made worse by staying deployed one more day.
+on:
+  push:
+    branches: [develop, master]
+  schedule:
+    - cron: '0 3 * * 1'   # weekly, Monday 03:00 UTC — catches CVEs disclosed in unchanged code
+  workflow_dispatch:
+
+jobs:
+  codeql:
+    name: CodeQL (JS/TS)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # required so CodeQL can upload results to the Security tab
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - uses: github/codeql-action/analyze@v3
+
+  dependency-audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm audit --audit-level=high

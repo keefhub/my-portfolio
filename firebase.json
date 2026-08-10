@@ -4,11 +4,20 @@
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "trailingSlash": true,
     "cleanUrls": false,
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
     "headers": [
       {
         "source": "/rss.xml",
         "headers": [
-          { "key": "Content-Type", "value": "application/rss+xml; charset=utf-8" }
+          {
+            "key": "Content-Type",
+            "value": "application/rss+xml; charset=utf-8"
+          }
         ]
       }
     ]

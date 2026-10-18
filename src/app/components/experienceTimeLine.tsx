@@ -16,7 +16,7 @@ const experienceData: ExperienceItem[] = [
   {
     year: "2026",
     title: "Software Engineer",
-    company: "Resorts Word Sentosa",
+    company: "Resorts World Sentosa",
     duration: "Sep 2026 - Present",
     description:
       "Worked on full stack development with ASP.NET, WinForms, and C#.",

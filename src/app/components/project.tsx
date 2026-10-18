@@ -14,6 +14,17 @@ interface Project {
 
 const projects: Project[] = [
   {
+    title: "Kaafei",
+    shortDesc:
+      "My side coffee geek, built with Next.js, Tailwind, and Vercel for performance and SEO.",
+    description: [
+      "e-Commerce site for coffee enthusiasts, featuring a curated selection of coffee beans and blog posts.",
+    ],
+    tech: ["Next.js", "Tailwind", "Vercel"],
+    github: "",
+    demo: "https://kaafei.org",
+  },
+  {
     title: "Prime Unity Electronics Pte Ltd",
     shortDesc:
       "Responsive corporate site for a semiconductor supplier, built and deployed with Next.js SSR.",

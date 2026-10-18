@@ -14,10 +14,21 @@ interface ExperienceItem {
 
 const experienceData: ExperienceItem[] = [
   {
+    year: "2026",
+    title: "Software Engineer",
+    company: "Resorts Word Sentosa",
+    duration: "Sep 2026 - Present",
+    description:
+      "Worked on full stack development with ASP.NET, WinForms, and C#.",
+    details: [
+      "Just the beginning, but excited to learn and grow in the casino industry!",
+    ],
+  },
+  {
     year: "2024",
     title: "Software Engineer",
     company: "NCS",
-    duration: "Jul 2024 - Present",
+    duration: "Jul 2024 - Sep 2026",
     description:
       "Worked on full stack development with ASP.NET Core, Angular, and C#.",
     details: [

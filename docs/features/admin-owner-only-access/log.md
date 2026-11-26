@@ -16,3 +16,21 @@ Tier: high (Step Risk: high; implementer-deviation)
 Review: risk reviewer PASS (review 1)
 Findings: nit | note | logged | E2E-19 also asserts both owner-ID copies equal the placeholder "as committed"; it will fail once the owner fills in the ID. Follow-up: relax it to "the two values agree" when the owner switches saving on.
 =====================================================================
+=====================================================================
+Task 2 — Deploy the rules from the live job and record the new facts
+Completed: 2026-11-26      Commit: 53aef62
+
+Summary: The live deploy job now deploys firestore.rules after the hosting deploy, using the existing service-account secret written to $RUNNER_TEMP. deploy-staging is untouched (rules are project-wide). E2E-21 checks the workflow and scripts as text.
+Decisions: None.
+Deviations: None.
+Files changed: package.json (modified), .github/workflows/pipeline.yml (modified), .claude/repo-profile.md (modified), e2e/admin-owner-only-access.spec.ts (modified, E2E-21)
+E2E tests written: E2E-21      Passed before the change: None.
+Manual checks pending: None. Human-only: the live rules deploy and the Rules Admin role (intent §7, OQ-1).
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: LOG emulator MetadataLookupWarning, harmless)
+Tier: high (Step Risk: high)
+Review: risk reviewer PASS (review 1)
+Findings: None.
+=====================================================================

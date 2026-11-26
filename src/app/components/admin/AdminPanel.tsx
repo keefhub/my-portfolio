@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { signInWithGoogle, signOutUser, watchAuth } from "@/lib/firebase/auth";
 import { accessFor, getOwnerUid } from "@/lib/admin/owner";
 import { ADMIN_SECTIONS } from "@/lib/admin/sections";
+import SavingOffNotice from "./SavingOffNotice";
 
 type PanelState =
   | { kind: "loading" }
@@ -148,7 +149,12 @@ export default function AdminPanel(): React.JSX.Element {
               {section.label} editor is not available yet.
             </p>
           )}
-          {access === "unfilled" && <UserIdLine uid={state.uid} />}
+          {access === "unfilled" && (
+            <>
+              <SavingOffNotice />
+              <UserIdLine uid={state.uid} />
+            </>
+          )}
           <button type="button" style={buttonStyle} onClick={handleSignOut}>
             Sign out
           </button>

@@ -127,6 +127,8 @@ AdminPanel ("use client", src/app/components/admin/AdminPanel.tsx)
 ├── signed-out: "Sign in with Google" (Firebase Auth popup) + failure alert
 ├── signed-in, not allowed: message, own user ID, Sign out
 └── signed-in, owner (or owner ID still a placeholder): section menu, user ID line, Sign out
+    └── SavingOffNotice (src/app/components/admin/SavingOffNotice.tsx, no hooks): shown only while
+        the owner ID is the placeholder; "Saving is not switched on yet." plus the three switch-on steps
 ```
 
 Styled with inline `var(--token)` values only; imports `src/lib/firebase` and `src/lib/admin`,

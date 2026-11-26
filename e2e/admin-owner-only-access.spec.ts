@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -345,4 +346,120 @@ test("E2E-21: the live deploy publishes the rules after hosting and uses no new 
   expect(pkg.scripts.deploy).toBe(
     "npm run build && firebase deploy --only hosting --project thegoldenpothos-5b3a1",
   );
+});
+
+// ---- Panel notice rows (E2E-14 to E2E-18, E2E-20) ----
+
+const PANEL = "/bright-warm-greenhouse/";
+const SECTIONS = ["Profile", "Experience", "Projects", "Certifications", "Tech stack", "Blog posts"];
+const NOTICE_TEXT = "Saving is not switched on yet.";
+const EXPLANATION = "You can look around, but nothing you change will be saved until your account is set up.";
+const STEPS = [
+  "In src/lib/admin/owner.ts, set OWNER_UID to your user ID, in quotes.",
+  "In firestore.rules, replace REPLACE_WITH_OWNER_UID with your user ID, keeping the quotes.",
+  "Merge the change to master. The live deploy then publishes the database rules.",
+];
+
+async function signInViaPopup(page: Page): Promise<void> {
+  const popupPromise = page.waitForEvent("popup");
+  await page.getByRole("button", { name: "Sign in with Google" }).click();
+  const popup = await popupPromise;
+  await popup.waitForLoadState("load");
+  await popup.locator("#add-account-button").click();
+  await popup.locator("#autogen-button").click();
+  await popup.locator("#sign-in").click();
+}
+
+async function overrideOwner(page: Page, value: string): Promise<void> {
+  await page.addInitScript((v) => {
+    window.localStorage.setItem("admin.ownerUid", v);
+  }, value);
+}
+
+const notice = (page: Page) => page.getByText(NOTICE_TEXT, { exact: true });
+const steps = (page: Page) => page.getByRole("list", { name: "How to switch saving on" });
+const adminNav = (page: Page) => page.getByRole("navigation", { name: "Admin sections" });
+
+test("E2E-14: the unfilled-owner screen shows the saving-off notice and its steps", async ({ page }) => {
+  await page.goto(PANEL);
+  await signInViaPopup(page);
+  await expect(notice(page)).toBeVisible();
+  await expect(page.getByText(EXPLANATION, { exact: true })).toBeVisible();
+  await expect(page.getByText(/^Your user ID: [A-Za-z0-9]{20,}$/)).toBeVisible();
+  await expect(steps(page).getByRole("listitem")).toHaveText(STEPS);
+  await expect(adminNav(page).getByRole("button")).toHaveText(SECTIONS);
+  for (const name of SECTIONS) {
+    await expect(adminNav(page).getByRole("button", { name, exact: true })).toBeVisible();
+  }
+  await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
+});
+
+test("E2E-15: once the owner ID is filled in the notice and the ID line go away", async ({ page }) => {
+  await page.goto(PANEL);
+  await signInViaPopup(page);
+  const line = await page.getByText(/^Your user ID:/).innerText();
+  const uid = line.replace("Your user ID: ", "");
+  await expect(notice(page)).toBeVisible();
+  await page.evaluate((v) => window.localStorage.setItem("admin.ownerUid", v), uid);
+  await page.reload();
+  await expect(adminNav(page)).toBeVisible();
+  await expect(adminNav(page).getByRole("button")).toHaveText(SECTIONS);
+  await expect(notice(page)).toHaveCount(0);
+  await expect(steps(page)).toHaveCount(0);
+  await expect(page.getByText(/^Your user ID:/)).toHaveCount(0);
+});
+
+test("E2E-16: a not-allowed account does not see the saving-off notice", async ({ page }) => {
+  await overrideOwner(page, "not-this-account-0000000000");
+  await page.goto(PANEL);
+  await signInViaPopup(page);
+  await expect(page.getByText("This account is not allowed to use the admin panel.")).toBeVisible();
+  await expect(notice(page)).toHaveCount(0);
+  await expect(steps(page)).toHaveCount(0);
+});
+
+test("E2E-17: the signed-out screen does not show the saving-off notice", async ({ page }) => {
+  await page.goto(PANEL);
+  await expect(page.getByRole("button", { name: "Sign in with Google" })).toBeVisible();
+  await expect(notice(page)).toHaveCount(0);
+  await expect(steps(page)).toHaveCount(0);
+});
+
+test("E2E-18: the notice fits a 375px screen and the user ID stays selectable", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto(PANEL);
+  await signInViaPopup(page);
+  await expect(notice(page)).toBeVisible();
+  const code = page.getByText(/^Your user ID:/).locator("code");
+  const uid = (await code.innerText()).trim();
+  await code.dblclick();
+
+  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(scrollWidth).toBeLessThanOrEqual(375);
+
+  const region = page.getByRole("region", { name: "Saving status" });
+  const boxes = [await region.boundingBox()];
+  const items = steps(page).getByRole("listitem");
+  const count = await items.count();
+  expect(count).toBe(3);
+  for (let i = 0; i < count; i++) boxes.push(await items.nth(i).boundingBox());
+  for (const box of boxes) {
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+  }
+
+  const selected = await page.evaluate(() => window.getSelection()?.toString() ?? "");
+  expect(selected).toBe(uid);
+});
+
+test("E2E-20: no admin source or the rules file mentions email or process.env", () => {
+  for (const needle of ["email", "process.env"]) {
+    const args = ["grep", "--untracked", "-n"];
+    if (needle === "email") args.push("-i");
+    args.push(needle, "--", "firestore.rules", "src/lib/admin", "src/app/components/admin");
+    const res = spawnSync("git", args, { cwd: ROOT, encoding: "utf8" });
+    expect(res.stdout).toBe("");
+    expect(res.status).toBe(1);
+  }
 });

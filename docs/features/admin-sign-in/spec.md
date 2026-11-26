@@ -5,7 +5,7 @@
 |                  |                                                                   |
 | ---------------- | ----------------------------------------------------------------- |
 | Feature          | Admin Sign-In                                                     |
-| Version          | 0.1.0                                                             |
+| Version          | 0.2.0                                                             |
 | Spec source      | `docs/features/admin-sign-in/story.md`                            |
 | Standing context | OVERVIEW §1–3 (`docs/features/OVERVIEW.md`)                       |
 | Domain entry     | Fallback: `CLAUDE.md` § Invariants, `src/lib/site.ts`, `src/lib/blog/types.ts`, `content/blog/` (the story has no `domain:` line) |
@@ -28,7 +28,7 @@ Full spec, not thin: the story has 7 scenarios and the feature adds a new module
 | G7 Traceability | AC verification matrix  | BA    | PASSED |
 | G-Exec          | Implementation plan     | SA    | PASSED |
 | G9 Challenge    | Contrarian review       | BA↔SA | PASSED |
-| G10 Review      | Independent review      | —     | PENDING (the orchestrator dispatches the two reviewers) |
+| G10 Review      | Independent review      | —     | PASSED (one round; no Critical, two Major applied, see Review Findings) |
 
 ## 1. Business analysis — BA
 
@@ -111,7 +111,7 @@ From the story: any content editor, save or delete; database rules and the owner
 
 ### 2.1 Approach
 
-A new static page at `src/app/bright-warm-greenhouse/page.tsx` carries `noindex` metadata and renders one client component, `AdminPanel`, which owns every sign-in screen. The page and `AdminPanel` are the only importers of a new client-only module group, `src/lib/firebase/` (committed web config, a lazily created Firebase app and auth, and four small auth helpers), so the Firebase library ships in the panel's own chunks and in no public page. Who counts as the owner is a pure function of two user IDs in `src/lib/admin/owner.ts`, with a placeholder constant until the owner fills it in. The panel talks to Google in production and to the local Auth emulator on `127.0.0.1` and `localhost`; `firebase.json` gains the emulator entry and Playwright starts it beside the static server, so the feature's own Playwright spec drives a real popup flow against the stand-in. No database is read.
+A new static page at `src/app/bright-warm-greenhouse/page.tsx` carries `noindex` metadata and renders one client component, `AdminPanel`, which owns every sign-in screen. Only `AdminPanel` imports a new client-only module group, `src/lib/firebase/` (committed web config, a lazily created Firebase app and auth, and three small auth helpers), so the Firebase library ships in the panel's own chunks and in no public page. Who counts as the owner is a pure function of two user IDs in `src/lib/admin/owner.ts`, with a placeholder constant until the owner fills it in. The panel talks to Google in production and to the local Auth emulator on `127.0.0.1` and `localhost`; `firebase.json` gains the emulator entry and Playwright starts it beside the static server, so the feature's own Playwright spec drives a real popup flow against the stand-in. No database is read.
 
 ### 2.2 Design elements
 
@@ -201,7 +201,7 @@ No earlier feature: this is slice 1 (unbuilt dependencies: none). New packages (
 | D-13 | `[auto]` | Each menu item is a `<button type="button">` in a `<nav aria-label="Admin sections">` list; choosing one shows the placeholder line under the menu and replaces any earlier one | Assumption 6; the smallest thing that is both reachable and honest |
 | D-14 | `[auto]` | "Your user ID: …" is shown on the not-allowed screen and on the allowed screen only while the owner ID is unfilled (`accessFor` returns `"unfilled"`); it is hidden once the owner ID matches | The owner needs it to fill in the ID; once filled it is noise |
 | D-15 | `[auto]` | A not-allowed account is never signed out automatically. If sign-out rejects, the screen stays as it is and shows no extra message | Assumption 3; a failed sign-out is rare and has no product answer |
-| D-16 | `[auto]` | The page is a server component exporting `metadata` `{ title: "Admin", robots: { index: false, follow: false, googleBot: { index: false, follow: false } } }`, no canonical, no Open Graph, and renders `<AdminPanel />` only (no header, footer or portfolio content) | `layout.tsx:49-60` sets site-wide `index: true` with a `googleBot` block; setting `googleBot` explicitly stops it leaking |
+| D-16 | `[auto]` | The page is a server component exporting `metadata` `{ title: "Admin", robots: { index: false, follow: false, googleBot: { index: false, follow: false } } }`, no canonical, no Open Graph, and renders `<AdminPanel />` only (no header, footer or portfolio content) | `layout.tsx:54-64` sets site-wide `index: true` with a `googleBot` block; setting `googleBot` explicitly stops it leaking |
 | D-17 | `[human: intent §5]` | Signed-out and not-allowed screens show only the panel's own wording | Assumption 4 |
 | D-18 | `[auto]` | Tests create accounts through the emulator widget's "Auto-generate user information", so parallel tests never share an account | `fullyParallel: true` in `playwright.config.ts` |
 | D-19 | `[human: intent §7]` | A real Google sign-in on the live site is checked by the owner, not by this feature | Deferred in the story |
@@ -209,6 +209,10 @@ No earlier feature: this is slice 1 (unbuilt dependencies: none). New packages (
 | D-21 | `[auto]` | Dependency versions: `npm install firebase@^13.4.0` and `npm install -D firebase-tools@^15.37.0` | Versions shown to work at spec time |
 | D-22 | `[auto]` | The sign-in button is disabled while a popup is open and enabled again after any failure | Prevents a second popup; the cancelled case must leave a usable control |
 | D-23 | `[auto]` | Edge-case sweep closes N/A (empty state, boundaries, duplicates, offline and time, state conflicts) | Assumption 11 |
+| D-24 | `[auto]` | E2E-11 compares computed colours with the literal `rgb(...)` values of the two themes' `--surface` and `--foreground` tokens (`globals.css`), a deliberate exception to "check tokens, not raw colours": the check proves the panel resolves to the token, and the values are the tokens' own | The only observable form of "uses the theme" in a browser |
+| D-25 | `[auto]` | The pure decisions `isEmulatorHost` and `accessFor` get their own e2e rows (E2E-18, E2E-19) written in Step 2; the spec file imports them by relative path. `owner.ts` imports `config.ts` by relative path too | Step 2 is high risk and would otherwise be verified only through the browser rows; both modules are free of `firebase/*` and `window` at import, so Playwright can load them |
+| D-26 | `[auto]` | The failure message and the selected menu item are cleared whenever the screen state's `kind` changes (and a new sign-in attempt clears the failure message) | Stops a stale message or placeholder surviving a sign-out and sign-in |
+| D-27 | `[auto]` | The sign-in and sign-out catch blocks do not pass the error or its message to `console`, the DOM or storage | The library's errors can carry account detail; BR-15 and intent §5 |
 
 ### 2.8 Do not touch
 
@@ -366,11 +370,38 @@ Scenario: The live host never reaches the local stand-in
   When a visitor opens the panel and chooses "Sign in with Google"
   Then no request goes to "127.0.0.1:9099"
   And at least one request goes to a Google host
+
+# AC-18
+Scenario Outline: Only the two local host names count as local
+  Given the host name "<host>"
+  When the panel decides whether to use the local sign-in stand-in
+  Then the answer is "<local>"
+
+  Examples:
+    | host                | local |
+    | 127.0.0.1           | yes   |
+    | localhost           | yes   |
+    | admin.example.test  | no    |
+    | thegoldenpothos.dev | no    |
+    |                     | no    |
+
+# AC-19
+Scenario Outline: The owner decision uses user IDs only
+  Given the signed-in account's user ID is "<uid>" and the owner's user ID is "<owner>"
+  When the panel decides what the account may see
+  Then the decision is "<decision>"
+
+  Examples:
+    | uid | owner                 | decision    |
+    | a   |                       | unfilled    |
+    | a   | REPLACE_WITH_OWNER_UID | unfilled    |
+    | a   | a                     | owner       |
+    | a   | b                     | not-allowed |
 ```
 
 ## 4. Verification mapping — SA
 
-**Sign-in procedure P** (used by the rows below): click the button named "Sign in with Google"; wait for the `popup` event of the page; in the popup click `#add-account-button` ("Add new account"), click `#autogen-button` ("Auto-generate user information"), then click `#sign-in` ("Sign in with google.com"); the popup closes by itself. All rows run at the default 1280-pixel viewport unless they say otherwise. Every row opens the page with `page.goto("/bright-warm-greenhouse/")`. "Database requests" means requests whose URL host contains `firestore.googleapis.com`, collected with `page.on("request")`.
+**Sign-in procedure P** (used by the rows below): click the button named "Sign in with Google"; wait for the `popup` event of the page; in the popup click `#add-account-button` ("Add new account"), click `#autogen-button` ("Auto-generate user information"), then click `#sign-in` ("Sign in with google.com"); the popup closes by itself. All rows run at the default 1280-pixel viewport unless they say otherwise. Every row opens the page with `page.goto("/bright-warm-greenhouse/")`. "Database requests" means requests whose URL host contains `firestore.googleapis.com`, collected with `page.on("request")`. A message "alert text X" is located with `page.getByRole("alert").filter({ hasText: X })` (Next's own route announcer also has role `alert`, so a bare `getByRole("alert")` matches two elements).
 
 **Override seam O(value):** before the first `goto`, `page.addInitScript` sets `localStorage["admin.ownerUid"]` to `value`.
 
@@ -379,20 +410,22 @@ Scenario: The live host never reaches the local stand-in
 | E2E-01 | AC-01 | e2e | Collect console errors and page errors and database requests. `goto`. | Heading level 1 "Admin" visible; button "Sign in with Google" visible; buttons "Sign out" and "Profile" count 0; navigation named "Admin sections" count 0; the page body text does not contain "Keith Lim"; database requests: 0; console and page errors: `[]`. |
 | E2E-02 | AC-02 | e2e | Collect database requests. `goto`. Run P. | Within the navigation named "Admin sections" the buttons' texts, in order, equal `["Profile", "Experience", "Projects", "Certifications", "Tech stack", "Blog posts"]`; button "Sign out" visible; the text matching `/^Your user ID: [A-Za-z0-9]{20,}$/` is visible; button "Sign in with Google" count 0; text "This account is not allowed" count 0; database requests: 0. |
 | E2E-03 | AC-03 | e2e | `goto`. Run P. Read the user ID: the text of the element matching `/^Your user ID:/`, with the prefix "Your user ID: " removed (call it X). `page.evaluate` sets `localStorage["admin.ownerUid"]` to X. `page.reload()`. | Navigation "Admin sections" shows the six buttons; button "Sign out" visible; text matching `/^Your user ID:/` count 0; button "Sign in with Google" count 0; text "This account is not allowed" count 0. |
-| E2E-04 | AC-04 | e2e | O("not-this-account-0000000000"). Collect database requests. `goto`. Run P. | Alert text "This account is not allowed to use the admin panel." visible; the text matching `/^Your user ID: [A-Za-z0-9]{20,}$/` visible; button "Sign out" visible; navigation "Admin sections" count 0; button "Profile" count 0; database requests: 0. |
+| E2E-04 | AC-04 | e2e | O("not-this-account-0000000000"). Collect database requests. `goto`. Run P. | Alert text "This account is not allowed to use the admin panel." visible (per the alert-text definition above); the text matching `/^Your user ID: [A-Za-z0-9]{20,}$/` visible; button "Sign out" visible; navigation "Admin sections" count 0; button "Profile" count 0; database requests: 0. |
 | E2E-05 | AC-05 | e2e | O("not-this-account-0000000000"). `goto`. Run P. `page.reload()`. Click button "Sign out". | After the reload: "This account is not allowed to use the admin panel." visible, button "Sign out" visible, button "Sign in with Google" count 0. After "Sign out": button "Sign in with Google" visible and the not-allowed text count 0. |
 | E2E-06 | AC-06 | e2e | `goto`. Run P (menu appears). Click button "Sign out". Then `page.reload()`. | After "Sign out": button "Sign in with Google" visible; navigation "Admin sections" count 0; button "Sign out" count 0. After the reload: button "Sign in with Google" visible and navigation "Admin sections" count 0. |
 | E2E-07 | AC-07 | e2e | `goto`. Click button "Sign in with Google"; wait for the `popup` event; call `popup.close()`. Wait up to 15 seconds for the result. | Alert text "Sign-in was not completed." visible (timeout 15000 ms); button "Sign in with Google" visible and enabled; navigation "Admin sections" count 0; button "Sign out" count 0. |
 | E2E-08 | AC-08 | e2e | `page.addInitScript` sets `window.open = () => null`. `goto`. Click button "Sign in with Google". | Alert text "Sign-in was not completed." visible; button "Sign in with Google" visible and enabled; navigation "Admin sections" count 0. |
 | E2E-09 | AC-09 | e2e | `page.setViewportSize({ width: 375, height: 667 })`. `goto`. Run P. | The six buttons in navigation "Admin sections" are each visible, each `boundingBox()` has `x >= 0`, `x + width <= 375` and `height >= 44`; `document.documentElement.scrollWidth <= 375`. |
 | E2E-10 | AC-10 | e2e | `page.setViewportSize({ width: 375, height: 667 })`. `goto`. | Button "Sign in with Google" visible with `boundingBox()` `x >= 0` and `x + width <= 375`; `document.documentElement.scrollWidth <= 375`. |
-| E2E-11 | AC-11 | e2e | Two runs (a loop over `[["light", "rgb(255, 255, 255)", "rgb(45, 45, 45)"], ["dark", "rgb(26, 26, 46)", "rgb(228, 228, 236)"]]`): `page.addInitScript` sets `localStorage["theme"]` to the theme name. `goto`. | The `html` element has attribute `data-theme` equal to the theme name; the region named "Admin" has computed `background-color` equal to the surface value; heading level 1 "Admin" has computed `color` equal to the foreground value. |
+| E2E-11 | AC-11 | e2e | One test titled `E2E-11: ...` containing a loop over `[["light", "rgb(255, 255, 255)", "rgb(45, 45, 45)"], ["dark", "rgb(26, 26, 46)", "rgb(228, 228, 236)"]]` (the test runs the steps once per entry, using a fresh page each time): `page.addInitScript` sets `localStorage["theme"]` to the theme name. `goto`. | The `html` element has attribute `data-theme` equal to the theme name; the region named "Admin" has computed `background-color` equal to the surface value; heading level 1 "Admin" has computed `color` equal to the foreground value. |
 | E2E-12 | AC-12 | e2e | `goto` the panel. Read every `meta[name="robots"]` and `meta[name="googlebot"]` `content`. Then `request.get("/sitemap.xml")` and `request.get("/robots.txt")`. | At least one robots-type meta tag exists and every one's `content` contains "noindex"; sitemap status 200 and body does not contain "bright-warm-greenhouse"; robots file status 200 and body does not contain "bright-warm-greenhouse". |
 | E2E-13 | AC-13 | e2e | For each of `/`, `/blog/hello-world/` and `/bright-warm-greenhouse/`: register `page.on("response")` and keep the text of every response with resource type `script`; `goto`; `waitForLoadState("networkidle")`. | On `/`: heading level 1 text "Keith Lim". On `/blog/hello-world/`: heading level 1 text "Hello, World — Welcome to My Blog". On `/` and `/blog/hello-world/`: no script text contains "thegoldenpothos-5b3a1" and none contains "identitytoolkit.googleapis.com"; the page HTML contains neither. On `/bright-warm-greenhouse/`: at least one script text contains "thegoldenpothos-5b3a1". |
 | E2E-14 | AC-14 | e2e | `goto`. Run P. Click button "Profile". Then click button "Blog posts". | After "Profile": text "Profile editor is not available yet." visible. After "Blog posts": text "Blog posts editor is not available yet." visible and "Profile editor is not available yet." count 0; navigation "Admin sections" still shows the six buttons. |
-| E2E-15 | AC-15 | compiler | Run `npm run typecheck`, then `git grep -n -i "email" -- src/lib/firebase src/lib/admin src/app/components/admin src/app/bright-warm-greenhouse`. | Typecheck exits 0; the `git grep` prints nothing and exits 1. (`AdminUser` has only `uid`, so no email can reach the screen; the type checker plus the search is the whole check; the e2e runner cannot see source.) |
-| E2E-16 | AC-16 | compiler | Run `git grep -n "process.env" -- src/lib/firebase src/lib/admin src/app/components/admin src/app/bright-warm-greenhouse`. | Prints nothing and exits 1. |
+| E2E-15 | AC-15 | compiler | Run `npm run typecheck`, then `git grep --untracked -n -i "email" -- src/lib/firebase src/lib/admin src/app/components/admin src/app/bright-warm-greenhouse`. | Typecheck exits 0; the `git grep` prints nothing and exits 1 (`--untracked` so files not yet staged are searched). (`AdminUser` has only `uid`, so no email can reach the screen; the type checker plus the search is the whole check; the e2e runner cannot see source.) |
+| E2E-16 | AC-16 | compiler | Run `git grep --untracked -n "process.env" -- src/lib/firebase src/lib/admin src/app/components/admin src/app/bright-warm-greenhouse`. | Prints nothing and exits 1. |
 | E2E-17 | AC-17 | e2e | Inside `test.describe`, `test.use({ launchOptions: { args: ["--host-resolver-rules=MAP admin.example.test 127.0.0.1"] } })` (the one row that uses an origin other than `baseURL`, because it needs a host that is not local). A context route on every URL whose hostname is not `admin.example.test`: record `url.host`, then abort. `page.goto("http://admin.example.test:3100/bright-warm-greenhouse/")`. Click button "Sign in with Google". | Using `expect.poll` (timeout 10000 ms): the recorded hosts include at least one of `thegoldenpothos-5b3a1.firebaseapp.com`, `identitytoolkit.googleapis.com`, `apis.google.com`; the recorded hosts never include `127.0.0.1:9099`. |
+| E2E-18 | AC-18 | e2e | In the spec file, `import { isEmulatorHost } from "../src/lib/firebase/config"`. One test, no page: call it with each host of the AC-18 examples (`"127.0.0.1"`, `"localhost"`, `"admin.example.test"`, `"thegoldenpothos.dev"`, `""`). | `true` for `"127.0.0.1"` and `"localhost"`; `false` for the other three. |
+| E2E-19 | AC-19 | e2e | In the spec file, `import { accessFor } from "../src/lib/admin/owner"`. One test, no page: call `accessFor(uid, owner)` with `("a", "")`, `("a", "REPLACE_WITH_OWNER_UID")`, `("a", "a")`, `("a", "b")`. | Results in order: `"unfilled"`, `"unfilled"`, `"owner"`, `"not-allowed"`. |
 
 ## 5. AC verification matrix — BA
 
@@ -415,6 +448,8 @@ Scenario: The live host never reaches the local stand-in
 | AC-15 | BR-15 | TS-05 | 3 | E2E-15 | Specified |
 | AC-16 | BR-14 | TS-03 | 3 | E2E-16 | Specified |
 | AC-17 | BR-13a, BR-13b | TS-03, TS-04 | 3 | E2E-17 | Specified |
+| AC-18 | BR-13b | TS-03 | 2 | E2E-18 | Specified |
+| AC-19 | BR-03a, BR-03b | TS-06 | 2 | E2E-19 | Specified |
 
 Tooling rows without an AC of their own: BR-13a's local stand-in is exercised by every sign-in row (E2E-02 to E2E-08); TS-01 and TS-02 are proven by Step 1's smoke run and by those rows.
 
@@ -470,16 +505,17 @@ Risks R1–R5 are in [impact.md](impact.md) § Safety facts and are carried into
   - `firebase.json`: add a top-level key `"emulators": { "auth": { "host": "127.0.0.1", "port": 9099 }, "ui": { "enabled": false }, "singleProjectMode": true }`. The `hosting` block stays byte-identical (`trailingSlash: true` included). It must not add `firestore`, `storage` or `functions`.
   - `playwright.config.ts`: `webServer` becomes an array of two objects: the existing static-server object first, unchanged; then `{ command: "npx firebase emulators:start --only auth --project thegoldenpothos-5b3a1 --non-interactive", url: "http://127.0.0.1:9099/", reuseExistingServer: !process.env.CI }`. Give the second a `timeout` of `120000` and let output stay quiet (`stdout: "ignore"`). Nothing else in the file changes.
   - `.gitignore`: append the lines `firebase-debug.log*` and `ui-debug.log`.
-  - `.claude/repo-profile.md`: in § Behavioral gate, add one sentence after the sentence that begins "`playwright.config.ts` serves `out/`": Playwright also starts the Firebase Auth emulator (`firebase emulators:start --only auth`, port 9099, no Java needed) for the admin panel specs. Change nothing else, including the "There is no database" sentence in § Verification commands.
+  - `.claude/repo-profile.md`: in § Behavioral gate, append one sentence at the end of the paragraph that contains the sentence beginning "`playwright.config.ts` serves `out/`": Playwright also starts the Firebase Auth emulator (`firebase emulators:start --only auth`, port 9099, no Java needed) for the admin panel specs. Change nothing else, including the "There is no database" sentence in § Verification commands.
 - **Risk:** low — configuration and docs only; no code that decides who may see or change data.
 - **Verify:**
   - `npx playwright test e2e/site-smoke.spec.ts` → 3 passed (build first with `npm run build`; this shows the second `webServer` starts and the baseline still passes)
   - `npm run typecheck` → exits 0
+  - `node -e "const p=require('./package.json');process.exit(p.dependencies.firebase&&p.devDependencies['firebase-tools']?0:1)"` → exits 0
 - **Stop-if:** `npx firebase emulators:start --only auth --project thegoldenpothos-5b3a1 --non-interactive` will not start without a Firebase login, needs Java, or does not answer on `http://127.0.0.1:9099/` (the spec's premise that the Auth emulator runs unauthenticated and Java-free is wrong); or `firebase.json` has no `hosting` block to leave alone.
 
 ## Phase B — Firebase client and owner logic
 
-**Delivers:** TS-03, TS-04, TS-05, TS-06, TS-07
+**Delivers:** TS-03, TS-04, TS-05, TS-06, TS-07; E2E-18, E2E-19
 
 ### Step 2 — Firebase client modules, owner decision and section list
 
@@ -491,18 +527,21 @@ Risks R1–R5 are in [impact.md](impact.md) § Safety facts and are carried into
   - add `src/lib/firebase/auth.ts`
   - add `src/lib/admin/owner.ts`
   - add `src/lib/admin/sections.ts`
-- **Reuse:** the `firebase` package: `initializeApp`, `getApps`, `getApp` from `firebase/app`; `getAuth`, `connectAuthEmulator`, `onAuthStateChanged`, `signInWithPopup`, `GoogleAuthProvider`, `signOut` from `firebase/auth`.
+  - add `e2e/admin-sign-in.spec.ts`
+- **Reuse:** the `firebase` package: `initializeApp`, `getApps`, `getApp` from `firebase/app`; `getAuth`, `connectAuthEmulator`, `onAuthStateChanged`, `signInWithPopup`, `GoogleAuthProvider`, `signOut`, and `type Auth` from `firebase/auth`. Within this Step: `src/lib/firebase/config.ts` → `firebaseWebConfig`, `AUTH_EMULATOR_URL`, `isEmulatorHost(hostname: string): boolean` (used by `client.ts` and `owner.ts`).
 - **Change:**
   - `src/lib/firebase/config.ts` exports `firebaseWebConfig: { apiKey: string; authDomain: string; projectId: string; appId: string }` with exactly these values: `apiKey` `"REPLACE_WITH_FIREBASE_WEB_API_KEY"`, `authDomain` `"thegoldenpothos-5b3a1.firebaseapp.com"`, `projectId` `"thegoldenpothos-5b3a1"`, `appId` `"REPLACE_WITH_FIREBASE_WEB_APP_ID"`; `AUTH_EMULATOR_URL: string` equal to `"http://127.0.0.1:9099"`; `isEmulatorHost(hostname: string): boolean`, true for exactly `"127.0.0.1"` and `"localhost"` and false for every other string (including `""`, `"admin.example.test"`, `"thegoldenpothos.dev"`). It must not import `firebase/*`, read `process.env`, or touch `window`.
-  - `src/lib/firebase/client.ts` exports `getFirebaseAuth(): Auth`. First call: reuse an existing app if `getApps()` has one, otherwise `initializeApp(firebaseWebConfig)`; `getAuth(app)`; if `isEmulatorHost(window.location.hostname)`, call `connectAuthEmulator(auth, AUTH_EMULATOR_URL, { disableWarnings: true })` once. The result is memoized, so later calls return the same `Auth`. It throws an `Error` if `typeof window === "undefined"`. It must not create anything at import time.
+  - `src/lib/firebase/client.ts` exports `getFirebaseAuth(): Auth`. First call: reuse an existing app if `getApps()` has one, otherwise `initializeApp(firebaseWebConfig)`; `getAuth(app)`; if `isEmulatorHost(window.location.hostname)`, call `connectAuthEmulator(auth, AUTH_EMULATOR_URL, { disableWarnings: true })` at most once per module instance (do not catch an error it throws). The result is memoized, so later calls return the same `Auth`. It throws an `Error` if `typeof window === "undefined"`. It must not create anything at import time.
   - `src/lib/firebase/auth.ts` exports `type AdminUser = { uid: string }`; `watchAuth(onChange: (user: AdminUser | null) => void): () => void`, which subscribes with `onAuthStateChanged` on `getFirebaseAuth()`, calls `onChange({ uid })` for a signed-in account and `onChange(null)` for none, and returns the unsubscribe function; `signInWithGoogle(): Promise<void>`, which awaits `signInWithPopup(getFirebaseAuth(), new GoogleAuthProvider())` with no scopes added and rejects with the library's error on any failure (it must not catch and swallow); `signOutUser(): Promise<void>`, which awaits `signOut(getFirebaseAuth())`. It must never read `email`, `displayName`, `photoURL` or a token, and the word "email" must not appear in the file.
-  - `src/lib/admin/owner.ts` exports `OWNER_UID_PLACEHOLDER = "REPLACE_WITH_OWNER_UID"`; `OWNER_UID: string` set to `OWNER_UID_PLACEHOLDER`; `OWNER_UID_OVERRIDE_KEY = "admin.ownerUid"`; `getOwnerUid(): string` which returns the non-empty string stored in `localStorage[OWNER_UID_OVERRIDE_KEY]` only when `typeof window !== "undefined"` and `isEmulatorHost(window.location.hostname)` (reading storage inside a try/catch that falls back to `OWNER_UID`), and otherwise `OWNER_UID`; `type AccessState = "unfilled" | "owner" | "not-allowed"`; `accessFor(uid: string, ownerUid: string): AccessState`, pure: `"unfilled"` when `ownerUid` is `""` or equals `OWNER_UID_PLACEHOLDER`, else `"owner"` when `uid === ownerUid`, else `"not-allowed"`. It takes user IDs only, never an email.
+  - `src/lib/admin/owner.ts` exports `OWNER_UID_PLACEHOLDER = "REPLACE_WITH_OWNER_UID"`; `OWNER_UID: string` set to `OWNER_UID_PLACEHOLDER`; `OWNER_UID_OVERRIDE_KEY = "admin.ownerUid"`; `getOwnerUid(): string` (`owner.ts` imports `isEmulatorHost` from `../firebase/config` by relative path) which returns the non-empty string stored in `localStorage[OWNER_UID_OVERRIDE_KEY]` only when `typeof window !== "undefined"` and `isEmulatorHost(window.location.hostname)` (reading storage inside a try/catch that falls back to `OWNER_UID`), and otherwise `OWNER_UID`; `type AccessState = "unfilled" | "owner" | "not-allowed"`; `accessFor(uid: string, ownerUid: string): AccessState`, pure: `"unfilled"` when `ownerUid` is `""` or equals `OWNER_UID_PLACEHOLDER`, else `"owner"` when `uid === ownerUid`, else `"not-allowed"`. It takes user IDs only, never an email.
   - `src/lib/admin/sections.ts` exports `type AdminSection = { id: string; label: string }` and `ADMIN_SECTIONS: readonly AdminSection[]` with exactly these six entries in this order: `{ id: "profile", label: "Profile" }`, `{ id: "experience", label: "Experience" }`, `{ id: "projects", label: "Projects" }`, `{ id: "certifications", label: "Certifications" }`, `{ id: "tech-stack", label: "Tech stack" }`, `{ id: "blog-posts", label: "Blog posts" }`.
-  - None of these files imports `@/lib/blog`, `firebase/firestore` or `firebase/storage`, and none is imported by any file outside `src/lib/firebase`, `src/lib/admin` and `src/app/components/admin`.
+  - `e2e/admin-sign-in.spec.ts` (new file): E2E-18 and E2E-19 as written in Section 4 (no page, no browser; titles `E2E-18: ...` and `E2E-19: ...`), importing the two functions by relative path. Step 3 adds its rows to the same file.
+  - None of these source files imports `@/lib/blog`, `firebase/firestore` or `firebase/storage`, and none is imported by any file outside `src/lib/firebase`, `src/lib/admin`, `src/app/components/admin` and `e2e/admin-sign-in.spec.ts`.
 - **Risk:** high — implements the host-gated emulator wiring and the owner-versus-other decision of impact.md § Safety facts (who may see the menu).
 - **Verify:**
   - `npm run typecheck` → exits 0
-- **Stop-if:** `firebase/auth` or `firebase/app` does not resolve after Step 1 (the dependency step did not land); `src/lib/firebase/` or `src/lib/admin/` already exists; or a public page already imports `src/lib/firebase/*`.
+  - `npx playwright test e2e/admin-sign-in.spec.ts -g "E2E-18|E2E-19"` → 2 passed (after `npm run build`, which the static server needs)
+- **Stop-if:** Playwright cannot load `config.ts` or `owner.ts` from the spec file (they must stay free of `firebase/*` and of `window` at import); `firebase/auth` or `firebase/app` does not resolve after Step 1 (the dependency step did not land); `src/lib/firebase/` or `src/lib/admin/` already exists; or a public page already imports `src/lib/firebase/*`.
 
 ## Phase C — The panel
 
@@ -515,33 +554,54 @@ Risks R1–R5 are in [impact.md](impact.md) § Safety facts and are carried into
 - **Files:**
   - add `src/app/bright-warm-greenhouse/page.tsx`
   - add `src/app/components/admin/AdminPanel.tsx`
-  - add `e2e/admin-sign-in.spec.ts`
-- **Reuse:** `src/lib/firebase/auth.ts` → `watchAuth(onChange: (user: AdminUser | null) => void): () => void`, `signInWithGoogle(): Promise<void>`, `signOutUser(): Promise<void>`; `src/lib/admin/owner.ts` → `getOwnerUid(): string`, `accessFor(uid: string, ownerUid: string): AccessState`; `src/lib/admin/sections.ts` → `ADMIN_SECTIONS`; the tokens in `src/app/globals.css` (`--background`, `--foreground`, `--surface`, `--surface-alt`, `--border`, `--border-strong`, `--accent-blue`, `--accent-rose`, `--muted`, `--radius-md`, `--radius-xl`, `--shadow-md`).
+  - change `e2e/admin-sign-in.spec.ts`
+- **Reuse:** `e2e/admin-sign-in.spec.ts` (from Step 2; keep its two tests); `src/lib/firebase/auth.ts` → `watchAuth(onChange: (user: AdminUser | null) => void): () => void`, `signInWithGoogle(): Promise<void>`, `signOutUser(): Promise<void>`; `src/lib/admin/owner.ts` → `getOwnerUid(): string`, `accessFor(uid: string, ownerUid: string): AccessState`; `src/lib/admin/sections.ts` → `ADMIN_SECTIONS`; the tokens in `src/app/globals.css` (`--background`, `--foreground`, `--surface`, `--surface-alt`, `--border`, `--border-strong`, `--accent-blue`, `--accent-rose`, `--muted`, `--radius-md`, `--radius-xl`, `--shadow-md`).
 - **Change:**
   - `src/app/bright-warm-greenhouse/page.tsx`: a server component (no `"use client"`). It exports `metadata: Metadata = { title: "Admin", robots: { index: false, follow: false, googleBot: { index: false, follow: false } } }` and nothing else about SEO (no `alternates`, no `openGraph`). Its default export `AdminPage()` renders `<AdminPanel />` and nothing else (no header, footer or portfolio component). It must not export `dynamic` or `generateStaticParams`.
   - `src/app/components/admin/AdminPanel.tsx`: starts with `"use client"` and default-exports `AdminPanel(): React.JSX.Element`. Behaviour:
-    - Screen state is `PanelState` (§ 2.3), initially `{ kind: "loading" }` on both server and client. A mount effect subscribes with `watchAuth` and returns its unsubscribe; the callback sets `{ kind: "signed-in", uid }` or `{ kind: "signed-out" }`. State is set only inside that callback, never synchronously in the effect body (the repo's lint rule `react-hooks/set-state-in-effect` already fails once at `ThemeProvider.tsx:25`; this file must add no error). `getOwnerUid()` is called only while rendering a `signed-in` state (never in the loading render).
+    - Screen state is `type PanelState = { kind: "loading" } | { kind: "signed-out" } | { kind: "signed-in"; uid: string }`, initially `{ kind: "loading" }` on both server and client. A mount effect subscribes with `watchAuth` and returns its unsubscribe; the callback sets `{ kind: "signed-in", uid }` or `{ kind: "signed-out" }`. State is set only inside that callback, never synchronously in the effect body (the repo's lint rule `react-hooks/set-state-in-effect` already fails once at `ThemeProvider.tsx:25`; this file must add no error). `getOwnerUid()` is called only while rendering a `signed-in` state (never in the loading render).
     - Always render `<main>` containing a `<section aria-label="Admin">` card containing `<h1>Admin</h1>`. Then by state:
       - `loading`: `<p role="status">Checking sign-in…</p>`. No control, no menu.
-      - `signed-out`: a button "Sign in with Google" (disabled while a popup is open, enabled again after any outcome), and, when the last attempt failed, `<p role="alert">Sign-in was not completed.</p>`. Choosing the button calls `signInWithGoogle()`; any rejection (closed popup, blocked popup, network, anything) shows that message and nothing else; success needs no handling (the subscription moves the screen). A new attempt clears the message.
-      - `signed-in` with `accessFor(uid, getOwnerUid())` of `"unfilled"` or `"owner"`: `<nav aria-label="Admin sections">` holding a list with one `<button type="button">` per `ADMIN_SECTIONS` entry, in order, labelled with its `label`; a button "Sign out"; and, only for `"unfilled"`, the line `<p>Your user ID: <code>{uid}</code></p>` (its text content reads "Your user ID: " plus the ID). Choosing a menu button shows `<p role="status">{label} editor is not available yet.</p>` under the menu and replaces any earlier such line. Leaving the signed-in state clears the selection.
-      - `signed-in` with `"not-allowed"`: `<p role="alert">This account is not allowed to use the admin panel.</p>`, the line `Your user ID: <code>{uid}</code>`, and a button "Sign out". No nav, no menu buttons, no database content.
-    - "Sign out" calls `signOutUser()`; if it rejects, the screen stays as it is with no message. The panel never signs a not-allowed account out by itself.
+      - `signed-out`: a button "Sign in with Google" (disabled while a popup is open, enabled again after any outcome), and, when the last attempt failed, `<p role="alert">Sign-in was not completed.</p>`. Choosing the button calls `signInWithGoogle()`; any rejection (closed popup, blocked popup, network, anything) shows that message and nothing else; success needs no handling (the subscription moves the screen). A new attempt clears the message, and so does any change of `PanelState.kind`.
+      - `signed-in` with `accessFor(uid, getOwnerUid())` of `"unfilled"` or `"owner"`: `<nav aria-label="Admin sections">` holding a list with one `<button type="button">` per `ADMIN_SECTIONS` entry, in order, labelled with its `label`; a button "Sign out"; and, only for `"unfilled"`, the line `<p>Your user ID: <code>{uid}</code></p>` (its text content reads "Your user ID: " plus the ID). Choosing a menu button shows `<p role="status">{label} editor is not available yet.</p>` under the menu and replaces any earlier such line. The selected item is cleared whenever `PanelState.kind` changes.
+      - `signed-in` with `"not-allowed"`: `<p role="alert">This account is not allowed to use the admin panel.</p>`, `<p>Your user ID: <code>{uid}</code></p>`, and a button "Sign out". No nav, no menu buttons, no database content.
+    - "Sign out" calls `signOutUser()`; if it rejects, the screen stays as it is with no message. No catch block passes the error or its message to `console`, the DOM or storage. The panel never signs a not-allowed account out by itself.
     - The panel never reads or shows `email`, `displayName` or a photo; imports nothing from `@/lib/blog`, `firebase/firestore` or `firebase/storage`; makes no database request.
-    - Styling uses the existing CSS custom properties only, no raw colour value, no Tailwind `dark:` variant, no `gradient-text`: `<main>` is at least the viewport height, centres the card, has 16px horizontal padding and background `var(--background)`; the card has background `var(--surface)`, a 1px `var(--border)` border, radius `var(--radius-xl)`, shadow `var(--shadow-md)`, `max-width` 28rem and `width` 100%; the h1 colour is `var(--foreground)`; buttons are full width of the card, at least 44px tall, with `var(--surface-alt)` background, `var(--border-strong)` border, `var(--foreground)` text and `var(--radius-md)` radius; the failure and not-allowed messages use `var(--accent-rose)` for their accent; the user ID `<code>` breaks anywhere (`overflow-wrap: anywhere`) so a long ID never widens the page. Nothing may force the page wider than 375px.
-  - `e2e/admin-sign-in.spec.ts` gains E2E-01 to E2E-14 and E2E-17 as written in Section 4, one test per row titled `E2E-NN: <what it checks>`. E2E-15 and E2E-16 are `compiler` rows and are not tests in the file.
+    - Styling uses Tailwind utility classes with `var(--token)` arbitrary values, or inline `style` objects; no new CSS file. It uses the existing CSS custom properties only, no raw colour value, no Tailwind `dark:` variant, no `gradient-text`: `<main>` is at least the viewport height, centres the card, has 16px horizontal padding and background `var(--background)`; the card has background `var(--surface)`, a 1px `var(--border)` border, radius `var(--radius-xl)`, shadow `var(--shadow-md)`, `max-width` 28rem and `width` 100%; the h1 colour is `var(--foreground)`; buttons are full width of the card, at least 44px tall, with `var(--surface-alt)` background, `var(--border-strong)` border, `var(--foreground)` text and `var(--radius-md)` radius; the failure and not-allowed messages use `var(--accent-rose)` for their accent; the user ID `<code>` breaks anywhere (`overflow-wrap: anywhere`) so a long ID never widens the page. Nothing may force the page wider than 375px.
+  - `e2e/admin-sign-in.spec.ts` gains E2E-01 to E2E-14 and E2E-17 as written in Section 4, one test per row titled `E2E-NN: <what it checks>` (E2E-11 is one test that loops over both themes). E2E-15 and E2E-16 are `compiler` rows and are not tests in the file. The tests share these conventions, which are Section 4's preamble and are repeated here because this Step's packet carries only its rows: every row opens with `page.goto("/bright-warm-greenhouse/")` at the default 1280-pixel viewport unless it says otherwise. **Sign-in procedure P:** click the button named "Sign in with Google"; wait for the page's `popup` event; in the popup click `#add-account-button`, click `#autogen-button`, then click `#sign-in`; the popup closes by itself. **Override seam O(value):** before the first `goto`, `page.addInitScript` sets `localStorage["admin.ownerUid"]` to `value`. **Database requests** are requests whose URL host contains `firestore.googleapis.com`, collected with `page.on("request")`. **Alert text X** is located with `page.getByRole("alert").filter({ hasText: X })`, never a bare `getByRole("alert")` (Next's route announcer also has role `alert`).
   - Do not edit `src/app/sitemap.ts`, `src/app/robots.ts`, `src/app/layout.tsx`, any public page or component, or `src/app/globals.css`.
 - **Risk:** high — implements the safety facts of impact.md (nothing from the portfolio or a database is shown to a signed-out or not-allowed visitor; the library ships only in the panel; the owner decision drives the screen).
 - **Verify:**
   - `npx playwright test e2e/admin-sign-in.spec.ts -g "E2E-01|E2E-02|E2E-03|E2E-04|E2E-05|E2E-06|E2E-07|E2E-08|E2E-09|E2E-10|E2E-11|E2E-12|E2E-13|E2E-14|E2E-17"` → 15 passed (after `npm run build`)
   - `npm run typecheck` → exits 0 (E2E-15, first half)
-  - `git grep -n -i "email" -- src/lib/firebase src/lib/admin src/app/components/admin src/app/bright-warm-greenhouse` → prints nothing, exits 1 (E2E-15, second half)
-  - `git grep -n "process.env" -- src/lib/firebase src/lib/admin src/app/components/admin src/app/bright-warm-greenhouse` → prints nothing, exits 1 (E2E-16)
+  - `git grep --untracked -n -i "email" -- src/lib/firebase src/lib/admin src/app/components/admin src/app/bright-warm-greenhouse` → prints nothing, exits 1 (E2E-15, second half)
+  - `git grep --untracked -n "process.env" -- src/lib/firebase src/lib/admin src/app/components/admin src/app/bright-warm-greenhouse` → prints nothing, exits 1 (E2E-16)
   - `npx playwright test e2e/site-smoke.spec.ts` → 3 passed
-- **Stop-if:** `npm run build` fails in prerender on the `firebase/auth` import or on a call to `window` (the premise that a lazily created Firebase app is safe to import in a client component under static export is wrong); `src/lib/firebase/auth.ts`, `src/lib/admin/owner.ts` or `src/lib/admin/sections.ts` lacks an export named here; the emulator widget has no `#add-account-button`, `#autogen-button` or `#sign-in` (the installed `firebase-tools` differs from 15.37.0); the closed popup is not reported within 15 seconds; E2E-12 finds a robots-type meta tag without "noindex" after the page sets `googleBot` explicitly (Next merges `robots` differently than assumed); or E2E-17 sees no Google host at all after the click (the SDK needs no network before the popup, so the positive control is wrong).
+- **Stop-if:** `npm run build` fails in prerender on the `firebase/auth` import or on a call to `window` (the premise that a lazily created Firebase app is safe to import in a client component under static export is wrong); `src/lib/firebase/auth.ts`, `src/lib/admin/owner.ts` or `src/lib/admin/sections.ts` lacks an export named here; the emulator's generated user ID is shorter than 20 characters or not alphanumeric (E2E-02 and E2E-04 match `[A-Za-z0-9]{20,}`); the emulator widget has no `#add-account-button`, `#autogen-button` or `#sign-in` (the installed `firebase-tools` differs from 15.37.0); the closed popup is not reported within 15 seconds; E2E-12 finds a robots-type meta tag without "noindex" after the page sets `googleBot` explicitly (Next merges `robots` differently than assumed); or E2E-17 sees no Google host at all after the click (the SDK needs no network before the popup, so the positive control is wrong).
 
 ## Version history
 
 | Version | Date | Change |
 | ------- | ---- | ------ |
 | 0.1.0 | 2026-11-26 | First full spec written from `story.md` |
+| 0.2.0 | 2026-11-26 | Applied the independent review round: untracked-file greps, pure-function rows E2E-18/19 (AC-18/19), Step 3 made self-contained, line citations corrected |
+
+## Review Findings
+
+One round: `spec-codebase-verifier` (no Critical or Major) and `spec-cold-reader` (two High, treated as Major).
+
+| Finding | Severity | Raised by | Disposition | Evidence | Where applied |
+| ------- | -------- | --------- | ----------- | -------- | ------------- |
+| `git grep` skips untracked files, so E2E-15/16 and Step 3 Verify could never fail before staging | Major | cold-reader | Applied: `--untracked` | `git grep` semantics | E2E-15, E2E-16, Step 3 Verify |
+| Step 2 (high risk) verified only by typecheck; `isEmulatorHost` and `accessFor` untested directly | Major | cold-reader | Applied: AC-18, AC-19, E2E-18, E2E-19, Step 2 writes the spec file; D-25 | reader report | Section 3, 4, 5, Step 2, Step 3 |
+| `PanelState` not copied into Step 3; Section 4 preamble (P, O, database requests) not in the packet | Medium | cold-reader | Applied inline in Step 3 | reader report | Step 3 |
+| E2E-11 count (15 vs 16) | Medium | cold-reader | Applied: one test with a loop | reader report | E2E-11, Step 3 |
+| Failure message and selection lifetime | Medium | cold-reader | Applied: D-26 | reader report | Step 3, D-26 |
+| Step 2 has more files than the template's norm | Medium | cold-reader | Documented: six files, within the lint limit; splitting would separate the pure functions from their test | `check:spec` limit 6 | Step 2 |
+| Bare `getByRole("alert")` hits Next's announcer | Minor | verifier | Applied: filtered locator | verifier report | Section 4 preamble, Step 3 |
+| Raw `rgb(...)` in E2E-11 | Minor | verifier | Applied: D-24 | profile § Behavioral gate | D-24 |
+| Errors not to be logged | Minor | verifier | Applied: D-27 | verifier report | Step 3 |
+| Emulator UID shape | Minor | verifier | Applied: Step 3 Stop-if | verifier report | Step 3 |
+| Line citations (`layout.tsx`, `playwright.config.ts`, `firebase.json`, `sitemap.ts`, `robots.ts`, `globals.css`) and `deploy` script caller | Minor | verifier | Applied | verifier report | D-16, impact.md |
+| Wording of user ID `<p>`, styling mechanism, Reuse list, `connectAuthEmulator` once, insertion point, package.json check, section 2.1 importer wording | Low/Info | cold-reader | Applied | reader report | Step 1, 2, 3; 2.1 |
+| Confirmed sound: all `add` paths free; baseline webServer; tokens and AC-11 values; layout robots and googleBot; invariants 1-6; intent approves the dependencies | Info | both | Recorded | both reports | none needed |

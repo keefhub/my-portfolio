@@ -19,7 +19,7 @@ Domain: the admin panel's Profile editor, the first form of the panel — entry 
 | `e2e/admin-owner-only-access.spec.ts` (`E2E-20` greps `firestore.rules` and two admin folders for "email" at lines 456-465) | exists | opened |
 | `e2e/manage-image-library.spec.ts` (helpers `signUp`, `RF`, `P`, `ownerSession`, outer serial describe, tokens and theme rows) | exists | opened; the pattern this spec copies |
 | `playwright.config.ts` (Auth, Firestore, Storage emulators; `fullyParallel: true` at line 15) | exists | opened |
-| A Firestore `profile` document, or any code reading or writing one | missing | `git grep -n "profile" -- src` finds only the menu item and `firestore.rules` |
+| A Firestore `profile` document, or any code reading or writing one | missing | `git grep -n -i "profile" -- src` finds the menu item in `sections.ts`, unrelated public-page labels, and `firestore.rules` has the match |
 | `src/lib/admin/profile.ts`, `src/lib/firebase/profile.ts`, `src/app/components/admin/ProfileEditor.tsx`, `e2e/manage-profile.spec.ts` | missing | `git ls-files` prints nothing for the four paths |
 | Firestore emulator jar (v1.22.0) and Java | exist | `~/.cache/firebase/emulators/`; `java -version` runs; the throwaway proof below used them |
 
@@ -59,8 +59,8 @@ Per `references/blast-radius.md`. Skipped entries: `src/lib/admin/profile.ts` (a
 **Risks**
 
 - A timed-out or slow save that lands after the owner has seen "could not be saved" (likelihood low, cost low: the owner re-saves; last save wins, Assumption 7). Carried by D-12, OQ-2.
-- The Firestore SDK logs a `console.error` line when the rules refuse a write (seen in the proof run: `GrpcConnection RPC 'Write' stream … PERMISSION_DENIED`). No row asserts the console is clean on the panel. Cleared: the panel's own code never logs (E2E-28).
-- Removing the "email" grep for three files weakens `admin-sign-in` BR-15's source-level guard against reading the signed-in account's email (likelihood low, cost medium). Carried by TS-03 and E2E-28: the three files must not import or call anything of `firebase/auth` and must not name an account field.
+- The Firestore SDK logs a `console.error` line when the rules refuse a write (seen in the proof run: `GrpcConnection RPC 'Write' stream … PERMISSION_DENIED`). No row asserts the console is clean on the panel. Cleared: the three new files never log (E2E-28 checks `/console\./` in all three).
+- Removing the "email" grep for three files weakens `admin-sign-in` BR-15's source-level guard against reading the signed-in account's email (likelihood low, cost medium). Carried by TS-03 and E2E-28: the three files must not import the auth module in any form (package, alias or relative path) or name an account field, and E2E-28 checks the imports and the exports' names.
 - A hand-edited or partly written `profile/main` document (a field missing or of the wrong type) must not crash the form (likelihood low). Carried by TS-01 (`profileFromData`) and E2E-06.
 
 **Cleared**

@@ -33,6 +33,14 @@ export function topPosition<T>(entries: readonly ListEntry<T>[]): number {
   return min === null ? 0 : min - 1;
 }
 
+export function bottomPosition<T>(entries: readonly ListEntry<T>[]): number {
+  let max: number | null = null;
+  for (const e of entries) {
+    if (e.position < UNPOSITIONED && (max === null || e.position > max)) max = e.position;
+  }
+  return max === null ? 0 : max + 1;
+}
+
 export function moveEntry<T>(
   entries: readonly ListEntry<T>[],
   id: string,

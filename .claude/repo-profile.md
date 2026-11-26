@@ -19,38 +19,49 @@ here when it changes.
 | --- | --- | --- |
 | `npm run typecheck` | Every task | Exits 0, no type errors |
 | `npm run lint` | Every task, **compared against the baseline** | No new errors. It exits 1 today because of the known `ThemeProvider.tsx:25` `react-hooks/set-state-in-effect` failure — that one is pre-existing, so do not fix it as a drive-by and do not treat it as caused by the task |
-| `npm run build` | Every task touching `src/`, `content/`, `public/`, `next.config.ts`, `firebase.json` or `package.json`, and before a feature's plan is marked complete | Exits 0 — this is the static export, the real gate |
+| `npm run build` | Every task touching `src/`, `content/`, `public/`, `next.config.ts`, `firebase.json` or `package.json`, and before a feature's plan is marked complete | Exits 0 |
+| `npx playwright test -g "E2E-03"` | Every task whose Verify cites an `E2E-` id. Needs a current `out/` — run `npm run build` first | Exits 0; the named tests report `✓` |
+| `npm run test:e2e` | Before a feature's plan is marked complete (builds, then runs every spec) | Exits 0, all tests pass |
 
-There is **no test framework** and no e2e runner. Do not add one (Playwright, Vitest, Jest…)
-without asking the user first.
+**Playwright is the only test runner.** Don't add Vitest, Jest or another runner without asking
+the user first.
 
 `npm run build` writes `.next/` and `out/`, and `npm run dev` shares `.next/` — never run them at
-the same time.
+the same time. `npm run test:e2e` rebuilds `out/`, so don't run it alongside a build either.
 
 ## Behavioral gate
 
-The behavioral gate is **`npm run build`**: the static export (`output: "export"`) is the only
-step that catches server/client boundary violations (`server-only` blog barrel pulled into a
-client bundle), `generateStaticParams` gaps, route-handler `force-static` misses, and blog
-frontmatter validation failures (missing field, bad date, duplicate slug). It runs the real app
-code paths at build time, which typecheck and lint cannot.
+The behavioral gate is **Playwright** (`@playwright/test`, Chromium): end-to-end tests in `e2e/`,
+run against the real static export. `playwright.config.ts` serves `out/` with `http-server` on
+`http://127.0.0.1:3100` (exact-match files and trailing-slash directory indexes, like Firebase
+Hosting; no SPA fallback), reusing a server that is already up outside CI. **`out/` must be
+current** — run `npm run build` first, or use `npm run test:e2e`, which builds and then tests.
+It covers what the compiler and linter cannot: hydration/console errors, rendered content,
+routing and trailing-slash URLs, theme toggle and FOUC, scroll-spy, the mobile drawer, layout at
+set viewports. `npm run build` stays a gate too: it alone catches server/client boundary
+violations, `generateStaticParams` gaps and blog frontmatter validation.
 
-It cannot observe runtime browser behaviour: hydration warnings, scroll-spy, the mobile drawer,
-theme toggle and FOUC, Framer Motion triggers, layout at a given width, what a screen reader
-announces. Those checks are `manual`.
+**Test file conventions:**
 
-**Verification methods for an `E2E-` row** (the id prefix is kept because the skills match it):
+- One spec file per feature: `e2e/<slug>.spec.ts`, the slug being the feature folder name.
+  `e2e/site-smoke.spec.ts` is the baseline (landing page, blog index/post, RSS and sitemap).
+- One test per `E2E-` row, its title starting with the id: `E2E-03: <what it checks>`. The
+  single-test command above then runs exactly that check.
+- Paths come from the route table in `CLAUDE.md` and absolute URLs from `absoluteUrl()` /
+  `SITE_URL`'s expectations — never a hard-coded origin. Use relative paths with `baseURL`.
+- Locate by role, label or text; use web-first assertions; never a fixed sleep. Check theme
+  behaviour via the `data-theme` attribute and tokens, not raw colour values.
+- Each test starts from a fresh browser context; do not depend on another test's state.
+- Traces are off by default (`trace: "off"`); re-run a failing test with `--trace on` to debug.
 
-- `compiler` — `npm run typecheck`, `npm run lint` (no new errors) or `npm run build` proves it.
-  Prefer this whenever it is honest: a blog rule like "a duplicate slug fails the build" is
-  checkable by adding a fixture post and running the build.
-- `manual` — a human in a browser checks it, reported as **pending** until they do. Use it for
-  anything listed above as unobservable. A row names the page, viewport and theme to check.
-- `e2e` — **not available** in this repo. Do not write a spec row with this method unless the
-  user has first approved adding a runner; if they do, update this profile in the same change.
+**`manual` is the exception**, reserved for what the runner cannot observe: what a screen reader
+announces, and visual judgements no assertion expresses (does the new section *look* right).
+A `manual` check is run by a human in a browser and is reported as pending until they do. Don't
+claim a UI or flow change works on the strength of typecheck, lint and build alone.
 
-Don't claim a UI or flow change works on the strength of typecheck, lint and build alone — say
-which `manual` checks are still pending.
+**Verification methods for an `E2E-` row:** `e2e` (the norm for runtime behaviour), `compiler`
+(typecheck / lint with no new errors / build proves it, e.g. a duplicate blog slug failing the
+build) or `manual`.
 
 ## Feature docs
 
@@ -78,7 +89,7 @@ folders and stay as they are. The pipeline never reads or writes them.
   reworking existing UI through `redesign-existing-projects`.
 - **Domain entry point:** the story's `domain:` line, if any. Otherwise start discovery from
   `CLAUDE.md` § Invariants, `src/lib/site.ts`, `src/lib/blog/types.ts` and `content/blog/`.
-- **Verification vocabulary:** an `E2E-` check is `compiler` or `manual` (see § Behavioral gate).
+- **Verification vocabulary:** an `E2E-` check is `compiler`, `e2e` or `manual` (see § Behavioral gate). `e2e` is the norm for runtime behaviour; its test lives in the feature's spec file.
 - Another feature is read only through its `spec.md`; never open another feature's `story.md`.
 
 ## Layers
@@ -92,7 +103,7 @@ Used for a task's `[Layer]` tag in `/sdd` and for gate tiering below.
 | `route` | `src/app/**/page.tsx`, `layout.tsx`, `src/app/rss.xml/route.ts`, `sitemap.ts`, `robots.ts`, `next.config.ts`, `firebase.json`, `.github/workflows/` |
 | `ui` | `src/app/components/**`, `src/app/globals.css` (tokens), `ThemeProvider.tsx` |
 | `legacy` | none |
-| `test` | none — no test framework exists |
+| `test` | `e2e/`, `playwright.config.ts` |
 
 ## Known-dirty paths
 
@@ -117,4 +128,5 @@ None. A clean checkout shows a clean `git status`. (The `npm run lint` failure a
 - Presentation-only changes in `src/app/components/**` that touch none of the above
 - Styling or design-token changes in `globals.css`
 - Content-only changes (`content/blog/*.md` copy, `docs/`, `requirement/`, `spec/`)
+- Test-only changes that add or fix specs under `e2e/` without touching source
 - Route or page wiring that doesn't change what data is fetched or how

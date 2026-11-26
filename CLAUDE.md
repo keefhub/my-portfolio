@@ -21,6 +21,7 @@ summary; that one is the on-demand detail.
 | `npm run build`     | Production build **and static export** → `out/`      |
 | `npm run typecheck` | `tsc --noEmit`                                       |
 | `npm run lint`      | `eslint .`                                           |
+| `npm run test:e2e`  | Build, then Playwright specs in `e2e/` against `out/` |
 
 **`npm run build` is the real verification gate.** It is the only step that runs
 the export, so it is the only step that catches server/client boundary
@@ -177,7 +178,7 @@ uses `docs/` instead and never touches them.
 - The six **Invariants** above — static export, `trailingSlash` in three places, no `@/lib/blog` barrel in client components, UTC date formatting, one `SITE_URL`, unoptimized images.
 - **Style against the CSS tokens in `globals.css`.** No raw colour values, no Tailwind `dark:` variants.
 - **Never `git add -A`, `git add .`, or `git commit -a`.** Stage explicit paths.
-- **There is no test framework.** Don't add Playwright, Vitest or Jest without asking.
+- **Playwright is the only test runner.** Specs live in `e2e/` and run against the built `out/`. Don't add Vitest, Jest or another runner without asking.
 - **Never push to `master`.** It deploys the live site; work lands on `develop`.
 
 ---
@@ -212,7 +213,7 @@ plain-language requirement
 - **`/feature-spec`** writes `spec.md` + `impact.md`. Thin features (≤2 scenarios, no new storage key or module boundary) get a short note instead. `/spec-review <slug>` re-reviews a spec edited afterwards.
 - **`/sdd`** owns implementation, the review gates (two for high-risk changes, one combined gate for low-risk ones — see the profile), and every commit. It needs a clean working tree.
 - **`/thermos`** is an optional, manual, two-reviewer audit of a branch (bugs and security; maintainability). Read-only.
-- The pipeline has **no e2e runner** here: checks are `compiler` (typecheck / lint / `npm run build`) or `manual` (a human in a browser, reported as pending). See the profile's Behavioral gate.
+- Behavioural checks are Playwright tests in `e2e/` (`E2E-NN:` titles) against the built `out/`; `compiler` and `manual` (reported as pending) cover the rest. See the profile's Behavioral gate.
 
 ## Implementation order
 

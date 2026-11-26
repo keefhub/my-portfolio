@@ -9,10 +9,13 @@ Feature: Manage tech stack categories and their items
   Scenario: Owner adds a category with items and finds it after a reload
     Given the owner is signed in and has opened "Tech stack"
     And no tech categories exist yet
+    And the image library holds an uploaded image named "firebase-logo.png"
     And the owner sees "No tech categories yet" and an "Add category" control
-    When the owner adds a category named "Cloud" with the items "Firebase" with icon path "/icons/firebase.png" and "Docker" with icon path "/icons/docker.png" and chooses "Save"
+    When the owner adds a category named "Cloud" with the items "Firebase" with the uploaded image "firebase-logo.png" as its icon and "Docker" with icon path "/icons/docker.png" and chooses "Save"
     And the owner reloads the page and opens "Tech stack"
-    Then the owner should see the category "Cloud" listing "Firebase" then "Docker" with their icon paths
+    Then the owner should see the category "Cloud" listing "Firebase" then "Docker"
+    And "Firebase" should still show the image "firebase-logo.png" as its icon
+    And "Docker" should show the icon path "/icons/docker.png"
     And the owner should no longer see "No tech categories yet"
 
   Scenario: Owner edits a category name and its items
@@ -57,7 +60,7 @@ Feature: Manage tech stack categories and their items
       | category | item  | icon                              | message                                  |
       |          | React | /icons/react.png                  | Category name is required                |
       | Frontend |       | /icons/react.png                  | Item name is required                    |
-      | Frontend | React |                                   | Icon path is required                    |
+      | Frontend | React |                                   | Icon is required                         |
       | Frontend | React | https://example.com/react.png     | Icon path must start with "/"            |
 
   Scenario: Owner's save is not accepted by the database
@@ -81,7 +84,7 @@ Feature: Manage tech stack categories and their items
 1. The panel offers the same controls and wording as the experience editor, which this feature depends on: "Add category", "Save", "Cancel", "Delete", "Move up" and "Move down". No `spec.md` for `manage-experience` exists yet, so this is unverified. [auto]
 2. A category is one record holding its name and an ordered list of items. Each item has a name and an icon path. Saving a category saves its items with it. [auto]
 3. Today's site shows each category with its items; the panel reads the stored order for both and does not sort alphabetically. [auto]
-4. The icon path is text, like the paths the site uses today (`/icons/react.png`). The panel checks that it starts with "/" and is not a web address (images are not uploaded and come from the repo, intent §2.4). It does not check that the file exists. [human: intent §2.4]
+4. An item's icon is either an uploaded image chosen from the image library (`manage-image-library`) or a repo path typed as text, like the paths the site uses today (`/icons/react.png`). Choosing an uploaded image stores that image's public address, so it still shows after a reload. A typed path must start with "/" and is not a web address; the panel does not check that the file exists. If an uploaded image is deleted from the library later, the item keeps the stale address and the icon fails to load, as a wrong path would. [human: intent §2.4, §8]
 5. Category name, item name and icon path are all required. Names are trimmed of leading and trailing spaces; a value of only spaces counts as blank. [auto]
 6. Names may be up to 80 characters; longer text is refused with a message that says so. A category may hold any number of items. [auto]
 7. Two categories, or two items in one category, may share a name. They are separate records. [auto]
@@ -95,13 +98,13 @@ Feature: Manage tech stack categories and their items
 15. Opening "Tech stack" while signed out or as a non-owner shows no category, because the panel shows no database content to them (covered by `admin-sign-in`); this feature adds no separate scenario for it. [human: intent §5]
 16. One owner, last save wins, with no conflict detection between two tabs (intent §8). [human: intent §8]
 17. The editor uses the site's colour tokens in the light and dark themes. The public site's tech stack section is not changed and still shows what is in the code. [human: intent §3, §5]
-18. This feature depends on `manage-experience` for the list editor and the confirmation, and on `admin-owner-only-access` for who may save. [auto]
+18. This feature depends on `manage-experience` for the list editor and the confirmation, and on `admin-owner-only-access` for who may save, and on `manage-image-library` for the uploaded images an icon can be chosen from. No `spec.md` exists for it yet, so how the picker is worded is unverified. [auto]
 19. Offline and time: the story has no dates, times or time zones, so time is N/A. If the network drops, a save fails as in assumption 12 and a list that cannot load shows the error of assumption 13. State and lifecycle: a category has no status or stages, only present or deleted, so there is nothing further to cover; a list left open in a stale tab is not refreshed, and the owner reloads to see the stored list (last save wins, assumption 16). [auto]
 
 ## Out of Scope
 
 - Showing the saved tech stack on the public site (phase 2).
-- Uploading icon files or checking that an icon path points to a file that exists.
+- Uploading images from this editor (the image library does that) and checking that a typed icon path points to a file that exists.
 - Dragging to reorder.
 - Moving an item from one category to another; the owner removes it and adds it again.
 - Bulk edits, import of today's tech stack, search or filtering of the list.
@@ -111,4 +114,4 @@ Feature: Manage tech stack categories and their items
 ## Deferred
 
 - Moving an item between categories: deferred until the owner asks for it; removing and re-adding covers it for now.
-- A check that an icon path points to an existing file: deferred, because the panel cannot see the repo's files.
+- A check that a typed icon path points to an existing file: deferred, because the panel cannot see the repo's files.

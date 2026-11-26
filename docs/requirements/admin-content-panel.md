@@ -99,13 +99,13 @@ Dependency order, earliest first. Status is one of `pending`, `written`, `BLOCKE
 | --- | --- | --- | --- |
 | 1 | `admin-sign-in` | The gate every other slice sits behind; carries the Firebase dependency, emulator set-up and the route | written |
 | 2 | `admin-owner-only-access` | Rules must exist before any editor writes; shows the placeholder state to the owner | written |
-| 3 | `manage-image-library` | Storage rules and uploads must exist before any editor can pick an uploaded image; needs the owner-only rules pattern from slice 2 | pending |
-| 4 | `manage-profile` | Simplest editor (one record); fixes the form and save pattern; its photo field uses the image library | amend: image field takes an uploaded image or a repo path |
+| 3 | `manage-image-library` | Storage rules and uploads must exist before any editor can pick an uploaded image; needs the owner-only rules pattern from slice 2 | written |
+| 4 | `manage-profile` | Simplest editor (one record); fixes the form and save pattern; its photo field uses the image library | written |
 | 5 | `manage-experience` | First list; fixes the reorder and confirm-delete pattern the next three reuse | written |
 | 6 | `manage-projects` | Reuses the list pattern; no new dependency | written |
-| 7 | `manage-certifications` | Reuses the list pattern; badge image uses the image library | amend: image field takes an uploaded image or a repo path |
-| 8 | `manage-tech-stack` | Reuses the list pattern, plus nested items; item icons use the image library | amend: image field takes an uploaded image or a repo path |
-| 9 | `manage-blog-posts` | Most rules (unique slug, dates, draft, status list), so after the pattern is settled; cover image uses the image library | amend: image field takes an uploaded image or a repo path |
+| 7 | `manage-certifications` | Reuses the list pattern; badge image uses the image library | written |
+| 8 | `manage-tech-stack` | Reuses the list pattern, plus nested items; item icons use the image library | written |
+| 9 | `manage-blog-posts` | Most rules (unique slug, dates, draft, status list), so after the pattern is settled; cover image uses the image library | written |
 | 10 | `preview-blog-post` | Needs the post editor to preview from | written |
 
 ## Coverage of the intent

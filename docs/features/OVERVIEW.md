@@ -48,3 +48,4 @@ One row per feature, appended by `/help-discover-this` Mode B and `/agentic-disc
 | Manage tech stack | [manage-tech-stack](manage-tech-stack/story.md) |
 | Manage blog posts | [manage-blog-posts](manage-blog-posts/story.md) |
 | Preview blog post | [preview-blog-post](preview-blog-post/story.md) |
+| Manage image library | [manage-image-library](manage-image-library/story.md) |

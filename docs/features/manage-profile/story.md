@@ -3,17 +3,25 @@
 ```gherkin
 Feature: Edit the profile from the admin panel
   As the site owner
-  I want to edit my name, headline, about paragraphs, photo path, email, resume link and social links in the panel
+  I want to edit my name, headline, about paragraphs, photo, email, resume link and social links in the panel
   So that I can keep my profile current without opening the code
 
-  Scenario: Owner edits the profile, saves, reloads and sees the saved values
+  Scenario Outline: Owner edits the profile, saves, reloads and sees the saved values
     Given the owner is signed in and saving is switched on
     And the owner has chosen "Profile" in the section menu
-    When the owner changes the name, headline, photo path, email and resume link
+    And the owner has uploaded an image named "keith.png" in "Images"
+    When the owner changes the name, headline, email and resume link
     And the owner changes the text of an about paragraph
+    And the owner sets the photo by <how>
     And the owner chooses "Save"
     Then the owner should see "Profile saved"
     And after the owner reloads the page and chooses "Profile" again, every changed value should show as saved
+    And the photo should show as <shown>
+
+    Examples:
+      | how                                           | shown                          |
+      | choosing "keith.png" from the uploaded images | the uploaded image "keith.png" |
+      | typing the path "/images/keith.jpg"           | the path "/images/keith.jpg"   |
 
   Scenario: Owner adds and removes about paragraphs and social links
     Given the owner is signed in and saving is switched on
@@ -75,7 +83,7 @@ Feature: Edit the profile from the admin panel
 1. The profile is one record. There is no list of profiles and nothing to add or delete at the record level (decomposition `manage-profile`). [auto]
 2. The fields are name, headline, about paragraphs, photo path, email, resume link and social links (intent §6). Each social link has a label and a web address. [human: intent §6]
 3. Name and headline are required. Photo path, email, resume link, about paragraphs and social links may be left empty. [auto]
-4. The photo path and the resume link are text. A photo path names a file already in the site's repo and is not checked against the repo's files. A resume link accepts a full web address or a path that starts with "/". [human: intent §2.4] for the photo path, [auto] for the rest.
+4. The photo is either an uploaded image chosen from the image library (`manage-image-library`) or a path to a file already in the site's repo, typed as text. Choosing one replaces the other. A repo path is not checked against the repo's files. If no image has been uploaded, only the path can be given. A chosen uploaded image shows as selected after a reload, and the profile keeps pointing at it. [human: intent §2.4, §6] The resume link is text and accepts a full web address or a path that starts with "/". [auto]
 5. An email must look like an email address. Every social link address must start with "https://". The messages in the examples are the panel's own wording and may change in the spec. [auto]
 6. Nothing is prefilled from today's site content. Before the first save the form is empty, and the owner retypes the profile (intent §7). [human: intent §7]
 7. A save replaces the whole profile record. The last save wins and two tabs are not checked against each other (intent §8). [human: intent §8]
@@ -90,7 +98,8 @@ Feature: Edit the profile from the admin panel
 ## Out of Scope
 
 - Changing what visitors see on the public site, which is phase 2
-- Uploading or storing a photo or resume file; the fields hold paths and web addresses only
+- Uploading images from the profile form (done in `manage-image-library`) and uploading or storing a resume file; the resume link holds a path or web address only
+- Cropping, resizing or editing the photo
 - Importing today's profile text from the site
 - Other users, invited editors or permission levels
 - Conflict detection between two simultaneous saves

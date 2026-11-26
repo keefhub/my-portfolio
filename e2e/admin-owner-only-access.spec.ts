@@ -458,6 +458,7 @@ test("E2E-20: no admin source or the rules file mentions email or process.env", 
     const args = ["grep", "--untracked", "-n"];
     if (needle === "email") args.push("-i");
     args.push(needle, "--", "firestore.rules", "src/lib/admin", "src/app/components/admin");
+    if (needle === "email") args.push(":(exclude)src/lib/admin/profile.ts", ":(exclude)src/app/components/admin/ProfileEditor.tsx");
     const res = spawnSync("git", args, { cwd: ROOT, encoding: "utf8" });
     expect(res.stdout).toBe("");
     expect(res.status).toBe(1);

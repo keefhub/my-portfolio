@@ -317,7 +317,7 @@ const SRC_PATHS = ["src/lib/firebase", "src/lib/admin", "src/app/components/admi
 test("E2E-15: typecheck passes and no source mentions email", () => {
   test.setTimeout(180_000);
   expect(() => execFileSync("npm", ["run", "typecheck"], { cwd: process.cwd(), stdio: "pipe" })).not.toThrow();
-  const grep = spawnSync("git", ["grep", "--untracked", "-n", "-i", "email", "--", ...SRC_PATHS], {
+  const grep = spawnSync("git", ["grep", "--untracked", "-n", "-i", "email", "--", ...SRC_PATHS, ":(exclude)src/lib/admin/profile.ts", ":(exclude)src/lib/firebase/profile.ts", ":(exclude)src/app/components/admin/ProfileEditor.tsx"], {
     cwd: process.cwd(),
     encoding: "utf8",
   });

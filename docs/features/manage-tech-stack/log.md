@@ -34,3 +34,21 @@ Tier: high (Step Risk: high; large-diff)
 Review: risk reviewer PASS (review 1)
 Findings: edge-case | note | logged | saveNow checks the busy state while saveContent checks busyRef; practically unreachable (buttons disabled while busy). Optional: check busyRef.current in saveNow.
 =====================================================================
+=====================================================================
+Task 3 — Move five placeholder tests from the "Tech stack" placeholder to its editor
+Completed: 2026-11-26      Commit: fcb0001
+
+Summary: The seven toBeVisible assertions on the "Tech stack editor is not available yet." placeholder in admin-sign-in, manage-profile, manage-experience, manage-projects and manage-certifications now expect the level-2 "Tech stack" heading; every toHaveCount(0) and Blog posts block kept. All five files pass in full (19, 32, 31, 18, 17). Closes the D-25 gap opened by Task 2.
+Decisions: None (test-only Step; no implementer).
+Deviations: None.
+Files changed: e2e/admin-sign-in.spec.ts, e2e/manage-profile.spec.ts, e2e/manage-experience.spec.ts, e2e/manage-projects.spec.ts, e2e/manage-certifications.spec.ts (modified)
+E2E tests written: E2E-18 (TS-07 rows for the moved tests, as the packet names)      Passed before the change: not checked (red after Task 2 by design)
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: LOG emulator MetadataLookupWarning, harmless)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

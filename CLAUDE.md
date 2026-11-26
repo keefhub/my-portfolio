@@ -159,3 +159,76 @@ page is `redesign-existing-projects`; adding something that does not exist yet i
 `design-taste-frontend`.
 
 Requirement docs land in [requirement/](requirement/), specs in [spec/](spec/).
+Those two folders are `user-story-creator` output. The feature pipeline below
+uses `docs/` instead and never touches them.
+
+| Situation                                                                | Skill                        |
+| ------------------------------------------------------------------------ | ---------------------------- |
+| A plain-language feature ask that must be split and given edge cases      | `feature-discovery`          |
+| One story → gated spec + implementation plan                              | `feature-spec`               |
+| Spec edited by hand, or written before the reviewer round existed          | `spec-review`                |
+| Execute a spec's plan step by step with review gates and commits           | `sdd`                        |
+| Optional read-only audit of a branch (bugs + security; maintainability)    | `thermos`                    |
+
+---
+
+## Never violate (feature pipeline reviewers enforce these)
+
+- The six **Invariants** above — static export, `trailingSlash` in three places, no `@/lib/blog` barrel in client components, UTC date formatting, one `SITE_URL`, unoptimized images.
+- **Style against the CSS tokens in `globals.css`.** No raw colour values, no Tailwind `dark:` variants.
+- **Never `git add -A`, `git add .`, or `git commit -a`.** Stage explicit paths.
+- **There is no test framework.** Don't add Playwright, Vitest or Jest without asking.
+- **Never push to `master`.** It deploys the live site; work lands on `develop`.
+
+---
+
+# AI Agent Implementation Workflow
+
+Features are implemented one at a time from stories in [docs/features/](docs/features/),
+driven by an AI coding agent. Follow this loop for any task that says "implement the next
+feature," "continue implementation," or similar. A one-off bug fix, content edit or unrelated
+request is not part of the loop — just make the change (`bugfix` for defects) and commit it.
+
+## Source of truth
+
+- This file is the orientation map. Read it before searching the repo; [Reference.md](Reference.md) is the on-demand deep detail.
+- [docs/features/OVERVIEW.md](docs/features/OVERVIEW.md) §1–3 (Product Overview, Confirmed Requirements, Assumptions to Confirm) are standing context — re-read them before implementing any feature.
+- The design system is the token set in [src/app/globals.css](src/app/globals.css), described in `Reference.md`.
+- Each `docs/features/<slug>/story.md` is one unit of work; its Gherkin scenarios are the acceptance criteria.
+- [.claude/repo-profile.md](.claude/repo-profile.md) holds the pipeline's repo facts — verification commands, behavioral gate, layers, known-dirty paths, gate risk tiers.
+
+## Pipeline
+
+```
+plain-language requirement
+  → /feature-discovery "<requirement>"   impact analysis + feature split → docs/requirements/<slug>.md
+  → /feature-discovery <feature-slug>    edge cases brainstormed with the user → docs/features/<slug>/story.md
+  → /feature-spec <feature-slug>         gated BA/SA spec + impact.md; §8 is the implementation plan;
+                                         three read-only reviewer agents harden it (≤2 rounds)
+  → /sdd <feature-slug>                  executes §8 via fresh subagents, review gates, commits per step
+```
+
+- **`/feature-discovery`** is the only way a new `story.md` gets written. Never hand-author a story, and never run `/feature-spec` against a prose requirement. It never writes code and never commits.
+- **`/feature-spec`** writes `spec.md` + `impact.md`. Thin features (≤2 scenarios, no new storage key or module boundary) get a short note instead. `/spec-review <slug>` re-reviews a spec edited afterwards.
+- **`/sdd`** owns implementation, the review gates (two for high-risk changes, one combined gate for low-risk ones — see the profile), and every commit. It needs a clean working tree.
+- **`/thermos`** is an optional, manual, two-reviewer audit of a branch (bugs and security; maintainability). Read-only.
+- The pipeline has **no e2e runner** here: checks are `compiler` (typecheck / lint / `npm run build`) or `manual` (a human in a browser, reported as pending). See the profile's Behavioral gate.
+
+## Implementation order
+
+Populated by `/feature-discovery` as features are added — keep it in sync with `docs/features/OVERVIEW.md` §4.
+
+| Order | Feature story | Why it goes here |
+| ----- | ------------- | ---------------- |
+
+Do not reorder or skip features without an explicit user request. Do not implement scenarios beyond what's written.
+
+## Per-feature loop
+
+1. **Check status and the tree.** `git log --oneline --grep="^feat(<slug>)"` confirms the feature isn't already committed. Confirm the working tree is clean, or declare dirty paths.
+2. **`/feature-spec <slug>`** → `docs/features/<slug>/spec.md` and `impact.md`.
+3. **`/sdd <slug>`** → executes Section 8.
+   - **Finishes** (every task ticked, `docs(<slug>): mark implementation complete` committed) → next feature. Report any `manual` checks left pending; they were never run.
+   - **Escalates** (a task failed twice) → read its report, attempt a genuine root-cause fix (not a suppression or a skipped check), then `/sdd <slug> resume`. Up to 3 attempts per feature; then stop and report to the user.
+
+Never let a failing build reach git history. Progress is derived from `git log` commit prefixes, not a status file.

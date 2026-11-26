@@ -129,7 +129,7 @@ Attack the document; a review that finds nothing wrong has failed the gate. **SA
 
 ### Phase 10 — Independent review (full specs only)
 
-Phase 9 is a self-review, and a self-review clears itself more readily than it should. So the spec now goes to three isolated, read-only reviewer agents — `spec-traceability`, `spec-codebase-verifier`, `spec-cold-reader` — run exactly as `../spec-review/SKILL.md` § Round procedure describes: a frozen packet, one dispatch message, no writer reasoning, no cross-visibility. Reconcile their findings, then apply the accepted ones yourself in revision mode (re-running the affected phases and gates). **At most 2 rounds**; anything unresolved goes to Open Questions. A thin-feature note skips this phase.
+Phase 9 is a self-review, and a self-review clears itself more readily than it should. So the spec now goes to three isolated, read-only reviewer agents — `spec-traceability`, `spec-codebase-verifier`, `spec-cold-reader` — run exactly as `../spec-review/SKILL.md` § Round procedure describes (each dispatched with `model: sonnet`): a frozen packet, one dispatch message, no writer reasoning, no cross-visibility. Reconcile their findings, then apply the accepted ones yourself in revision mode (re-running the affected phases and gates). **At most 2 rounds**; anything unresolved goes to Open Questions. A thin-feature note skips this phase.
 
 ## Writing rules
 

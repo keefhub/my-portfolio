@@ -42,7 +42,7 @@ Models are fixed in the agent definitions in [`.claude/agents/`](../../agents/).
 
 ### 2. Fan out
 
-Dispatch all three reviewers in **one message** as blocking foreground `Agent` calls (`subagent_type` = the agent name). Do not background them and do not end your turn while one is running. Do not stagger: prompting one reviewer after seeing another's output leaks conclusions.
+Dispatch all three reviewers in **one message** as blocking foreground `Agent` calls (`subagent_type` = the agent name, `model: sonnet`). Do not background them and do not end your turn while one is running. Do not stagger: prompting one reviewer after seeing another's output leaks conclusions.
 
 Each prompt contains only: the packet paths, their hashes, the spec's `Version` and `Date`, the repository root, and one line naming its role. The cold reader gets only the `spec.md` path, its hash, and its `Version` and `Date`. **No writer reasoning** — no phase notes, no summary of what the spec "is trying to do", no hint about known weak spots — and **no output from another reviewer**.
 
@@ -82,7 +82,7 @@ Then rewrite: preserve section order and any `<!-- MANUAL -->` blocks verbatim; 
 
 ## Rounds
 
-**At most 2 rounds.** If round 1 applied any Critical or Major revision, run round 2: refreeze the *new* packet and dispatch three fresh reviewers (new `Agent` calls — they have no memory and must not be told what round 1 found). If round 1 applied none, one round is enough. After round 2, anything still unresolved goes to **Open Questions** with who decides; do not start a third round.
+**At most 2 rounds.** If round 1 applied any Critical or Major revision, run round 2: refreeze the *new* packet and dispatch three fresh reviewers (new `Agent` calls, `model: sonnet` — they have no memory and must not be told what round 1 found). If round 1 applied none, one round is enough. After round 2, anything still unresolved goes to **Open Questions** with who decides; do not start a third round.
 
 ## Report
 

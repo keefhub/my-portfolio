@@ -19,7 +19,7 @@ Adapted from Cursor's `thermos` plugin. Runs [`thermo-nuclear-review`](../thermo
 
 1. **Scope.** Take it from the request, a PR, or the current branch. Default base is the branch `.claude/repo-profile.md` § Branches names. Run `git status --short` and `git log --oneline <base>..HEAD`; if there is no diff, say so and stop.
 2. **Gather context once.** `git diff <base>...HEAD` and the full contents of each changed file. Pass the same material to both reviewers so their findings are comparable.
-3. **Dispatch both in the same message**, in the background:
+3. **Dispatch both in the same message**, in the background, each with `model: sonnet`:
    - `thermo-nuclear-review-subagent` for bugs, breakage, security, dev-workflow and rule violations.
    - `thermo-nuclear-code-quality-review-subagent` for structure, layering, design-system fit and file growth.
    Give each a prompt with `### Git / diff output` and `### Changed file contents` sections.

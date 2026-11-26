@@ -32,12 +32,12 @@ When in doubt, take the simple path.
 ## 2. Explore (complex only)
 
 Split the question into **2–3 angles**, each a distinct slice (e.g. "data and queries", "client state and storage", "routes and server actions" — named after the layers in `CLAUDE.md` § Layout).
-Spawn all explorers in **one message**, each an `Agent` call with `subagent_type: "Explore"`,
+Spawn all explorers in **one message**, each an `Agent` call with `subagent_type: "Explore"`, `model: "sonnet"`,
 foreground, built from the explorer prompt below. Tell each one not to edit files.
 
 ## 3. Synthesize (complex only)
 
-Once every explorer has returned, spawn **one** `general-purpose` subagent, foreground, with the
+Once every explorer has returned, spawn **one** `general-purpose` subagent with `model: "sonnet"`, foreground, with the
 explainer prompt and every explorer's findings pasted in. Tell it not to edit files.
 
 ## 4. Use the result

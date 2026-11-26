@@ -56,6 +56,7 @@ page.tsx            ← multi-section scroll, anchor-linked (not routed)
 blog/layout.tsx     ← shared blog chrome
 ├── blog/page.tsx        → BlogIndex → BlogCard[]   (server components)
 └── blog/[slug]/page.tsx → BlogArticle              (server component)
+    └── PostBody (blog/PostBody.tsx, hookless; the .prose wrapper, also used by the admin preview)
         ↑ content sourced from content/blog/*.md at build time
 ```
 

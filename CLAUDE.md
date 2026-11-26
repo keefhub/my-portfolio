@@ -153,7 +153,7 @@ detail pages, RSS, and the sitemap.
 
 Markdown runs through unified: remark-parse → remark-gfm → remark-rehype →
 rehype-raw → rehype-slug → rehype-autolink-headings → rehype-highlight
-([src/lib/blog/markdown.ts](src/lib/blog/markdown.ts)). Raw HTML in posts is
+([src/lib/markdown.ts](src/lib/markdown.ts), re-exported by `src/lib/blog/markdown.ts`; client-safe, so the admin preview imports `@/lib/markdown` directly). Raw HTML in posts is
 parsed as real elements and **is trusted** — content is authored in this repo.
 If untrusted markdown is ever rendered, add `rehype-sanitize` after
 `rehype-raw`.

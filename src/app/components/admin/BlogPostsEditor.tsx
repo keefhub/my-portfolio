@@ -15,9 +15,11 @@ import { photoSelection } from "@/lib/admin/profile";
 import type { ImageRecord } from "@/lib/admin/images";
 import { SlugTakenError, blogPostsStore } from "@/lib/firebase/blogposts";
 import { listImages } from "@/lib/firebase/images";
+import PostPreview from "./PostPreview";
 import ListEditor, { type ListFieldsProps } from "./ListEditor";
 import {
   FieldError,
+  buttonStyle,
   errorStyle,
   fieldProps,
   groupStyle,
@@ -73,10 +75,14 @@ export default function BlogPostsEditor(props: { savingOn: boolean }): React.JSX
     };
   }, []);
 
+  const [previewing, setPreviewing] = useState<boolean>(false);
   const { images, failed } = loaded;
 
   function renderFields(fields: ListFieldsProps<BlogPostContent>): React.ReactNode {
     const { value, onChange, errors, disabled, mode } = fields;
+    if (previewing) {
+      return <PostPreview body={value.body} onBack={() => setPreviewing(false)} />;
+    }
     const selection = photoSelection(value.coverImage, images);
     return (
       <>
@@ -209,6 +215,14 @@ export default function BlogPostsEditor(props: { savingOn: boolean }): React.JSX
           />
           <FieldError id="blog-body-error" text={errors.body} />
         </div>
+        <button
+          type="button"
+          style={{ ...buttonStyle, alignSelf: "flex-start" }}
+          disabled={disabled}
+          onClick={() => setPreviewing(true)}
+        >
+          Preview
+        </button>
         <label
           style={{
             display: "flex",
@@ -260,6 +274,7 @@ export default function BlogPostsEditor(props: { savingOn: boolean }): React.JSX
       movable={false}
       order={sortBlogPosts}
       saveFailure={saveFailure}
+      hideFormActions={previewing}
     />
   );
 }

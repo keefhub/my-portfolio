@@ -43,6 +43,7 @@ export type ListEditorProps<T> = {
   movable?: boolean;
   order?: (entries: readonly ListEntry<T>[]) => ListEntry<T>[];
   saveFailure?: (error: unknown) => string | null;
+  hideFormActions?: boolean;
 };
 
 type LoadState = "loading" | "failed" | "ready";
@@ -81,6 +82,7 @@ export default function ListEditor<T>(props: ListEditorProps<T>): React.JSX.Elem
   const newPosition = props.newPosition ?? topPosition;
   const movable = props.movable ?? true;
   const { order, saveFailure } = props;
+  const hideFormActions = props.hideFormActions ?? false;
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [entries, setEntries] = useState<ListEntry<T>[]>([]);
   const [form, setForm] = useState<FormState | null>(null);
@@ -275,14 +277,16 @@ export default function ListEditor<T>(props: ListEditorProps<T>): React.JSX.Elem
               saveNow,
             }}
           />
-          <div style={rowButtonsStyle}>
-            <button type="submit" style={buttonStyle} disabled={busy}>
-              Save
-            </button>
-            <button type="button" style={buttonStyle} disabled={busy} onClick={closeForm}>
-              Cancel
-            </button>
-          </div>
+          {!hideFormActions && (
+            <div style={rowButtonsStyle}>
+              <button type="submit" style={buttonStyle} disabled={busy}>
+                Save
+              </button>
+              <button type="button" style={buttonStyle} disabled={busy} onClick={closeForm}>
+                Cancel
+              </button>
+            </div>
+          )}
         </form>
       </>
     );

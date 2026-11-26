@@ -152,6 +152,9 @@ AdminPanel ("use client", src/app/components/admin/AdminPanel.tsx)
         (not movable; ordered by date, newest first) over a slug-keyed create-only store; markdown body, title,
         excerpt, date, tags, Draft/Published, featured, cover image (uploaded or path) and alt text; a taken slug
         is refused and nothing is overwritten
+        └── PostPreview (src/app/components/admin/PostPreview.tsx): "Preview" in the post form swaps the fields
+            for the body rendered by @/lib/markdown inside PostBody (the same converter the blog uses through
+            src/lib/blog/markdown.ts); "Back to form" returns with nothing lost or saved (ListEditor's hideFormActions)
 ```
 
 Styled with inline `var(--token)` values only; imports `src/lib/firebase` and `src/lib/admin`,

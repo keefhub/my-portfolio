@@ -17,6 +17,7 @@
     "verify": "tsx scripts/verify/run.ts"
   },
   "dependencies": {
+    "firebase": "^13.4.0",
     "framer-motion": "^12.7.4",
     "gray-matter": "^4.0.3",
     "lucide-react": "^0.503.0",
@@ -44,6 +45,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "firebase-tools": "^15.37.0",
     "http-server": "^14.1.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",

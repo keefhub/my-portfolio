@@ -21,9 +21,18 @@ export default defineConfig({
     trace: "off",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    command: `npx http-server out -p ${PORT} -a 127.0.0.1 -c-1 -s`,
-    url: `http://127.0.0.1:${PORT}/`,
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command: `npx http-server out -p ${PORT} -a 127.0.0.1 -c-1 -s`,
+      url: `http://127.0.0.1:${PORT}/`,
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      command: "npx firebase emulators:start --only auth --project thegoldenpothos-5b3a1 --non-interactive",
+      url: "http://127.0.0.1:9099/",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000,
+      stdout: "ignore",
+    },
+  ],
 });

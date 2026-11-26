@@ -61,7 +61,7 @@ against the real static export. `playwright.config.ts` serves `out/` with `http-
 `http://127.0.0.1:3100` (exact-match files and trailing-slash directory indexes, like Firebase
 Hosting; no SPA fallback). **`out/` must be current**: run `npm run build` first. It covers what the
 compiler and linter cannot: hydration and console errors, rendered content, routing and
-trailing-slash URLs, theme toggle and FOUC, scroll-spy, the mobile drawer, layout at set viewports.
+trailing-slash URLs, theme toggle and FOUC, scroll-spy, the mobile drawer, layout at set viewports. Playwright also starts the Firebase Auth emulator (`firebase emulators:start --only auth`, port 9099, no Java needed) for the admin panel specs.
 
 **Test file conventions:**
 

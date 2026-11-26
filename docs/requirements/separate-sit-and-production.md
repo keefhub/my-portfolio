@@ -56,7 +56,7 @@ None for stored data. The SIT database is new and empty (Firestore Native mode, 
 
 | # | Slug | Why here | Status |
 | --- | --- | --- | --- |
-| 11 | `separate-sit-and-production` | The only slice. It needs the built sign-in, owner rules and image storage rules from rows 1, 2 and 10 of the `CLAUDE.md` order table, so it goes after the last existing row | pending |
+| 11 | `separate-sit-and-production` | The only slice. It needs the built sign-in, owner rules and image storage rules from rows 1, 2 and 10 of the `CLAUDE.md` order table, so it goes after the last existing row | written |
 
 ## Coverage of the intent
 

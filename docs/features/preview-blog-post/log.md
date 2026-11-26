@@ -34,3 +34,16 @@ Tier: high (Step Risk: high; large-diff)
 Review: risk reviewer PASS (review 1)
 Findings: None.
 =====================================================================
+=====================================================================
+Completion — preview-blog-post
+Completed: 2026-11-26
+
+Built: the blog's prose wrapper shared as PostBody, public article markup pinned (Task 1); the converter moved unchanged to src/lib/markdown.ts with a re-export from src/lib/blog/markdown.ts, the Preview control and PostPreview in the Blog posts form, Save and Cancel hidden while previewing (Task 2).
+Deviations from the spec: None after the auto-revision.
+[auto] decisions: 14 lines tagged [auto] in spec.md. One auto-revision (D-03/D-04: keep CLAUDE.md invariant 3 by moving the converter out of src/lib/blog).
+Feature review: PASS
+Findings: None.
+Final verification: npm run build ok; npx playwright test e2e/preview-blog-post.spec.ts 10 passed, 0 failed.
+Manual checks pending: None.
+Follow-ups: None.
+=====================================================================

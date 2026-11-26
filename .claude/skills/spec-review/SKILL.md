@@ -25,11 +25,11 @@ Resolve the slug with `ls docs/features/<slug>`. **If `spec.md` does not exist, 
 
 | Agent | Model | Reads | Checks |
 | --- | --- | --- | --- |
-| `spec-traceability` | opus | the full packet | the matrix, rebuilt independently; compound-rule clauses and orphans counted |
+| `spec-traceability` | sonnet | the full packet | the matrix, rebuilt independently; compound-rule clauses and orphans counted |
 | `spec-codebase-verifier` | sonnet | the full packet + the repo (git read-only) | every change / extend / already-landed claim against the real repo |
 | `spec-cold-reader` | sonnet | `spec.md` only + the repo | Section 8 as the implementer with no other context |
 
-Models are fixed in the agent definitions in [`.claude/agents/`](../../agents/). Pass `model` at dispatch only to raise a tier when retrying a failed reviewer. All three are read-only.
+Models are fixed in the agent definitions in [`.claude/agents/`](../../agents/). Every subagent is Sonnet (see `.claude/repo-profile.md` § Models); do not pass a higher `model` at dispatch. All three are read-only.
 
 ## Round procedure
 

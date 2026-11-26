@@ -9,6 +9,7 @@ import ImageLibrary from "./ImageLibrary";
 import ProfileEditor from "./ProfileEditor";
 import ExperienceEditor from "./ExperienceEditor";
 import ProjectsEditor from "./ProjectsEditor";
+import CertificationsEditor from "./CertificationsEditor";
 
 type PanelState =
   | { kind: "loading" }
@@ -158,8 +159,12 @@ export default function AdminPanel(): React.JSX.Element {
           {section && section.id === "projects" && (
             <ProjectsEditor savingOn={access === "owner"} />
           )}
+          {section && section.id === "certifications" && (
+            <CertificationsEditor savingOn={access === "owner"} />
+          )}
           {section &&
             section.id !== "images" &&
+            section.id !== "certifications" &&
             section.id !== "projects" &&
             section.id !== "profile" &&
             section.id !== "experience" && (

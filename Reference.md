@@ -141,6 +141,9 @@ AdminPanel ("use client", src/app/components/admin/AdminPanel.tsx)
     └── ProjectsEditor (src/app/components/admin/ProjectsEditor.tsx), the "Projects" menu item: ListEditor with
         title, short description, paragraphs, tech names, GitHub and demo links; new projects are added last
         (ListEditor's optional emptyText, listLabel and newPosition props)
+    └── CertificationsEditor (src/app/components/admin/CertificationsEditor.tsx), the "Certifications" menu
+        item: ListEditor (addLabel "Add certification") with name, credential link and badge (uploaded image or
+        repo path, via the profile's photoSelection)
 ```
 
 Styled with inline `var(--token)` values only; imports `src/lib/firebase` and `src/lib/admin`,

@@ -734,10 +734,10 @@ test.describe("manage-profile", () => {
 
   test("E2E-30: the Profile item shows the editor and the others keep their placeholders", async ({ page }) => {
     await ownerSession(page);
-    await nav(page).getByRole("button", { name: "Certifications", exact: true }).click();
-    await expect(page.getByText("Certifications editor is not available yet.")).toBeVisible();
+    await nav(page).getByRole("button", { name: "Tech stack", exact: true }).click();
+    await expect(page.getByText("Tech stack editor is not available yet.")).toBeVisible();
     await openProfile(page);
-    await expect(page.getByText("Certifications editor is not available yet.")).toHaveCount(0);
+    await expect(page.getByText("Tech stack editor is not available yet.")).toHaveCount(0);
     await expect(saveBtn(page)).toBeVisible();
     await nav(page).getByRole("button", { name: "Blog posts", exact: true }).click();
     await expect(page.getByText("Blog posts editor is not available yet.")).toBeVisible();

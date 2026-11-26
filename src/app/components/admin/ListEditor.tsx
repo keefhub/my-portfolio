@@ -34,6 +34,7 @@ export type ListEditorProps<T> = {
   renderFields: (props: ListFieldsProps<T>) => React.ReactNode;
   emptyText?: string;
   listLabel?: string;
+  addLabel?: string;
   newPosition?: (entries: readonly ListEntry<T>[]) => number;
 };
 
@@ -62,6 +63,7 @@ export default function ListEditor<T>(props: ListEditorProps<T>): React.JSX.Elem
   const { heading, savingOn, store, label, emptyContent, check, renderFields } = props;
   const emptyText = props.emptyText ?? LIST_MESSAGES.empty;
   const listLabel = props.listLabel ?? `${heading} entries`;
+  const addLabel = props.addLabel ?? "Add entry";
   const newPosition = props.newPosition ?? topPosition;
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [entries, setEntries] = useState<ListEntry<T>[]>([]);
@@ -338,7 +340,7 @@ export default function ListEditor<T>(props: ListEditorProps<T>): React.JSX.Elem
             disabled={busy}
             onClick={() => openForm({ mode: "add" }, emptyContent())}
           >
-            Add entry
+            {addLabel}
           </button>
         </div>
       </>

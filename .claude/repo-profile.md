@@ -21,7 +21,12 @@ here when it changes.
 | `npm run lint` | Every task, **compared against the baseline** | No new errors. It exits 1 today because of the known `ThemeProvider.tsx:25` `react-hooks/set-state-in-effect` failure — that one is pre-existing, so do not fix it as a drive-by and do not treat it as caused by the task |
 | `npm run build` | Every task touching `src/`, `content/`, `public/`, `next.config.ts`, `firebase.json` or `package.json`, and before a feature's plan is marked complete | Exits 0 |
 | `npx playwright test -g "E2E-03"` | Every task whose Verify cites an `E2E-` id. Needs a current `out/` — run `npm run build` first | Exits 0; the named tests report `✓` |
-| `npm run test:e2e` | Before a feature's plan is marked complete (builds, then runs every spec) | Exits 0, all tests pass |
+| `npx playwright test e2e/<slug>.spec.ts` | Before a feature's plan is marked complete — run after `npm run build`, instead of the full suite | Exits 0; every test in the feature's spec file passes |
+| `npm run test:e2e` | **Only before pushing to `develop`** (builds, then runs every spec). Never per task, never at feature completion, and **never in CI** | Exits 0, all tests pass |
+
+**The full e2e suite is not part of CI.** `.github/workflows/pipeline.yml` stays typecheck, lint
+and build only — do not add a Playwright step. The full suite is a local gate that whoever pushes
+to `develop` runs first; a failure blocks that push. Pushing a feature branch does not require it.
 
 **Playwright is the only test runner.** Don't add Vitest, Jest or another runner without asking
 the user first.

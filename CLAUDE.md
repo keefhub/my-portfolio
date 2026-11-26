@@ -21,7 +21,7 @@ summary; that one is the on-demand detail.
 | `npm run build`     | Production build **and static export** → `out/`      |
 | `npm run typecheck` | `tsc --noEmit`                                       |
 | `npm run lint`      | `eslint .`                                           |
-| `npm run test:e2e`  | Build, then Playwright specs in `e2e/` against `out/` |
+| `npm run test:e2e`  | Build, then all Playwright specs in `e2e/` against `out/` — run before pushing to `develop`, not in CI |
 
 **`npm run build` is the real verification gate.** It is the only step that runs
 the export, so it is the only step that catches server/client boundary
@@ -179,6 +179,7 @@ uses `docs/` instead and never touches them.
 - **Style against the CSS tokens in `globals.css`.** No raw colour values, no Tailwind `dark:` variants.
 - **Never `git add -A`, `git add .`, or `git commit -a`.** Stage explicit paths.
 - **Playwright is the only test runner.** Specs live in `e2e/` and run against the built `out/`. Don't add Vitest, Jest or another runner without asking.
+- **Full e2e (`npm run test:e2e`) must pass before pushing to `develop`.** It is a local gate only: never per task, never added to CI.
 - **Never push to `master`.** It deploys the live site; work lands on `develop`.
 
 ---

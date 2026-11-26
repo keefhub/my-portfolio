@@ -52,3 +52,16 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+=====================================================================
+Completion — manage-tech-stack
+Completed: 2026-11-26
+
+Built: tech stack rules and techCategories store (Task 1); four optional ListEditor members (rowDetails, deleteText, mode, saveNow) and the Tech stack screen with nested items (Task 2); five earlier placeholder tests moved to the Tech stack editor heading (Task 3).
+Deviations from the spec: None. D-25: the five earlier placeholder tests were red between the Task 2 commit (5665535) and the Task 3 commit (fcb0001); the build stayed green throughout.
+[auto] decisions: 19 lines tagged [auto] in spec.md. No auto-revisions.
+Feature review: PASS (Tasks 1 and 3, low tier, probed)
+Findings: edge-case | note | logged | saveNow guards on busy state, saveContent on busyRef; practically unreachable. Optional: check busyRef.current in saveNow.
+Final verification: npm run build ok; npx playwright test e2e/manage-tech-stack.spec.ts 20 passed, 0 failed.
+Manual checks pending: None.
+Follow-ups: the saveNow guard above. D-10: category moves are stored at once (story Assumption 8 said on Save); no scenario changes.
+=====================================================================

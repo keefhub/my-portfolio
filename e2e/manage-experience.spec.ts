@@ -820,14 +820,14 @@ test.describe("manage-experience", () => {
     await ownerSession(page);
     const MENU = ["Profile", "Experience", "Projects", "Certifications", "Tech stack", "Blog posts", "Images"];
     const h2 = page.getByRole("heading", { level: 2, name: "Experience" });
-    await nav(page).getByRole("button", { name: "Projects", exact: true }).click();
-    await expect(text(page, "Projects editor is not available yet.")).toBeVisible();
+    await nav(page).getByRole("button", { name: "Certifications", exact: true }).click();
+    await expect(text(page, "Certifications editor is not available yet.")).toBeVisible();
     await expect(h2).toHaveCount(0);
     await expect(nav(page).getByRole("button")).toHaveText(MENU);
     await nav(page).getByRole("button", { name: "Experience", exact: true }).click();
     await expect(h2).toBeVisible();
     await expect(btn(page, "Add entry")).toBeVisible();
-    await expect(text(page, "Projects editor is not available yet.")).toHaveCount(0);
+    await expect(text(page, "Certifications editor is not available yet.")).toHaveCount(0);
     await expect(nav(page).getByRole("button")).toHaveText(MENU);
     await nav(page).getByRole("button", { name: "Certifications", exact: true }).click();
     await expect(text(page, "Certifications editor is not available yet.")).toBeVisible();

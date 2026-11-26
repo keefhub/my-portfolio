@@ -32,6 +32,9 @@ export type ListEditorProps<T> = {
   emptyContent: () => T;
   check: (draft: T) => ListCheck<T>;
   renderFields: (props: ListFieldsProps<T>) => React.ReactNode;
+  emptyText?: string;
+  listLabel?: string;
+  newPosition?: (entries: readonly ListEntry<T>[]) => number;
 };
 
 type LoadState = "loading" | "failed" | "ready";
@@ -57,6 +60,9 @@ const itemStyle: React.CSSProperties = {
 
 export default function ListEditor<T>(props: ListEditorProps<T>): React.JSX.Element {
   const { heading, savingOn, store, label, emptyContent, check, renderFields } = props;
+  const emptyText = props.emptyText ?? LIST_MESSAGES.empty;
+  const listLabel = props.listLabel ?? `${heading} entries`;
+  const newPosition = props.newPosition ?? topPosition;
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [entries, setEntries] = useState<ListEntry<T>[]>([]);
   const [form, setForm] = useState<FormState | null>(null);
@@ -122,7 +128,7 @@ export default function ListEditor<T>(props: ListEditorProps<T>): React.JSX.Elem
     setMessage({ kind: "status", text: LIST_MESSAGES.saving });
     try {
       if (form.mode === "add") {
-        const position = topPosition(entries);
+        const position = newPosition(entries);
         const id = await store.add(content, position);
         if (!mounted.current) return;
         setEntries((cur) => sortEntries([...cur, { id, position, content }]));
@@ -240,10 +246,10 @@ export default function ListEditor<T>(props: ListEditorProps<T>): React.JSX.Elem
         {messageLine}
         {entries.length === 0 ? (
           <p role="status" style={statusStyle}>
-            {LIST_MESSAGES.empty}
+            {emptyText}
           </p>
         ) : (
-          <ul aria-label={`${heading} entries`} style={listStyle}>
+          <ul aria-label={listLabel} style={listStyle}>
             {entries.map((entry, index) => {
               const text = label(entry.content);
               return (

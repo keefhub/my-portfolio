@@ -138,6 +138,9 @@ AdminPanel ("use client", src/app/components/admin/AdminPanel.tsx)
         fields for one entry, inside the shared ListEditor<T> (ListEditor.tsx: list ordered by position, Add
         entry, Edit, Move up/down, inline Confirm delete, one write at a time) with shared form pieces in
         formParts.tsx. Projects, certifications and tech stack reuse ListEditor with their own fields.
+    └── ProjectsEditor (src/app/components/admin/ProjectsEditor.tsx), the "Projects" menu item: ListEditor with
+        title, short description, paragraphs, tech names, GitHub and demo links; new projects are added last
+        (ListEditor's optional emptyText, listLabel and newPosition props)
 ```
 
 Styled with inline `var(--token)` values only; imports `src/lib/firebase` and `src/lib/admin`,

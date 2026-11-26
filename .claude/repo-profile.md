@@ -8,7 +8,7 @@ fact here when it changes.
 ## Branches
 
 - Main branch: `develop` — the base that `/thermos` and the thermo-nuclear reviews diff against.
-  Flow is feature branch → `develop` (staging preview channel) → `master` (live site).
+  Flow is feature branch → `develop` (deploys the SIT site, sit.thegoldenpothos.xyz) → `master` (live site). Only `develop` may open a pull request into `master` (the `master-source` job in `pipeline.yml`).
 - Protected branches: `develop`, `main`, `master`. No agent commits, pushes or writes to them; work on
   a feature branch and open a pull request (the guard in `scripts/guard-bash.sh` enforces it).
 - Pull requests always target `develop`. The guard refuses a `gh pr create` without `--base develop`

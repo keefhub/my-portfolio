@@ -52,3 +52,16 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+=====================================================================
+Completion — manage-blog-posts
+Completed: 2026-11-26
+
+Built: blog post rules and a slug-keyed create-only store (Task 1); three optional ListEditor props and the Blog posts screen with markdown body and every frontmatter field, draft by default, AdminPanel placeholder branch removed (Task 2); six earlier placeholder tests moved to the Blog posts editor heading (Task 3).
+Deviations from the spec: None. D-22: the six earlier placeholder tests were red between the Task 2 commit (2a35908) and the Task 3 commit (22f094c); the build stayed green throughout. src/lib/firebase/list.ts gained one export (withTimeout), as the spec allows.
+[auto] decisions: 21 lines tagged [auto] in spec.md. No auto-revisions.
+Feature review: PASS (Task 3, low tier, checked)
+Findings: None.
+Final verification: npm run build ok; npx playwright test e2e/manage-blog-posts.spec.ts 23 passed, 0 failed.
+Manual checks pending: None.
+Follow-ups: D-11 a timed-out add may still commit; a retry then reports the slug clash, which the owner resolves by reloading the list.
+=====================================================================

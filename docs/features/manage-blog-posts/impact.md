@@ -74,7 +74,7 @@ Per `references/blast-radius.md`. Skipped entries: `src/lib/admin/blogposts.ts` 
 
 - No new rule, index or emulator setting: `firestore.rules:42-45` already covers `blogPosts`; the list is a whole-collection read sorted on the client, so no composite index.
 - Public pages cannot carry the editor: it is imported only by `AdminPanel.tsx`, which only `src/app/bright-warm-greenhouse/page.tsx` imports; E2E-23 checks it. No file under `src/app/blog/**` or `src/lib/blog/**` is touched, and no `@/lib/blog` import is added (invariant 3); the pure module imports `../blog/types` only (invariant 4 is satisfied by `formatDate`).
-- No `<img>`, no `next/image`, no new CSS token, no new package, no new variable, no `email` word in any new file.
+- No `<img>`, no `next/image`, no new CSS token, no new package, no new variable, no `email` word in any new file (`admin-sign-in` E2E-15 excludes the three profile files).
 - The preview is the next slice: no Preview control, no markdown library import here.
 
 **Before merge**

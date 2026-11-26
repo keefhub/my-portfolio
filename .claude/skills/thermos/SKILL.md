@@ -24,6 +24,6 @@ Adapted from Cursor's `thermos` plugin. Runs [`thermo-nuclear-review`](../thermo
    - `thermo-nuclear-code-quality-review-subagent` for structure, layering, design-system fit and file growth.
    Give each a prompt with `### Git / diff output` and `### Changed file contents` sections.
 4. **Synthesise.** Findings first, deduplicated. Weight findings both reviewers raise more heavily. Where they disagree, decide using your own reading of the code. Keep the summary short.
-5. **Verification.** Report the result of the verification commands in `.claude/repo-profile.md` (typecheck, lint, and the e2e suite) when the tree allows. Say plainly which `manual` checks in the feature's spec were not run by this review.
+5. **Verification.** Report the result of the verification commands in `.claude/repo-profile.md` (typecheck, lint, the build, and the feature's own e2e spec — not the full suite) when the tree allows. Say plainly which `manual` checks in the feature's spec were not run by this review.
 
 If the reviewers' summaries are already visible, don't restate them. Give the unified verdict, the highest-signal findings, and what remains uncertain.

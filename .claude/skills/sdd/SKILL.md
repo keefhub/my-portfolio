@@ -434,7 +434,7 @@ Go back to **Step 1** for the next unchecked task. When `PROGRESS.md` shows ever
 
 ## Completion
 
-1. Run the full e2e suite and the build exactly as `.claude/repo-profile.md` § Verification commands lists them — one after the other, never at once if the profile says they share an output directory. A feature's plan is not complete on a failing build or a failing test, including a test from an earlier feature: that is a regression this feature caused, so fix it as a task (fresh implementer, gates, commit) before completing.
-2. Append a `Completion` entry to `log.md` (What was built / Deviations from the spec / Follow-ups not in scope / Final verification, with the e2e pass counts / Manual checks still pending).
+1. Run the build and the feature's own e2e spec exactly as `.claude/repo-profile.md` § Verification commands lists them (the build, then `npx playwright test e2e/<slug>.spec.ts`) — one after the other, never at once if the profile says they share an output directory. Do **not** run the full e2e suite: this repo's profile deliberately limits the gate to the feature's own spec. A feature's plan is not complete on a failing build or a failing test in its spec file; fix it as a task (fresh implementer, gates, commit) before completing.
+2. Append a `Completion` entry to `log.md` (What was built / Deviations from the spec / Follow-ups not in scope / Final verification, with the feature spec's e2e pass counts / Manual checks still pending).
 3. Commit it: `git add <feature-dir>/log.md` and commit as `docs(<slug>): mark implementation complete`.
-4. Report to the user: total tasks completed, total commits made, the e2e result (tests passed per project or browser), every **manual check still pending** by `E2E-` id (these were never run and must not be reported as passed), and point them at `log.md` for the full history.
+4. Report to the user: total tasks completed, total commits made, the e2e result (the feature spec's tests passed per project or browser), every **manual check still pending** by `E2E-` id (these were never run and must not be reported as passed), and point them at `log.md` for the full history.

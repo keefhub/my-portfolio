@@ -53,6 +53,7 @@ Every route is prerendered at build time. There is no server at runtime.
 | `/rss.xml`      | [src/app/rss.xml/route.ts](src/app/rss.xml/route.ts)          |
 | `/sitemap.xml`  | [src/app/sitemap.ts](src/app/sitemap.ts)                      |
 | `/robots.txt`   | [src/app/robots.ts](src/app/robots.ts)                        |
+| `/bright-warm-greenhouse/` | [src/app/bright-warm-greenhouse/page.tsx](src/app/bright-warm-greenhouse/page.tsx) — owner-only admin panel (`AdminPanel`, client component); `noindex`, not in the sitemap or `robots.txt` |
 
 The landing page (`/`) is a multi-section scroll with anchor nav — Hero, About,
 Experience, TechStack, Projects, Certifications. It is not routed; the sections

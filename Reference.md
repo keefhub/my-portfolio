@@ -34,6 +34,7 @@ All routes are prerendered at build time — there is no server at runtime.
 | `/rss.xml`      | `src/app/rss.xml/route.ts`    | `dynamic = "force-static"`        |
 | `/sitemap.xml`  | `src/app/sitemap.ts`          | Next metadata route               |
 | `/robots.txt`   | `src/app/robots.ts`           | Next metadata route               |
+| `/bright-warm-greenhouse/` | `src/app/bright-warm-greenhouse/page.tsx` | Owner-only admin panel; `noindex`; renders `AdminPanel` |
 
 ### Landing Page (`/`)
 
@@ -117,6 +118,19 @@ RootLayout
         ├── Social links
         └── Back-to-top FAB (AnimatePresence, scroll threshold 400px)
 ```
+
+Admin panel (`/bright-warm-greenhouse/`, separate from the landing page):
+
+```
+AdminPanel ("use client", src/app/components/admin/AdminPanel.tsx)
+├── loading screen (first render, avoids hydration mismatch)
+├── signed-out: "Sign in with Google" (Firebase Auth popup) + failure alert
+├── signed-in, not allowed: message, own user ID, Sign out
+└── signed-in, owner (or owner ID still a placeholder): section menu, user ID line, Sign out
+```
+
+Styled with inline `var(--token)` values only; imports `src/lib/firebase` and `src/lib/admin`,
+which no public page may import.
 
 ### Navigation Flow
 

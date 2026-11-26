@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { execFileSync, spawnSync } from "node:child_process";
 import { isEmulatorHost } from "../src/lib/firebase/config";
 import { accessFor } from "../src/lib/admin/owner";
 
@@ -27,6 +28,7 @@ async function signIn(page: Page): Promise<void> {
   const popupPromise = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Sign in with Google" }).click();
   const popup = await popupPromise;
+  await popup.waitForLoadState("load");
   await popup.locator("#add-account-button").click();
   await popup.locator("#autogen-button").click();
   await popup.locator("#sign-in").click();
@@ -114,6 +116,7 @@ test("E2E-05: a not-allowed account stays signed in after reload until it signs 
   await setOwnerOverride(page, OTHER_UID);
   await page.goto(PANEL);
   await signIn(page);
+  await expect(page.getByText(NOT_ALLOWED)).toBeVisible();
   await page.reload();
   await expect(page.getByText(NOT_ALLOWED)).toBeVisible();
   await expect(btn(page, "Sign out")).toBeVisible();
@@ -308,3 +311,26 @@ test.use({ launchOptions: { args: ["--host-resolver-rules=MAP admin.example.test
     expect(hosts).not.toContain("127.0.0.1:9099");
   });
 }
+
+const SRC_PATHS = ["src/lib/firebase", "src/lib/admin", "src/app/components/admin", "src/app/bright-warm-greenhouse"];
+
+test("E2E-15: typecheck passes and no source mentions email", () => {
+  test.setTimeout(180_000);
+  expect(() => execFileSync("npm", ["run", "typecheck"], { cwd: process.cwd(), stdio: "pipe" })).not.toThrow();
+  const grep = spawnSync("git", ["grep", "--untracked", "-n", "-i", "email", "--", ...SRC_PATHS], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+  });
+  expect(grep.stdout).toBe("");
+  expect(grep.status).toBe(1);
+});
+
+test("E2E-16: no source reads process.env", () => {
+  test.setTimeout(60_000);
+  const grep = spawnSync("git", ["grep", "--untracked", "-n", "process.env", "--", ...SRC_PATHS], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+  });
+  expect(grep.stdout).toBe("");
+  expect(grep.status).toBe(1);
+});

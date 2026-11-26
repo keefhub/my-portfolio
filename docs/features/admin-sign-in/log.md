@@ -54,3 +54,17 @@ Review: risk reviewer PASS (review 1)
 Findings: nit | note | logged | E2E-17 test.use launchOptions is file-wide (Playwright limitation); no fix needed
 Note: an earlier wip(admin-sign-in) commit (93ec78b) on the feature branch holds a pre-gate copy of these files; this commit supersedes it.
 =====================================================================
+=====================================================================
+Completion — admin-sign-in
+Completed: 2026-11-26
+
+Built: Firebase packages and Auth emulator wired into Playwright (Task 1); Firebase client, owner decision with deny-all placeholder, section list (Task 2); the static owner-only panel at /bright-warm-greenhouse/ with loading, signed-out, not-allowed and owner screens, noindex, tokens only (Task 3).
+Deviations from the spec: None in app code. E2E-15/16 (compiler rows) also exist as titled Playwright tests running the row's exact commands, because the gate requires a titled test per E2E id. E2E-17 launchOptions are file-wide (Playwright limitation).
+[auto] decisions: 24 lines tagged [auto] in spec.md, including D-28 and D-29 added by the two auto-revisions (test-harness race fixes).
+Feature review: PASS
+Findings: nit | note | logged | package-lock.json churn checked: only transitive hasown 2.0.2->2.0.4 and js-yaml 4.1.0->4.3.2 moved; no direct dependency changed
+Findings: nit | note | logged | E2E-17 launchOptions file-wide (Playwright limitation)
+Final verification: npm run build ok; npx playwright test e2e/admin-sign-in.spec.ts 19 passed, 0 failed.
+Manual checks pending: None in this spec. Human-only (intent §7): a real Google sign-in on the live site; pasting the real Firebase web apiKey/appId (placeholders committed, OQ-1); filling the owner user ID.
+Follow-ups: OQ-2 (owner ID in two places: OWNER_UID constant and the rules) is for admin-owner-only-access. The Auth emulator widget loads a script from unpkg.com, refused by the sandbox proxy; P waits for the popup load event so tests pass regardless.
+=====================================================================

@@ -3,22 +3,18 @@ name: CI/CD Pipeline
 # feature/* -> develop -> master
 #   - Pull request into develop or master: CI only (typecheck, lint, build).
 #   - Pull request into master: also fails unless it comes from develop in this repository.
-#   - Push to develop: CI, then deploy to the SIT site (sit.thegoldenpothos.xyz).
-#   - Push to master:  CI, then deploy to the live production site (thegoldenpothos.xyz), then the rules.
+#   - Push to develop: CI, then deploy to the SIT project (thegoldenpothos-sit, sit.thegoldenpothos.xyz).
+#   - Push to master:  CI, then deploy to the production project (thegoldenpothos-5b3a1,
+#     thegoldenpothos.xyz), then the rules.
 #
-# SIT is a second Hosting site in the same Firebase project, not a preview channel: preview channels
-# cannot carry a custom domain. Custom domains are attached to each site in the Firebase console.
-# A workflow cannot stop a direct push to master; the branch ruleset on GitHub does that.
+# SIT and production are separate Firebase projects (aliases in .firebaserc). Each deploy job runs in a
+# GitHub environment (sit, production) that holds its own FIREBASE_SERVICE_ACCOUNT, the key for that
+# project only. A workflow cannot stop a direct push to master; the branch ruleset on GitHub does that.
 on:
   push:
     branches: [develop, master]
   pull_request:
     branches: [develop, master]
-
-env:
-  # Hosting site ID that sit.thegoldenpothos.xyz is attached to. Production deploys to the project's
-  # default site (its ID is the project ID), so it needs no setting.
-  SIT_SITE_ID: thegoldenpothos-sit
 
 concurrency:
   group: pipeline-${{ github.ref }}
@@ -91,18 +87,11 @@ jobs:
           name: site-export
           path: out/
 
-      # The committed firebase.json targets the default (production) site. Point this run's copy at SIT.
-      - name: Point the hosting config at the SIT site
-        run: |
-          jq --arg site "$SIT_SITE_ID" '.hosting.site = $site' firebase.json > "$RUNNER_TEMP/firebase.json"
-          mv "$RUNNER_TEMP/firebase.json" firebase.json
-          jq '.hosting.site' firebase.json
-
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: thegoldenpothos-5b3a1
+          projectId: thegoldenpothos-sit
           channelId: live
 
   deploy-production:

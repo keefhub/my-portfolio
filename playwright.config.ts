@@ -28,8 +28,8 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: "npx firebase emulators:start --only auth,firestore --project thegoldenpothos-5b3a1 --non-interactive",
-      url: "http://127.0.0.1:8080/",
+      command: "npx firebase emulators:start --only auth,firestore,storage --project thegoldenpothos-5b3a1 --non-interactive",
+      url: "http://127.0.0.1:9199/v0/b/thegoldenpothos-5b3a1.firebasestorage.app/o",
       reuseExistingServer: !process.env.CI,
       timeout: 120000,
       stdout: "ignore",

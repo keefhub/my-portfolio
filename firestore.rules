@@ -44,6 +44,10 @@ service cloud.firestore {
       allow create, update, delete: if isOwner();
     }
 
+    match /images/{id} {
+      allow read, create, update, delete: if isOwner();
+    }
+
     // Every other path is refused by default.
   }
 }

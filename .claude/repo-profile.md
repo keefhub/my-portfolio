@@ -40,7 +40,7 @@ fact here when it changes.
 | `npm run check:spec -- <slug>` | Once per spec, before the review packet is frozen (`/spec-this` Phase 10, `/enhance-this-spec`) (`scripts/check-spec.sh`) | Last line `SPEC-LINT: PASS`; exits 0 on `PASS` |
 
 **There is no unit-test framework.** Playwright is the only test runner. Don't add Vitest, Jest or
-another runner without asking the user first. There is no database, so no test database. The Firestore rules are tested against the local Firestore emulator through its REST endpoints.
+another runner without asking the user first. There is no database, so no test database. The Firestore and Storage rules are tested against the local emulators through their REST endpoints.
 
 **Only the feature's own spec runs, not the full suite.** The full suite takes too long to be a
 gate. Wherever a skill says "the suite" or "the e2e suite" at completion, it means the build plus
@@ -61,7 +61,7 @@ against the real static export. `playwright.config.ts` serves `out/` with `http-
 `http://127.0.0.1:3100` (exact-match files and trailing-slash directory indexes, like Firebase
 Hosting; no SPA fallback). **`out/` must be current**: run `npm run build` first. It covers what the
 compiler and linter cannot: hydration and console errors, rendered content, routing and
-trailing-slash URLs, theme toggle and FOUC, scroll-spy, the mobile drawer, layout at set viewports. Playwright also starts the Firebase Auth and Firestore emulators (`firebase emulators:start --only auth,firestore`, ports 9099 and 8080; the Firestore one needs Java) for the admin panel specs.
+trailing-slash URLs, theme toggle and FOUC, scroll-spy, the mobile drawer, layout at set viewports. Playwright also starts the Firebase Auth, Firestore and Storage emulators (`firebase emulators:start --only auth,firestore,storage`, ports 9099, 8080 and 9199; the Firestore and Storage ones need Java) for the admin panel specs.
 
 **Test file conventions:**
 

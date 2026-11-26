@@ -129,6 +129,8 @@ page, layout or server component: the public site must load no Firebase code.
 from the owner's user ID (`ownerUid()`, also `OWNER_UID` in `src/lib/admin/owner.ts`; both ship as the
 deny-all placeholder `REPLACE_WITH_OWNER_UID`). The panel being hidden protects nothing. Rules are
 tested against the Firestore emulator (Java) in `e2e/` and deployed only by the live deploy job.
+[storage.rules](storage.rules) does the same for uploaded images under `images/`: public `get`, no
+`list`, owner-only create and delete, at most 5 MB, PNG/JPEG/WebP/SVG only; Storage needs the Blaze plan.
 
 **Metadata** is centralized in [src/app/layout.tsx](src/app/layout.tsx) with a
 `%s | thegoldenpothos` title template. Blog posts add their own via

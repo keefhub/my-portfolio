@@ -248,16 +248,16 @@ test.describe("owner-only database rules", () => {
   test("E2E-12: paths that are not named in the rules are refused to everyone", async () => {
     const A = await signUp();
     await R(A.uid);
-    await seed("images/e2e-12", { name: str("Before") });
+    await seed("gallery/e2e-12", { name: str("Before") });
     await seed("notes/e2e-12", { name: str("Before") });
     const statuses: number[] = [];
-    for (const path of ["images/e2e-12", "notes/e2e-12"]) {
+    for (const path of ["gallery/e2e-12", "notes/e2e-12"]) {
       statuses.push((await change(path, "Defaced", A)).status);
     }
-    for (const path of ["images/e2e-12", "notes/e2e-12"]) {
+    for (const path of ["gallery/e2e-12", "notes/e2e-12"]) {
       statuses.push((await read(path, A)).status);
     }
-    for (const path of ["images/e2e-12", "notes/e2e-12"]) {
+    for (const path of ["gallery/e2e-12", "notes/e2e-12"]) {
       statuses.push((await read(path)).status);
     }
     expect(statuses).toEqual([403, 403, 403, 403, 403, 403]);
@@ -307,7 +307,7 @@ test("E2E-22: firebase.json points Firestore at the rules and the emulator", () 
   expect(config.hosting?.public).toBe("out");
   expect(config.hosting?.trailingSlash).toBe(true);
   expect(config.hosting?.cleanUrls).toBe(false);
-  const allowed = ["hosting", "firestore", "emulators"];
+  const allowed = ["hosting", "firestore", "storage", "emulators"];
   for (const key of Object.keys(config)) expect(allowed).toContain(key);
   for (const key of ["functions", "extensions", "database", "dataconnect", "remoteconfig", "apphosting"]) {
     expect(config).not.toHaveProperty(key);
@@ -341,7 +341,7 @@ test("E2E-21: the live deploy publishes the rules after hosting and uses no new 
   expect(secrets).toEqual(new Set(["GITHUB_TOKEN", "FIREBASE_SERVICE_ACCOUNT"]));
 
   expect(pkg.scripts["deploy:rules"]).toBe(
-    "firebase deploy --only firestore:rules --project thegoldenpothos-5b3a1",
+    "firebase deploy --only firestore:rules,storage --project thegoldenpothos-5b3a1",
   );
   expect(pkg.scripts.deploy).toBe(
     "npm run build && firebase deploy --only hosting --project thegoldenpothos-5b3a1",

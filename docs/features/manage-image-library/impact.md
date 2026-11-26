@@ -17,7 +17,7 @@ Domain: file storage rules, the image-list database rule, their local stand-ins,
 | `src/lib/firebase/config.ts` (`firebaseWebConfig`, `AUTH_EMULATOR_URL`, `isEmulatorHost`), `client.ts` (`getFirebaseAuth`), `auth.ts` | exists | opened |
 | `src/lib/admin/owner.ts` (`OWNER_UID_PLACEHOLDER`, `OWNER_UID`, `getOwnerUid`, `accessFor`), `sections.ts` (`ADMIN_SECTIONS`, six items) | exists | opened |
 | `src/app/components/admin/AdminPanel.tsx` (menu, `selected`, placeholder line, `SavingOffNotice`, `UserIdLine`), `SavingOffNotice.tsx` | exists | opened |
-| `e2e/admin-sign-in.spec.ts` (`SECTIONS` line 22, `toHaveCount(6)` line 172, loop bound line 173), `e2e/admin-owner-only-access.spec.ts` (`SECTIONS` line 354, `STEPS`, the `images/e2e-12` row line 248, `deploy:rules` literal, allowed-key list), `e2e/site-smoke.spec.ts` | exists | opened; `git ls-files e2e` |
+| `e2e/admin-sign-in.spec.ts` (`SECTIONS` line 22, `toHaveCount(6)` line 172, loop bound line 173), `e2e/admin-owner-only-access.spec.ts` (`SECTIONS` line 354, `STEPS`, the `images/e2e-12` test at line 248 (`images` at lines 251, 254, 257, 260), `deploy:rules` literal, allowed-key list), `e2e/site-smoke.spec.ts` | exists | opened; `git ls-files e2e` |
 | `storage.rules`, `src/lib/admin/images.ts`, `src/lib/firebase/images.ts`, `src/app/components/admin/ImageLibrary.tsx`, `e2e/manage-image-library.spec.ts` | missing | `git ls-files` prints nothing for each |
 | `firebase/firestore` and `firebase/storage` entry points of the installed `firebase` | exists | `ls node_modules/firebase/storage` lists `dist` and `package.json` |
 | Storage emulator rules runtime (`cloud-storage-rules-runtime-v1.1.3.jar`) and Firestore emulator jar | exists | `ls ~/.cache/firebase/emulators/`; Java 21 installed |

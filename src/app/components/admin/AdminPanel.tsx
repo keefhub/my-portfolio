@@ -11,6 +11,7 @@ import ExperienceEditor from "./ExperienceEditor";
 import ProjectsEditor from "./ProjectsEditor";
 import CertificationsEditor from "./CertificationsEditor";
 import TechStackEditor from "./TechStackEditor";
+import BlogPostsEditor from "./BlogPostsEditor";
 
 type PanelState =
   | { kind: "loading" }
@@ -166,16 +167,8 @@ export default function AdminPanel(): React.JSX.Element {
           {section && section.id === "tech-stack" && (
             <TechStackEditor savingOn={access === "owner"} />
           )}
-          {section &&
-            section.id !== "images" &&
-            section.id !== "tech-stack" &&
-            section.id !== "certifications" &&
-            section.id !== "projects" &&
-            section.id !== "profile" &&
-            section.id !== "experience" && (
-            <p role="status" style={{ margin: 0, color: "var(--muted)" }}>
-              {section.label} editor is not available yet.
-            </p>
+          {section && section.id === "blog-posts" && (
+            <BlogPostsEditor savingOn={access === "owner"} />
           )}
           {access === "unfilled" && (
             <>

@@ -147,6 +147,10 @@ AdminPanel ("use client", src/app/components/admin/AdminPanel.tsx)
     └── TechStackEditor (src/app/components/admin/TechStackEditor.tsx), the "Tech stack" menu item: ListEditor of
         categories (rowDetails lists each item), each with items {name, icon} edited in the form; item moves are
         stored on Save, a confirmed item removal in an edit form saves at once (ListEditor's saveNow)
+    └── BlogPostsEditor (src/app/components/admin/BlogPostsEditor.tsx), the "Blog posts" menu item: ListEditor
+        (not movable; ordered by date, newest first) over a slug-keyed create-only store; markdown body, title,
+        excerpt, date, tags, Draft/Published, featured, cover image (uploaded or path) and alt text; a taken slug
+        is refused and nothing is overwritten
 ```
 
 Styled with inline `var(--token)` values only; imports `src/lib/firebase` and `src/lib/admin`,

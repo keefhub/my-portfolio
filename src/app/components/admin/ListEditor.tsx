@@ -40,6 +40,9 @@ export type ListEditorProps<T> = {
   newPosition?: (entries: readonly ListEntry<T>[]) => number;
   rowDetails?: (content: T) => React.ReactNode;
   deleteText?: (content: T) => string;
+  movable?: boolean;
+  order?: (entries: readonly ListEntry<T>[]) => ListEntry<T>[];
+  saveFailure?: (error: unknown) => string | null;
 };
 
 type LoadState = "loading" | "failed" | "ready";
@@ -76,6 +79,8 @@ export default function ListEditor<T>(props: ListEditorProps<T>): React.JSX.Elem
   const listLabel = props.listLabel ?? `${heading} entries`;
   const addLabel = props.addLabel ?? "Add entry";
   const newPosition = props.newPosition ?? topPosition;
+  const movable = props.movable ?? true;
+  const { order, saveFailure } = props;
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [entries, setEntries] = useState<ListEntry<T>[]>([]);
   const [form, setForm] = useState<FormState | null>(null);
@@ -155,19 +160,26 @@ export default function ListEditor<T>(props: ListEditorProps<T>): React.JSX.Elem
         const position = newPosition(entries);
         const id = await store.add(content, position);
         if (!mounted.current) return;
-        setEntries((cur) => sortEntries([...cur, { id, position, content }]));
+        setEntries((cur) => {
+          const added = [...cur, { id, position, content }];
+          return order ? order(added) : sortEntries(added);
+        });
       } else {
         const id = form.id;
         await store.update(id, content);
         if (!mounted.current) return;
-        setEntries((cur) => cur.map((e) => (e.id === id ? { ...e, content } : e)));
+        setEntries((cur) => {
+          const replaced = cur.map((e) => (e.id === id ? { ...e, content } : e));
+          return order ? order(replaced) : replaced;
+        });
       }
       setDraft(null);
       setForm(null);
       setMessage({ kind: "status", text: LIST_MESSAGES.saved });
-    } catch {
+    } catch (error) {
       if (!mounted.current) return;
-      setMessage({ kind: "alert", text: failureMessage("save", savingOn) });
+      const custom = saveFailure ? saveFailure(error) : null;
+      setMessage({ kind: "alert", text: custom ?? failureMessage("save", savingOn) });
     } finally {
       busyRef.current = false;
       if (mounted.current) setBusy(false);
@@ -303,7 +315,7 @@ export default function ListEditor<T>(props: ListEditorProps<T>): React.JSX.Elem
                     >
                       Edit
                     </button>
-                    {index > 0 && (
+                    {movable && index > 0 && (
                       <button
                         type="button"
                         style={buttonStyle}
@@ -313,7 +325,7 @@ export default function ListEditor<T>(props: ListEditorProps<T>): React.JSX.Elem
                         Move up
                       </button>
                     )}
-                    {index < entries.length - 1 && (
+                    {movable && index < entries.length - 1 && (
                       <button
                         type="button"
                         style={buttonStyle}

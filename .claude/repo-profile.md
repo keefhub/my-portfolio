@@ -13,6 +13,17 @@ here when it changes.
   `ci: …`. Feature commits carry the feature slug as scope so progress can be read from
   `git log --grep="^feat(<slug>)"`.
 
+## Models
+
+- **Orchestrator: Opus.** The main session that runs `/feature-discovery`, `/feature-spec`, `/sdd`
+  and `/thermos` — it holds the plan, talks to the user, makes the gate decisions and writes the
+  commits — runs on Opus.
+- **Subagents: Sonnet.** Every subagent the pipeline dispatches runs on Sonnet: `/sdd`
+  implementers, reviewers and fix agents (`general-purpose`), the `/feature-spec` Explore pass,
+  the three `/spec-review` reviewers and the two `/thermos` reviewers. The agent definitions in
+  `.claude/agents/` set `model: sonnet`, and every dispatch the skills write passes
+  `model: sonnet`. Don't raise a subagent's tier — retry or re-scope it instead.
+
 ## Verification commands
 
 | Command | Applies | Success signal |

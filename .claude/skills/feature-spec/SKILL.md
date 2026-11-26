@@ -86,7 +86,7 @@ Extract what the feature must _do_ and _why_, independent of how. Produce **Purp
 
 ### Phase 2 — Discovery
 
-Delegate to an **Explore** subagent (`subagent_type: Explore`), foreground. Give it the Phase 1 business rules (not the whole story) and the domain entry point, and tell it to return **only** a compact domain map: the domain, the verified files, which exist vs. are missing, and unbuilt dependencies — one line each, with evidence (a command and its result, or `file:line`). It must not paste file contents. You use that map in Phase 3; you do not re-explore from scratch, but you do spot-check any line a later phase leans on.
+Delegate to an **Explore** subagent (`subagent_type: Explore`, `model: sonnet`), foreground. Give it the Phase 1 business rules (not the whole story) and the domain entry point, and tell it to return **only** a compact domain map: the domain, the verified files, which exist vs. are missing, and unbuilt dependencies — one line each, with evidence (a command and its result, or `file:line`). It must not paste file contents. You use that map in Phase 3; you do not re-explore from scratch, but you do spot-check any line a later phase leans on.
 
 ### Phase 3 — Impact analysis (SA)
 

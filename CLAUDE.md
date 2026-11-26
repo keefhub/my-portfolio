@@ -181,6 +181,7 @@ uses `docs/` instead and never touches them.
 - **Never `git add -A`, `git add .`, or `git commit -a`.** Stage explicit paths.
 - **Playwright is the only test runner.** Specs live in `e2e/` and run against the built `out/`. Don't add Vitest, Jest or another runner without asking.
 - **Run only the feature's own e2e spec** (`npx playwright test e2e/<slug>.spec.ts`) — at feature completion and before pushing to `develop`. Never the full suite as a gate (too slow), and never e2e in CI.
+- **Models: orchestrator Opus, subagents Sonnet.** Every dispatched subagent passes `model: sonnet`; don't raise a subagent's tier. See the profile's Models section.
 - **Never push to `master`.** It deploys the live site; work lands on `develop`.
 
 ---

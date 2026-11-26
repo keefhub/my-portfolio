@@ -120,7 +120,7 @@ If any of these is false, **stop and tell the user** what's inconsistent — do 
 
 ### Step 2 — Implement (fresh subagent)
 
-Dispatch one `Agent` call, `subagent_type: general-purpose`, run in the foreground (`run_in_background: false` — the next step depends on its result). Build the prompt from this template, with everything in `{{...}}` pasted in literally:
+Dispatch one `Agent` call, `subagent_type: general-purpose`, `model: sonnet`, run in the foreground (`run_in_background: false` — the next step depends on its result). Build the prompt from this template, with everything in `{{...}}` pasted in literally:
 
 ```
 You are implementing exactly one step from a feature's implementation plan.
@@ -223,7 +223,7 @@ If your reading of the repo disagrees with the diff above, re-read against `git 
 before reporting — the working tree may contain changes that are not this task's.
 ```
 
-Dispatch **both** of the following in the **same message** (two `Agent` tool calls, `subagent_type: general-purpose`, `run_in_background: false`) so they run in parallel and you block on both before deciding.
+Dispatch **both** of the following in the **same message** (two `Agent` tool calls, `subagent_type: general-purpose`, `model: sonnet`, `run_in_background: false`) so they run in parallel and you block on both before deciding.
 
 **Gate A — Spec/requirements reviewer:**
 
@@ -322,7 +322,7 @@ covers that. Do not edit any files.
 ### Step 4 — Gate decision
 
 - **Both PASS** (or the single combined gate PASSes, for a one-gate task) → go to Step 5 (commit).
-- **One or both FAIL** (or the combined gate FAILs) → dispatch a fresh fix subagent (`general-purpose`, foreground) scoped to only the failing findings:
+- **One or both FAIL** (or the combined gate FAILs) → dispatch a fresh fix subagent (`general-purpose`, `model: sonnet`, foreground) scoped to only the failing findings:
 
 ```
 A reviewer found the following issues in a task you're about to fix. Fix

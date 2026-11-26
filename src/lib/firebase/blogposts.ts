@@ -52,9 +52,6 @@ export const blogPostsStore: ListStore<BlogPostContent> = {
     const ref = doc(getFirebaseDb(), BLOG_POSTS_COLLECTION, id);
     await withTimeout(updateDoc(ref, { ...blogPostToData(content), updatedAt: Date.now() }));
   },
-  async reorder() {
-    // Posts are ordered by date, so there is nothing to write.
-  },
   async remove(id) {
     await withTimeout(deleteDoc(doc(getFirebaseDb(), BLOG_POSTS_COLLECTION, id)));
   },

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "./components/ThemeProvider";
+import { SITE_URL } from "@/lib/site";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,14 +34,14 @@ export const metadata: Metadata = {
     "Next.js",
     "ASP.NET",
   ],
-  authors: [{ name: "Keith Lim", url: "https://thegoldenpothos.dev" }],
+  authors: [{ name: "Keith Lim", url: SITE_URL }],
   creator: "Keith Lim",
-  metadataBase: new URL("https://thegoldenpothos.dev"),
+  metadataBase: new URL(SITE_URL),
   openGraph: {
     title: "thegoldenpothos — Keith Lim",
     description:
       "Software engineer, plant lover, coffee enthusiast. Explore my portfolio.",
-    url: "https://thegoldenpothos.dev",
+    url: SITE_URL,
     siteName: "thegoldenpothos",
     locale: "en_SG",
     type: "website",

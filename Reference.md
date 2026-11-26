@@ -8,7 +8,7 @@
 | Key           | Value                                                   |
 | ------------- | ------------------------------------------------------- |
 | **Domain**    | Portfolio / resume site                                 |
-| **URL**       | `https://thegoldenpothos.dev`                           |
+| **URL**       | `https://thegoldenpothos.xyz`                           |
 | **Framework** | Next.js 16.2.6 (App Router) + React 19                  |
 | **Styling**   | Tailwind CSS v4 + CSS custom properties (design tokens) |
 | **Animation** | Framer Motion 12.7                                      |

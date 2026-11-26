@@ -4,7 +4,7 @@
  * Used for canonical URLs, Open Graph URLs, RSS links, and the sitemap.
  * Change it here only — never hardcode the origin in a page or component.
  */
-export const SITE_URL = "https://thegoldenpothos.dev";
+export const SITE_URL = "https://thegoldenpothos.xyz";
 
 export const SITE_NAME = "thegoldenpothos";
 

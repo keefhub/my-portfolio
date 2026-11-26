@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Personal portfolio + blog for Keith Lim — `https://thegoldenpothos.dev`.
+Personal portfolio + blog for Keith Lim — `https://thegoldenpothos.xyz`.
 
 Next.js 16.2.6 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS v4 ·
 Framer Motion · Firebase JS SDK (admin panel only) · **statically exported** to `out/` and served by Firebase Hosting.
@@ -96,7 +96,7 @@ re-render and React reports a hydration mismatch.
 
 **5. The origin lives in one constant.**
 `SITE_URL` in [src/lib/site.ts](src/lib/site.ts). Build absolute URLs with
-`absoluteUrl()`. Never hardcode `https://thegoldenpothos.dev` in a page or
+`absoluteUrl()`. Never hardcode `https://thegoldenpothos.xyz` in a page or
 component.
 
 **6. Images are unoptimized.**

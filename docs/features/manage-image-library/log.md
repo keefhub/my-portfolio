@@ -53,3 +53,18 @@ Tier: high (Step Risk: high; large-diff; test-passed-before-change; implementer-
 Review: risk reviewer FAIL (next/image made previews lazy, against D-28) → fixed with loading="eager" → fresh risk reviewer PASS (review 2)
 Findings: conformance | blocking | fixed | preview images lazy under next/image; now loading="eager"
 =====================================================================
+=====================================================================
+Completion — manage-image-library
+Completed: 2026-11-26
+
+Built: storage.rules and an owner-only images collection rule, Storage emulator in Playwright, deploy:rules covering storage (Task 1); pure image rules and Firestore/Storage client modules with upload cleanup and tolerant delete (Task 2); the Images screen as the seventh menu item with upload, newest-first list, copy address and inline confirm delete, the reworded saving-off notice, and earlier specs moved to seven menu items (Task 3).
+Deviations from the spec: preview uses next/image (unoptimized, loading="eager") instead of an eslint-disabled raw <img>; same rendered behaviour. Locked E2E-36 corrected by a fresh test author (positional check contradicted D-12/E2E-47), not weakened.
+[auto] decisions: 23 lines tagged [auto] in spec.md. No auto-revisions.
+Feature review: PASS
+Findings: edge-case | note | logged | formatBytes(1048575) shows "1024 KB" instead of "1 MB" (cosmetic)
+Findings: conformance | note | logged | next/image instead of raw <img>; matches D-28
+Findings: edge-case | note | logged | a Firestore write while truly offline queues and the upload waits (accepted in D-22)
+Final verification: npm run build ok; npx playwright test e2e/manage-image-library.spec.ts 54 passed, 0 failed.
+Manual checks pending: None in this spec. Human-only (intent §7): upgrade to Blaze, set a budget alert, create the default Storage bucket; confirm storageBucket thegoldenpothos-5b3a1.firebasestorage.app (OQ-1).
+Follow-ups: run all admin specs with --workers=1 when running several files together (OQ-3, shared emulators).
+=====================================================================

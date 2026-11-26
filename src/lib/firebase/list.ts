@@ -20,7 +20,7 @@ export type ListStore<T> = {
   remove(id: string): Promise<void>;
 };
 
-async function withTimeout<R>(write: Promise<R>): Promise<R> {
+export async function withTimeout<R>(write: Promise<R>): Promise<R> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error("The write timed out.")), LIST_TIMEOUT_MS);

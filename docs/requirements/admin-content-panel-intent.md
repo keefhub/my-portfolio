@@ -7,7 +7,7 @@
 ## 1. Goal
 
 The owner can change every piece of the portfolio's content (profile and about text, experience,
-projects, certifications, tech stack and blog posts written in markdown) from a private panel on the
+projects, certifications, tech stack, blog posts written in markdown, and the images they use) from a private panel on the
 site, signed in with their own Google account, without touching code. The content is kept in a cloud
 database that only the owner can change. This is phase 1 of two: the public site keeps showing what is
 in the code and the repo's markdown files until phase 2 switches it to read from the database.
@@ -43,9 +43,12 @@ or a text fix) in the panel in under about five minutes, without opening the cod
 - An unpublished (draft) blog post can be read by the owner only.
 - Deleting a record or post asks for confirmation first. Once confirmed, the delete is permanent; there
   is no trash or undo.
-- Images are not uploaded through the panel. A record refers to an image file already in the site's
-  repo by its path, as the site does today.
-- The site stays on Firebase's free plan.
+- The owner can upload images through the panel (PNG, JPEG, WebP or SVG, at most 5 MB each). Anyone
+  may view an uploaded image; only the owner may upload or delete one. A record's image is either an
+  uploaded image or a file already in the site's repo, given by its path as today.
+- The project moves to Firebase's pay-as-you-go (Blaze) plan so that image storage is available, and
+  usage is meant to stay inside the plan's free allowance. (Owner ruling, 2026-11-26, reversing the
+  earlier "stay on the free plan" answer.)
 - The panel's address is `/bright-warm-greenhouse/`, and it is not advertised to search engines.
 
 ### 2.5 What happens when it goes wrong
@@ -62,7 +65,7 @@ The owner's worries, all of which must never happen:
 
 - Any change to what visitors see on the public site. Moving the site onto the database is phase 2.
 - Other users, invited editors, or permission levels.
-- Uploading or storing image files through the panel.
+- Image editing, resizing, cropping or format conversion. An uploaded image is stored as given.
 
 ## 4. Pre-approved decisions
 
@@ -71,8 +74,8 @@ The owner's worries, all of which must never happen:
 | New dependency | `firebase` (the client library), loaded only by the panel | The panel signs in and reads and writes the database from the browser, because the site has no server | A backend server or Cloud Functions: ruled out to keep the site a static export (OVERVIEW §2.1) | A larger script download on the panel page only; the public pages load none of it |
 | New dependency | `firebase-tools`, development only | Runs local stand-ins for sign-in and the database so the tests never touch the live project, and deploys the security rules | Testing against the live project: would need real credentials and could change real content | The local stand-ins need Java on the machine running the tests |
 | New environment variable | None. The Firebase web configuration is committed in the repo | It identifies the project to the browser and is public by design; it is not a secret | An environment variable: adds set-up for no security gain | None |
-| External service or provider | Firebase Authentication with Google sign-in, and Cloud Firestore, both on the free Spark plan in the existing project `thegoldenpothos-5b3a1` | Sign-in and the content database | Supabase: a second vendor next to Firebase Hosting. Email and password sign-in: a password to manage and recover. Firebase Storage: needs the pay-as-you-go plan | Content now lives in a cloud service as well as in the repo; the two copies can drift until phase 2 |
-| Data store, sign-in or hosting change | Database security rules kept in the repo, and the live deploy job also deploys them. Hosting configuration gains the rules and local stand-in entries; the `trailingSlash` setting and the site's hosting rules stay as they are | The rules are what actually stop anyone but the owner from changing content | Deploying rules by hand: they could drift from what the repo says | The existing deploy account may need an extra Firebase role (see §7); until it has it, the rules deploy step fails |
+| External service or provider | Firebase Authentication with Google sign-in, Cloud Firestore, and Cloud Storage for Firebase (image files), in the existing project `thegoldenpothos-5b3a1` on the pay-as-you-go Blaze plan | Sign-in, the content database, and uploaded images. Storage requires Blaze | Supabase: a second vendor next to Firebase Hosting. Email and password sign-in: a password to manage and recover. Images stored inside database records: capped near 700 KB and awkward | Blaze has no hard spending cap, only budget alerts; owner-only uploads and the 5 MB limit keep usage near zero. Content lives in a cloud service as well as in the repo; the two copies can drift until phase 2 |
+| Data store, sign-in or hosting change | Database and file-storage security rules kept in the repo, and the live deploy job also deploys them. Hosting configuration gains the rules and local stand-in entries; the `trailingSlash` setting and the site's hosting rules stay as they are | The rules are what actually stop anyone but the owner from changing content | Deploying rules by hand: they could drift from what the repo says | The existing deploy account may need an extra Firebase role (see §7); until it has it, the rules deploy step fails |
 | Other choice the agent would otherwise guess | The owner's account is named in the rules by its Firebase user ID. Until the owner fills it in, the rules hold a placeholder that matches nobody, so nothing can be written | The ID only exists after the owner's first sign-in, and the owner's email is not to be committed | Matching on the owner's email: puts personal data in the repo | The panel cannot save anything until the owner completes the §7 step |
 
 ## 5. Hard constraints
@@ -84,7 +87,11 @@ The owner's worries, all of which must never happen:
 - A draft blog post cannot be read from the database by anyone but the owner.
 - Signed out, or signed in as anyone but the owner, the panel shows no content from the database.
 - No delete happens without a confirmation the owner accepted first.
-- Nothing added needs Firebase's pay-as-you-go plan: no Firebase Storage, no Cloud Functions.
+- The only Firebase services used are Authentication, Firestore and Storage. No Cloud Functions or
+  other paid service is added.
+- File storage refuses every upload or delete that does not come from the owner's signed-in account,
+  refuses any file over 5 MB, and refuses anything that is not a PNG, JPEG, WebP or SVG image.
+- Until the owner's user ID is filled in, file storage refuses every upload and delete from everyone.
 - The public pages (`/`, `/blog/`, every post, `/rss.xml`, `/sitemap.xml`, `/robots.txt`) show the same
   content as before, and none of them loads the Firebase library.
 - The panel's address appears in neither `/sitemap.xml` nor `/robots.txt`, and the panel page tells
@@ -113,6 +120,15 @@ The owner's worries, all of which must never happen:
       overwritten.
 - [ ] The owner can preview a post's markdown rendered the way the blog shows posts, before saving.
 - [ ] A draft post cannot be read from the database stand-in while signed out.
+- [ ] The owner can upload a PNG, JPEG, WebP or SVG image of up to 5 MB, see it listed in the panel,
+      copy its address, and delete it after confirming.
+- [ ] Uploading a file over 5 MB, or a file that is not one of those image types, is refused with a
+      message, and nothing is stored.
+- [ ] Against the local storage stand-in, an upload from a signed-out browser and from a non-owner
+      account are both refused, and the same upload from the owner succeeds.
+- [ ] In profile, certifications, tech stack and blog posts, an image can be chosen from the uploaded
+      images or given as a path to a file in the repo, and the chosen image still shows after a
+      reload.
 - [ ] Choosing delete and then cancelling the confirmation leaves the record in place.
 - [ ] Every panel screen works at 375 pixels wide with no sideways scrolling.
 - [ ] The existing public-site smoke tests still pass, and the home page and a blog post load no
@@ -122,7 +138,9 @@ The owner's worries, all of which must never happen:
 
 ## 7. Human-only items
 
-- In the Firebase console: create the Firestore database (free plan), turn on Google as a sign-in
+- Upgrade the Firebase project to the Blaze plan, and set a budget alert in Google Cloud Billing (a
+  small amount, for example US$1). Then create the default Storage bucket.
+- In the Firebase console: create the Firestore database, turn on Google as a sign-in
   provider, and make sure `thegoldenpothos.dev`, the staging address, `localhost` and `127.0.0.1` are
   on the allowed sign-in domains.
 - After the first sign-in on the live site, copy the Firebase user ID the panel shows and put it in
@@ -138,10 +156,11 @@ The owner's worries, all of which must never happen:
 
 - The panel is the only thing new. `docs/requirements/admin-content-panel.md` holds the earlier impact
   analysis and the recommended collections (`profile`, `experience`, `projects`, `certifications`,
-  `techCategories`, `blogPosts`), with field shapes mirroring today's component data. Use it, with one
-  correction: the `images` collection and the image library slice are dropped, because uploads were
-  ruled out here (this file overrides that document's R8). Image fields are text paths to files under
-  `public/`.
+  `techCategories`, `blogPosts`), with field shapes mirroring today's component data. Image uploads
+  were first ruled out and then approved again by the owner on 2026-11-26 (Blaze plan). The stories
+  were written while uploads were out: add one image library slice after the access-rules slice, and
+  amend the profile, certifications, tech stack and blog post stories so an image field takes either
+  an uploaded image or a repo path. Do not rewrite their other scenarios.
 - OVERVIEW §2.2 (blog lives in repo markdown, no CMS) is to be rewritten: the panel is where posts are
   edited, and the repo files stay what the site renders until phase 2.
 - When the signed-in account is refused, showing that account its own Firebase user ID is fine and

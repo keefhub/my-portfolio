@@ -1,8 +1,8 @@
 # Feature file output shape
 
-What `/feature-discovery` Mode B Phase 4 writes to `docs/features/<slug>/story.md`. Five parts, in this
+What `/help-discover-this` Mode B Phase 4 writes to `docs/features/<slug>/story.md`. Five parts, in this
 order, nothing else. The Gherkin block is byte-compatible with the existing stories in `docs/features/`;
-the three trailing sections are additions this skill introduces, and `/feature-spec` reads them as
+the three trailing sections are additions this skill introduces, and `/spec-this` reads them as
 input to its Open Questions & Risks phase.
 
 ## The template
@@ -76,11 +76,11 @@ voice section if the profile names one (a button called "Export CSV" stays "Expo
 Use `Scenario Outline` + `Examples` only when behaviour varies by data alone.
 
 **Assumptions** — numbered, one sentence each. Everything decided in the sweep that the original
-requirement did not state. These are the claims `/feature-spec` will challenge, so make each one
+requirement did not state. These are the claims `/spec-this` will challenge, so make each one
 falsifiable.
 
 **Out of Scope** — bulleted. What a reader would reasonably expect and will not get. This is what
-stops `/sdd` implementing beyond the spec.
+stops `/do-this` implementing beyond the spec.
 
 **Deferred** — bulleted, each with its reason. Distinct from Out of Scope: deferred means "later",
 out of scope means "not this feature".

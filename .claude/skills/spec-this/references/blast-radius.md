@@ -3,7 +3,7 @@
 Adapted from the `blast-radius` skill in Lauren Tan's pstack (MIT,
 `cursor/plugins/pstack/skills/blast-radius`), with the code-anchor step and evidence rules it
 borrows from pstack's `why`. Upstream reviews a diff that already exists; here it runs **before**
-any code is written, against the change the spec is about to plan. `/feature-spec` Phase 3 runs it
+any code is written, against the change the spec is about to plan. `/spec-this` Phase 3 runs it
 after the impact entries are classified, and writes the result into `impact.md` § Safety facts.
 
 Listing callers is not the job — Phase 2 and the impact table already did that, and grep does it
@@ -28,7 +28,7 @@ stopped:
 5. **Reproduced.** Observed in the running app (the dev command in `.claude/repo-profile.md`).
 
 Level 4 is usually one small script. **Write it under the session scratchpad (or `/tmp`), never
-inside the repo, and never commit it** — `/feature-spec` writes no application code. Run it with
+inside the repo, and never commit it** — `/spec-this` writes no application code. Run it with
 the repo's own script runner when one is available; if it isn't and installing it would change
 the package manifest, stop at level 3 and say so. Paste the command and its output.
 

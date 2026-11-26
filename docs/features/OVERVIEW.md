@@ -1,6 +1,6 @@
 # my-portfolio — Feature Overview
 
-Standing context for every feature. `/feature-discovery` and `/feature-spec` read §1–3 before any
+Standing context for every feature. `/help-discover-this` and `/spec-this` read §1–3 before any
 analysis; §4 is only an index. Individual stories assume this context and don't repeat it.
 
 ## 1. Product Overview
@@ -17,7 +17,7 @@ owner (Keith) is the only author — content is committed to the repo, not enter
 ## 2. Confirmed Requirements
 
 Decisions the user has confirmed. Later features inherit them without re-litigating. A story that
-conflicts with anything here stops and asks. `/feature-discovery` appends to this section when a
+conflicts with anything here stops and asks. `/help-discover-this` appends to this section when a
 sweep confirms a decision that later features would otherwise reopen.
 
 1. The site is statically exported (`output: "export"`); no feature may require a server, API route, middleware or request-time rendering.
@@ -30,11 +30,11 @@ sweep confirms a decision that later features would otherwise reopen.
 Things the pipeline is treating as true but nobody has confirmed. Specs say which number they rely
 on. Move an item to §2 when it is confirmed.
 
-1. None recorded yet. `/feature-discovery` appends here when a sweep surfaces an unconfirmed assumption.
+1. None recorded yet. `/help-discover-this` appends here when a sweep surfaces an unconfirmed assumption.
 
 ## 4. Feature Index
 
-One row per feature, appended by `/feature-discovery` Mode B. Titles and links only.
+One row per feature, appended by `/help-discover-this` Mode B and `/agentic-discover`. Titles and links only.
 
 | Feature | Story |
 | ------- | ----- |

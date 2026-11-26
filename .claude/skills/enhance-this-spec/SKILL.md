@@ -1,48 +1,49 @@
 ---
-name: spec-review
-description: "Review an existing /feature-spec output (spec.md plus impact.md) through a diamond fan-out: one frozen packet, three isolated read-only reviewer agents in parallel (spec-traceability, spec-codebase-verifier, spec-cold-reader), one reconciliation, then an in-place rewrite of spec.md — at most 2 rounds. Phase 10 of /feature-spec already runs this procedure, so invoke it directly only to re-review a spec that was edited afterwards or written before Phase 10 existed. Not for creating a spec from scratch."
+name: enhance-this-spec
+description: "Review an existing /spec-this output (spec.md plus impact.md) through a diamond fan-out: one frozen packet, three isolated read-only reviewer agents in parallel (spec-traceability, spec-codebase-verifier, spec-cold-reader), one reconciliation, then an in-place rewrite of spec.md — at most 2 rounds. Phase 10 of /spec-this already runs this procedure, so invoke it directly only to re-review a spec that was edited afterwards or written before Phase 10 existed. Not for creating a spec from scratch."
 ---
 
-# /spec-review
+# /enhance-this-spec
 
 One diamond: a single divergence point (the frozen packet), three isolated parallel reviewers, one convergence point (you). Everything below serves two properties:
 
 - **Comparability** — all reviewers diverge from the same immutable packet, so their findings describe the same document and their disagreements are meaningful.
 - **Independence** — reviewers never see the writer's reasoning or each other's output, and none of them edits anything. A reviewer who reads another's critique is anchored by it, silently turning three reviews into one review with two echoes.
 
-Creating a spec is [`/feature-spec`](../feature-spec/SKILL.md)'s job, and its Phase 10 runs the round procedure below automatically — so you do **not** run `/spec-review` after `/feature-spec`. Invoke this skill directly only to re-review a spec that was edited afterwards, or one written before Phase 10 existed. Every criterion a reviewer applies is in [`../feature-spec/references/gates.md`](../feature-spec/references/gates.md) — it is the single source, so a criterion changes there or nowhere.
+Creating a spec is [`/spec-this`](../spec-this/SKILL.md)'s job, and its Phase 10 runs the round procedure below automatically — so you do **not** run `/enhance-this-spec` after `/spec-this`. Invoke this skill directly only to re-review a spec that was edited afterwards, or one written before Phase 10 existed. Every criterion a reviewer applies is in [`../spec-this/references/gates.md`](../spec-this/references/gates.md) — it is the single source, so a criterion changes there or nowhere.
 
 ## Usage
 
 ```
-/spec-review export-report-as-csv   # reviews docs/features/export-report-as-csv/spec.md
-/spec-review                       # infer from conversation; ask if ambiguous
+/enhance-this-spec export-report-as-csv   # reviews docs/features/export-report-as-csv/spec.md
+/enhance-this-spec                       # infer from conversation; ask if ambiguous
 ```
 
-Resolve the slug with `ls docs/features/<slug>`. **If `spec.md` does not exist, stop and say so** — offer `/feature-spec`; never generate one to have something to review. **If `impact.md` is missing**, stop. Either the spec is a thin-feature note — it has no Section 8 to cold-read and no impact entries to verify, and the review costs more than the feature — or it is a full spec written before `impact.md` existed, in which case run `/feature-spec <slug>` in revision mode first.
+Resolve the slug with `ls docs/features/<slug>`. **If `spec.md` does not exist, stop and say so** — offer `/spec-this`; never generate one to have something to review. **If `impact.md` is missing**, stop. Either the spec is a thin-feature note — it has no Section 8 to cold-read and no impact entries to verify, and the review costs more than the feature — or it is a full spec written before `impact.md` existed, in which case run `/spec-this <slug>` in revision mode first.
 
 ## Reviewers
 
 | Agent | Model | Reads | Checks |
 | --- | --- | --- | --- |
-| `spec-traceability` | sonnet | the full packet | the matrix, rebuilt independently; compound-rule clauses and orphans counted |
+| `spec-traceability` | opus | the full packet | the matrix, rebuilt independently; compound-rule clauses and orphans counted |
 | `spec-codebase-verifier` | sonnet | the full packet + the repo (git read-only) | every change / extend / already-landed claim against the real repo |
 | `spec-cold-reader` | sonnet | `spec.md` only + the repo | Section 8 as the implementer with no other context |
 
-Models are fixed in the agent definitions in [`.claude/agents/`](../../agents/). Every subagent is Sonnet (see `.claude/repo-profile.md` § Models); do not pass a higher `model` at dispatch. All three are read-only.
+Models are fixed in the agent definitions in [`.claude/agents/`](../../agents/). Pass `model` at dispatch only to raise a tier when retrying a failed reviewer. All three are read-only.
 
 ## Round procedure
 
-### 1. Freeze the packet
+### 1. Run the spec lint, then freeze the packet
 
-1. Read `spec.md` in full; do not edit it yet.
-2. The packet is `docs/features/<slug>/spec.md`, `impact.md`, `story.md`, and the standing context (OVERVIEW §1–3, at the path `.claude/repo-profile.md` § Feature docs gives).
-3. Compute `sha256sum` of each file and note it with the spec's `Version` and `Date`. The packet is these paths plus hashes; there is no copy and no scratch directory — run state never leaves the feature folder.
-4. **Do not touch any packet file until the round's reviewers have returned.**
+1. Run `npm run check:spec -- <slug>` and fix every `FAIL` in `spec.md` first (in revision mode). The reviewers should spend the round on meaning, not on ids, file counts or a missing `Risk:` line. Nothing checks `impact.md` mechanically in this repo, so the verifier checks its paths, citations, symbols and callers itself.
+2. Read `spec.md` in full; do not edit it yet.
+3. The packet is `docs/features/<slug>/spec.md`, `impact.md`, `story.md`, and the standing context (OVERVIEW §1–3, at the path `.claude/repo-profile.md` § Feature docs gives).
+4. Compute `sha256sum` of each file and note it with the spec's `Version` and `Date`. The packet is these paths plus hashes; there is no copy and no scratch directory — run state never leaves the feature folder.
+5. **Do not touch any packet file until the round's reviewers have returned.**
 
 ### 2. Fan out
 
-Dispatch all three reviewers in **one message** as blocking foreground `Agent` calls (`subagent_type` = the agent name, `model: sonnet`). Do not background them and do not end your turn while one is running. Do not stagger: prompting one reviewer after seeing another's output leaks conclusions.
+Dispatch all three reviewers in **one message** as blocking foreground `Agent` calls (`subagent_type` = the agent name, `model: "sonnet"`). Do not background them and do not end your turn while one is running. Do not stagger: prompting one reviewer after seeing another's output leaks conclusions.
 
 Each prompt contains only: the packet paths, their hashes, the spec's `Version` and `Date`, the repository root, and one line naming its role. The cold reader gets only the `spec.md` path, its hash, and its `Version` and `Date`. **No writer reasoning** — no phase notes, no summary of what the spec "is trying to do", no hint about known weak spots — and **no output from another reviewer**.
 
@@ -70,7 +71,7 @@ A finding and its suggested fix are separable. Accepting that a gap is real does
 
 ### 5. Apply — rewrite `spec.md` in place
 
-Reviewers only report. You apply accepted revisions by following `/feature-spec`'s **Revision mode**, the one procedure for amending these files: read both files, amend in place, preserve resolved Open Questions and contrarian outcomes, re-run the affected phases and every phase downstream of them, and re-check each affected gate in `references/gates.md`. Do not edit before all of these hold:
+Reviewers only report. You apply accepted revisions by following **Revision mode** in [`../spec-this/references/writer.md`](../spec-this/references/writer.md), the one procedure for amending these files: read both files, amend in place, preserve resolved Open Questions and contrarian outcomes, re-run the affected phases and every phase downstream of them, and re-check each affected gate in `references/gates.md`. Do not edit before all of these hold:
 
 - three artifacts validated against the same packet;
 - every Critical and Major finding has a disposition;
@@ -82,7 +83,7 @@ Then rewrite: preserve section order and any `<!-- MANUAL -->` blocks verbatim; 
 
 ## Rounds
 
-**At most 2 rounds.** If round 1 applied any Critical or Major revision, run round 2: refreeze the *new* packet and dispatch three fresh reviewers (new `Agent` calls, `model: sonnet` — they have no memory and must not be told what round 1 found). If round 1 applied none, one round is enough. After round 2, anything still unresolved goes to **Open Questions** with who decides; do not start a third round.
+**At most 2 rounds.** If round 1 applied any Critical or Major revision, run round 2: refreeze the *new* packet and dispatch three fresh reviewers (new `Agent` calls — they have no memory and must not be told what round 1 found). If round 1 applied none, one round is enough. After round 2, anything still unresolved goes to **Open Questions** with who decides; do not start a third round.
 
 ## Report
 

@@ -49,3 +49,6 @@ docs/features/*/PROGRESS.md
 # playwright
 /test-results/
 /playwright-report/
+
+# pipeline run logs (step packets, gate output, failure digests)
+.run-logs/

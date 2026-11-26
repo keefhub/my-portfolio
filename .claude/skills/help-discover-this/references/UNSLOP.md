@@ -1,8 +1,8 @@
 # Unslop — the prose pass
 
 Adapted from the `unslop` skill in Lauren Tan's pstack (MIT, `cursor/plugins/pstack/skills/unslop`).
-`/feature-discovery` runs this pass over its own prose immediately before writing a file
-(Mode A Phase 5, Mode B Phase 4). `/feature-spec` treats those files as input, so vague or padded
+`/help-discover-this` runs this pass over its own prose immediately before writing a file
+(Mode A Phase 5, Mode B Phase 4). `/spec-this` treats those files as input, so vague or padded
 wording here becomes a guessed requirement later.
 
 ## What it applies to

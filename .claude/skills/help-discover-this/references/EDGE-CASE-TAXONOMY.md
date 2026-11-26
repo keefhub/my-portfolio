@@ -1,6 +1,6 @@
 # Edge-case taxonomy — candidate prompts
 
-The ten categories `/feature-discovery` Mode B Phase 2 sweeps, with generic candidate prompts, plus
+The ten categories `/help-discover-this` Mode B Phase 2 sweeps, with generic candidate prompts, plus
 a **Repo-specific prompts** section at the end that the repo owner fills in with the realities of
 *this* product (its domain objects, quantity or pricing rules, storage, platform promises,
 accessibility target). Read both before sweeping.

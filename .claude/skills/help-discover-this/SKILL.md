@@ -1,17 +1,17 @@
 ---
-name: feature-discovery
-description: "Use when a requirement arrives as plain prose rather than a spec — a layman ask, a one-line feature request, a stakeholder sentence, 'users should be able to X', 'can we add Y' — and it needs impact analysis against this codebase, splitting into right-sized features, and Gherkin scenarios whose edge cases were brainstormed with the user rather than guessed. Also use when a request is too big for one feature file, or when adding any new docs/features/<slug>/story.md. Not for analysing a story that already exists — that is /feature-spec."
+name: help-discover-this
+description: "Use when a requirement arrives as plain prose rather than a spec — a layman ask, a one-line feature request, a stakeholder sentence, 'users should be able to X', 'can we add Y' — and it needs impact analysis against this codebase, splitting into right-sized features, and Gherkin scenarios whose edge cases were brainstormed with the user rather than guessed. Also use when a request is too big for one feature file, or when adding any new docs/features/<slug>/story.md. Not for analysing a story that already exists — that is /spec-this."
 ---
 
-# /feature-discovery
+# /help-discover-this
 
 Turns one plain-language requirement into the input the rest of the pipeline needs: an impact analysis, a decomposition into right-sized features, and — one invocation per feature — a `docs/features/<slug>/story.md` whose Gherkin scenarios were **confirmed by the user**, not inferred.
 
 This skill is **stage 0** of the workflow in [CLAUDE.md](../../../CLAUDE.md) § AI Agent Implementation Workflow:
 
 ```
-layman requirement -> /feature-discovery -> docs/features/<slug>/story.md
-                                         -> /feature-spec -> /sdd
+layman requirement -> /help-discover-this -> docs/features/<slug>/story.md
+                                         -> /run-this (/spec-this -> /do-this -> pull request)
 ```
 
 It writes requirement documents and feature files. That is the entire deliverable.
@@ -19,9 +19,9 @@ It writes requirement documents and feature files. That is the entire deliverabl
 ## Usage
 
 ```
-/feature-discovery "users should be able to export a report as CSV"   # Mode A — decompose
-/feature-discovery export-report-as-csv                            # Mode B — author one feature
-/feature-discovery                                                       # ask which
+/help-discover-this "users should be able to export a report as CSV"   # Mode A — decompose
+/help-discover-this export-report-as-csv                            # Mode B — author one feature
+/help-discover-this                                                       # ask which
 ```
 
 | Argument              | Mode                       | Deliverable                                              |
@@ -35,12 +35,13 @@ Mode A never writes a story. Mode B never handles two features. A requirement th
 ## Hard rules
 
 1. **No code.** No application code, no `package.json` change, no dependency, no commit. If the requirement seems trivial enough to just implement, that is still not this skill's job.
-2. **One feature per Mode B invocation.** Inherited from `/feature-spec`: analysis quality collapses when several specs are held in context at once.
+2. **One feature per Mode B invocation.** Inherited from `/spec-this`: analysis quality collapses when several specs are held in context at once.
 3. **No story file until the user has confirmed the scenario list.** Not a summary of it — the list.
 4. **No batch-reading `docs/features/`.** Mode A may open at most **3 named existing story files** it has identified as direct collisions. Everything else comes from `OVERVIEW.md`, `CLAUDE.md`, the design-system doc if the profile names one, `git log`, and the real file tree.
 5. **Every taxonomy category is closed explicitly** — with scenarios, or with `N/A — <reason>`. Skipping one silently is the failure this skill exists to prevent.
 6. **Business language only in scenarios.** A `Scenario:` step never names a React component, hook, file path, library, CSS class, database table/column, or storage key. Assert what the user sees or what survives a refresh.
 7. **A conflict with `OVERVIEW.md` §2 or §3 stops the run and asks.** Standing context is not overridden silently.
+8. **Size every question for this application.** It is an internal admin panel used by at most five people for now (`CLAUDE.md` § Domain facts); it will be scaled when more people use it. A candidate that only matters at enterprise scale is **yours to decide, not the user's to answer**: heavy concurrency and simultaneous edits, very long lists and their performance, multi-tenancy, SSO, compliance-grade audit trails, rate limits beyond what is built, internationalisation, offline use, bulk operations nobody asked for. Take the simple option, and write it into `## Assumptions`, `## Out of Scope` or `## Deferred` with one line of why. Ask the user only what changes what is stored, who may see or change it, or what a person using the panel actually sees.
 
 ## Mode A — impact analysis and decomposition
 
@@ -94,7 +95,7 @@ Split by **user goal**, never by layer. Each slice must be a thing a user can do
 | One CRUD step per slice, when each step is separately useful    | All of create+read+update+delete in one slice      |
 | A read-only view separated from the editing flow                | A slice that only writes data nothing reads yet    |
 
-A slice that produces no user-observable behaviour is not a feature — it is a task, and `/feature-spec` will create it as a Step of the feature that needs it. Never emit a "foundation" feature whose scenarios a user could not act out.
+A slice that produces no user-observable behaviour is not a feature — it is a task, and `/spec-this` will create it as a Step of the feature that needs it. Never emit a "foundation" feature whose scenarios a user could not act out.
 
 ### Phase 3 — Sizing (gate A3)
 
@@ -109,7 +110,7 @@ Fail any test → re-split. Two slices that each fail test 3 on their own usuall
 
 ### Phase 4 — Slugs and build order (gate A4)
 
-- Slug = kebab-case of the feature title. It must be free: `ls docs/features/<slug>` must find nothing. The slug is the feature's permanent identity — folder name, commit scope, and `/feature-spec` argument — so pick it once.
+- Slug = kebab-case of the feature title. It must be free: `ls docs/features/<slug>` must find nothing. The slug is the feature's permanent identity — folder name, commit scope, and `/spec-this` argument — so pick it once.
 - **Build position** — where each slice lands in the order table in [CLAUDE.md](../../../CLAUDE.md), with one line of why. Dependencies may only point at already-built features or earlier-placed new slices. A cycle means Phase 2 split wrongly.
 
 ### Phase 5 — Approval and write (gate A5)
@@ -119,8 +120,8 @@ Present the breakdown — one line per slice: slug, title, user goal, scenario-c
 Then **stop**, and print the next commands:
 
 ```
-/feature-discovery export-report-as-csv         # Export a report as CSV
-/feature-discovery choose-csv-columns            # Choose which columns the CSV includes
+/help-discover-this export-report-as-csv         # Export a report as CSV
+/help-discover-this choose-csv-columns            # Choose which columns the CSV includes
 ```
 
 Do not continue into Mode B in the same run, even if asked to "just keep going" — a sweep run against a context already full of decomposition reasoning is the shallow sweep this skill exists to avoid. Offer instead to stop here so the next run starts clean.
@@ -169,9 +170,14 @@ Edge cases brainstormed against an unconfirmed happy path get thrown away.
 | 9   | Presentation & scale        | Long lists, phone vs desktop, long values, keyboard & screen reader |
 | 10  | Multi-actor & permissions   | Two tabs or users, roles, anything shared or sent to someone else |
 
-For each category: propose **2–4 concrete candidates**, each phrased as a user-visible question, and ask the user to mark each **in scope / out of scope / defer**. Batch them — use multiple-choice questions, up to four candidates per round, rather than one message per candidate.
+For each category, work out **2–4 concrete candidates**, then sort them:
 
-Propose candidates. Do not decide them. A candidate the user has not ruled on is not an answer, and "probably fine" is not a ruling.
+- **Decide it yourself** when the answer is clear for a five-person internal tool (hard rule 8), when the standing context or an earlier feature already settles it, or when one option is plainly the simple, safe one. Mark it in scope, out of scope or deferred, with one line of why.
+- **Ask the user** only when the candidate changes what is stored, who may see or change something, or what the user sees, and the requirement and standing context do not settle it.
+
+Put everything you ask into **one batch for the whole sweep**, as multiple-choice questions with your recommended option first. Aim for no more than about five questions per feature; a sweep that needs none is fine. Do not ask category by category.
+
+Then show the user what you decided on their behalf, as a short list they can overrule in one reply. A decision they do not object to stands.
 
 Close every category. `N/A — this feature persists nothing, so there is no failure mode` is a perfectly good close; leaving category 6 unmentioned is not.
 
@@ -205,10 +211,10 @@ Three edits, all required:
 
 Append to §2 only what is genuinely standing context — a decision later features would otherwise re-litigate. Feature-local detail belongs in the feature file, not in §2.
 
-Then report the path and print the handoff — never run it:
+Then report the path and offer the next stage. `/run-this` takes the story through spec, build and pull request with this session as the orchestrator, handing each stage the path of the last one's output. Start it only when the user says to: they vet the story first.
 
 ```
-/feature-spec export-report-as-csv
+/run-this export-report-as-csv
 ```
 
 ## Rationalization table
@@ -220,7 +226,7 @@ Then report the path and print the handoff — never run it:
 | "The edge cases are obvious, I'll write them in"            | The user's app, the user's call. Propose; let them rule.                                                                            |
 | "Category 6 doesn't really apply here"                      | Then write `N/A — <reason>`. That takes four words and is auditable.                                                                |
 | "The user said just write it"                               | Confirm the scenario list first — it is one message. Then write it.                                                                 |
-| "I'll note the storage key or column name in the scenario so it's clear" | Rule 6. Those are `/feature-spec` output, not acceptance criteria.                                                     |
+| "I'll note the storage key or column name in the scenario so it's clear" | Rule 6. Those are `/spec-this` output, not acceptance criteria.                                                     |
 | "This conflicts with OVERVIEW §2, but my version is better" | Rule 7. Surface it and stop. Changing standing context is the user's decision.                                                       |
 | "It's faster to implement this than to specify it"          | Rule 1. This skill's output is the specification.                                                                                    |
 
@@ -240,6 +246,6 @@ Then report the path and print the handoff — never run it:
 - **Layer slices.** "Add the data model" is a plan task, not a feature. Split by what the user can do.
 - **Sweeping before confirming the happy path.** Everything after it gets rewritten.
 - **One mega-scenario.** A scenario asserting three independent things cannot fail informatively — split it.
-- **Padding a thin feature.** Three genuine scenarios beat nine ceremonial ones; `/feature-spec` has a thin-feature shortcut for exactly this case.
+- **Padding a thin feature.** Three genuine scenarios beat nine ceremonial ones; `/spec-this` has a thin-feature shortcut for exactly this case.
 - **Encoding build order in the slug.** Slugs name the feature; build position lives only in the CLAUDE.md order table.
 - **Silently answering your own questions.** The value here is the user's ruling, not your guess.

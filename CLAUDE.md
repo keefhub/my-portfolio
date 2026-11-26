@@ -21,8 +21,12 @@ summary; that one is the on-demand detail.
 | `npm run build`     | Production build **and static export** → `out/`      |
 | `npm run typecheck` | `tsc --noEmit`                                       |
 | `npm run lint`      | `eslint .`                                           |
+| `npm run lint:new`  | ESLint minus the known `ThemeProvider.tsx:25` error; the pipeline's lint gate |
 | `npm run test:e2e`  | Build, then all Playwright specs in `e2e/` — slow, optional, on request only; not a gate, not in CI |
 | `npx playwright test e2e/<slug>.spec.ts` | One feature's own spec against the built `out/` (build first) |
+
+The pipeline's own commands (`check:task`, `step:packet`, `check:spec`, `verify`) are in
+[.claude/repo-profile.md](.claude/repo-profile.md) § Verification commands.
 
 **`npm run build` is the real verification gate.** It is the only step that runs
 the export, so it is the only step that catches server/client boundary
@@ -164,13 +168,16 @@ Requirement docs land in [requirement/](requirement/), specs in [spec/](spec/).
 Those two folders are `user-story-creator` output. The feature pipeline below
 uses `docs/` instead and never touches them.
 
-| Situation                                                                | Skill                        |
-| ------------------------------------------------------------------------ | ---------------------------- |
-| A plain-language feature ask that must be split and given edge cases      | `feature-discovery`          |
-| One story → gated spec + implementation plan                              | `feature-spec`               |
-| Spec edited by hand, or written before the reviewer round existed          | `spec-review`                |
-| Execute a spec's plan step by step with review gates and commits           | `sdd`                        |
-| Optional read-only audit of a branch (bugs + security; maintainability)    | `thermos`                    |
+| Situation                                                                  | Skill                |
+| -------------------------------------------------------------------------- | -------------------- |
+| A plain-language feature ask to split and give edge cases, with the user    | `help-discover-this` |
+| Take a vetted story to a pull request (spec, build, push, PR)               | `run-this`           |
+| One story → `spec.md` + `impact.md` (also run by `run-this`)                | `spec-this`          |
+| Build a spec's tasks (also run by `run-this`)                               | `do-this`            |
+| Re-review a spec that was edited by hand                                    | `enhance-this-spec`  |
+| A goal stated once, run hands-off to one pull request                       | `agentic-intent` → `agentic-discover` → `agentic-run` |
+| Check an autonomous goal's definition of done                               | `agentic-accept`     |
+| Optional read-only audit of a branch (bugs + security; maintainability)     | `thermos`            |
 
 ---
 
@@ -182,16 +189,41 @@ uses `docs/` instead and never touches them.
 - **Playwright is the only test runner.** Specs live in `e2e/` and run against the built `out/`. Don't add Vitest, Jest or another runner without asking.
 - **Run only the feature's own e2e spec** (`npx playwright test e2e/<slug>.spec.ts`) — at feature completion and before pushing to `develop`. Never the full suite as a gate (too slow), and never e2e in CI.
 - **Models: orchestrator Opus, subagents Sonnet.** Every dispatched subagent passes `model: sonnet`; don't raise a subagent's tier. See the profile's Models section.
-- **Never push to `master`.** It deploys the live site; work lands on `develop`.
+- **Never commit or push to `develop`, `main` or `master`.** `master` deploys the live site. Work on a feature branch and open a pull request into `develop`; a human merges. `scripts/guard-bash.sh`, wired in `.claude/settings.json`, refuses direct pushes, force pushes, `git add -A`, `git commit -a`, `--no-verify`, `.env` access and a pull request to any other base.
+- **Never write or read a secret.** The site has none. Don't read, print or edit `.env*`.
 
 ---
 
 # AI Agent Implementation Workflow
 
-Features are implemented one at a time from stories in [docs/features/](docs/features/),
-driven by an AI coding agent. Follow this loop for any task that says "implement the next
-feature," "continue implementation," or similar. A one-off bug fix, content edit or unrelated
-request is not part of the loop — just make the change (`bugfix` for defects) and commit it.
+Features are implemented one at a time from stories in [docs/features/](docs/features/), driven by
+AI coding agents. Follow this loop for any task that says "implement the next feature," "continue
+implementation," "run this story," or similar. A one-off bug fix, content edit or unrelated request is
+not part of the loop: make the change (`bugfix` for defects) and commit it on a feature branch.
+
+## Models, sessions and escalation
+
+The chat session orchestrates; leaf subagents do the work. Roles and the escalation chain are in
+[.claude/repo-profile.md](.claude/repo-profile.md) § Model roles and escalation.
+
+- **The orchestrator runs on Opus and every subagent on Sonnet.** You pick Opus when you start the
+  session; the agent definitions in `.claude/agents/` and every dispatch pass `model: sonnet`.
+- **The chat session is the only orchestrator.** A subagent cannot spawn a subagent, so the session
+  dispatches every worker itself. It runs the scripts, commits and asks the user; it writes no
+  production code and no tests.
+- **Workers are handed paths, never pasted text.** The spec writer gets the path of `story.md`; a
+  task's workers get the path of its step packet (`npm run step:packet`), which is the Step and its
+  test rows copied out of `spec.md`. The orchestrator does not read the story, the spec or a packet,
+  so its context stays small across a whole feature.
+- **One worker writes the tests, another makes them pass, a third reviews.** Independence comes from
+  a fresh context, not from a stronger model.
+- **State is on disk.** `PROGRESS.md`, `log.md` and `.run-logs/<slug>/` make a run resumable: if a
+  session dies or its context grows too large, start a new one and run the same command.
+- **The pipeline runs without the user.** An implementer makes its own implementation choices and
+  reports them. A product question (what the visitor sees, what content is published) is decided by
+  the spec writer and recorded in the spec as `[auto]`; a task blocked on the spec triggers an
+  automatic spec revision, at most twice per feature. The user is asked only at a stop condition (the
+  profile lists them), and audits the `[auto]` decisions in the pull request.
 
 ## Source of truth
 
@@ -205,34 +237,63 @@ request is not part of the loop — just make the change (`bugfix` for defects) 
 
 ```
 plain-language requirement
-  → /feature-discovery "<requirement>"   impact analysis + feature split → docs/requirements/<slug>.md
-  → /feature-discovery <feature-slug>    edge cases brainstormed with the user → docs/features/<slug>/story.md
-  → /feature-spec <feature-slug>         gated BA/SA spec + impact.md; §8 is the implementation plan;
-                                         three read-only reviewer agents harden it (≤2 rounds)
-  → /sdd <feature-slug>                  executes §8 via fresh subagents, review gates, commits per step
+  → /help-discover-this "<requirement>"   impact analysis + feature split → docs/requirements/<slug>.md
+  → /help-discover-this <feature-slug>    edge cases brainstormed with the user → docs/features/<slug>/story.md
+  → /run-this <feature-slug>              the chat session orchestrates the rest, handing each stage a path:
+      /spec-this                          story.md → spec writer → two reviewers, once → spec.md + impact.md
+      /do-this                            spec.md §8 → per task: packet, tests, implementation, gate, commit; one feature review
+      pull request                        one pull request into develop; a human merges
 ```
 
-- **`/feature-discovery`** is the only way a new `story.md` gets written. Never hand-author a story, and never run `/feature-spec` against a prose requirement. It never writes code and never commits.
-- **`/feature-spec`** writes `spec.md` + `impact.md`. Thin features (≤2 scenarios, no new storage key or module boundary) get a short note instead. `/spec-review <slug>` re-reviews a spec edited afterwards.
-- **`/sdd`** owns implementation, the review gates (two for high-risk changes, one combined gate for low-risk ones — see the profile), and every commit. It needs a clean working tree.
-- **`/thermos`** is an optional, manual, two-reviewer audit of a branch (bugs and security; maintainability). Read-only.
-- Behavioural checks are Playwright tests in `e2e/` (`E2E-NN:` titles) against the built `out/`; `compiler` and `manual` (reported as pending) cover the rest. See the profile's Behavioral gate.
+Outside the main line: `/enhance-this-spec` re-reviews a spec that was edited by hand, and `/thermos`
+audits a branch.
+
+- **`/help-discover-this`** is the only interactive way a new `story.md` gets written. Never hand-author a story, and never run `/spec-this` against a prose requirement. It never writes code or commits. When a story is vetted it offers `/run-this`. The other way a story gets written is `/agentic-discover`, which works from a ready intent file (see Autonomous runs).
+- **`/run-this`** chooses the next stage from what is on disk (no `spec.md` → the spec stage; a spec with no `docs(<slug>): mark implementation complete` commit → the build stage; otherwise the pull request), pushes after each stage with a plain `git push`, and opens one pull request into `develop` when every slug is complete. It never merges. `local` turns pushing and the pull request off. `/spec-this` and `/do-this` can also be run on their own.
+- **`/spec-this`** hands the story path to the `pipeline-spec-writer` subagent, which writes `spec.md` + `impact.md` (§8 is the implementation plan). The orchestrator then dispatches two read-only reviewers, once, and hands their reports back to the writer as paths. Thin features (≤2 scenarios, no new storage key or module boundary) get a short note and no review.
+- **`/do-this`** builds the whole feature in one session, task by task. Per task: `step:packet` writes the packet, the test author writes failing tests, the implementer makes them pass, the orchestrator runs the mechanical gate (`npm run check:task`) and commits. A risk reviewer reviews a task before its commit only when its Step says `Risk: high` or the task escalated. One feature review runs at the end, after the build and **the feature's own e2e spec** (never the full suite). It needs a clean working tree.
+- **Four checks, no more:** locked tests, the mechanical gate, the risk review of a high-risk task, and the feature review (the profile § Gate risk tiers). `/thermos` and `/enhance-this-spec` are deeper reviews you run by hand when you want one.
+- **Decisions are recorded, not asked.** The spec writer tags each question it settled `[auto]` in the spec's Decisions; audit them with `grep -rn '\[auto\]' docs/features/`. A decision never drops or weakens a scenario of the story. A user's ruling is recorded as `[human]`.
+- **E2E is the feature's own spec only.** Behavioural checks are Playwright tests in `e2e/<slug>.spec.ts` (`E2E-NN:` titles) against the built `out/`. Run `npx playwright test e2e/<slug>.spec.ts` at feature completion and before pushing to `develop`. The full suite (`npm run test:e2e`) is optional, on request, and never in CI. `compiler` and `manual` checks cover the rest; `manual` ones are reported as pending.
 
 ## Implementation order
 
-Populated by `/feature-discovery` as features are added — keep it in sync with `docs/features/OVERVIEW.md` §4.
+Populated by `/help-discover-this` and `/agentic-discover` as features are added — keep it in sync with `docs/features/OVERVIEW.md` §4.
 
 | Order | Feature story | Why it goes here |
 | ----- | ------------- | ---------------- |
 
 Do not reorder or skip features without an explicit user request. Do not implement scenarios beyond what's written.
 
+## Autonomous runs
+
+An alternative to the interactive loop above, for a goal the user states once and does not want to be
+asked about again (for example in a cloud session). Every rule in "Never violate" still holds, and the
+guard hook is unchanged.
+
+```
+/agentic-intent <slug>      the user is interviewed once; writes docs/requirements/<slug>-intent.md
+/agentic-discover <slug>    decomposes the goal, writes the stories ([auto] / [human: intent §N])
+/agentic-run <slug>         spec, build, acceptance; one branch, one pull request into develop
+/agentic-accept <slug>      the intent's definition of done as end-to-end tests (run by /agentic-run)
+```
+
+- **The intent file is the user's whole input.** Its "Pre-approved decisions" (§4) are the only approvals an autonomous run may treat as the user's: a new dependency, an external service, or any other choice the pipeline would otherwise stop and ask about. Anything not listed still stops the run. Secret values are never in the file and never set by an agent (§7).
+- **The agent decides what it would have asked.** Those decisions are tagged `[auto]`; what the intent rules is tagged `[human: intent §N]` and is never overridden. A story's non-goals and hard constraints (intent §3, §5) bind every slice. Append to the order table and `OVERVIEW.md`; never reorder.
+- **One branch, one pull request.** All slices are committed on one feature branch, in order; the pull request targets `develop` and has a section per slice. A stop no intent decision settles (a task failed twice, two spec revisions used up, a failed feature review or intent acceptance, a rejected push) ends the run in a **draft** pull request carrying the failure digest and the pending slices; re-running the same command resumes from disk. A human merges.
+- **Never** per-slice branches, stacked pull requests, a secret in the repo, a loosened test to pass a stop, or anything marked ready while acceptance is red or unrun.
+
 ## Per-feature loop
 
-1. **Check status and the tree.** `git log --oneline --grep="^feat(<slug>)"` confirms the feature isn't already committed. Confirm the working tree is clean, or declare dirty paths.
-2. **`/feature-spec <slug>`** → `docs/features/<slug>/spec.md` and `impact.md`.
-3. **`/sdd <slug>`** → executes Section 8.
+`/run-this <slug>` runs these in order; each can also be run on its own.
+
+1. **Check status and the tree.** `git log --oneline --grep="^feat(<slug>)"` confirms the feature isn't already committed. The branch is a feature branch and the working tree is clean, apart from a story that was just written.
+2. **`/spec-this <slug>`** → `docs/features/<slug>/spec.md` and `impact.md`, committed. Open questions are decided and tagged `[auto]`.
+3. **`/do-this <slug>`** → runs every task of Section 8 in one session, then Completion. If the session dies, run the same command: `PROGRESS.md` says where to resume.
    - **Finishes** (every task ticked, `docs(<slug>): mark implementation complete` committed) → next feature. Report any `manual` checks left pending; they were never run.
-   - **Escalates** (a task failed twice) → read its report, attempt a genuine root-cause fix (not a suppression or a skipped check), then `/sdd <slug> resume`. Up to 3 attempts per feature; then stop and report to the user.
+   - **Blocked task.** A worker reports `BLOCKED` or a Stop-if condition → the spec writer decides it, the spec is revised and committed, and the task restarts. No question to the user.
+   - **Stops.** A task fails twice, two automatic revisions are used up, the spec writer is itself blocked, or the feature review fails twice → the run stops and asks the user. Do not retry blindly. An answer that changes what is built goes in through `/spec-this <slug> revise`, then `/do-this <slug>`.
+   - **Feature review.** After the last task, the build and the feature's own spec, one reviewer checks the whole feature's diff against the spec, including the tasks that had no reviewer. Blocking findings are fixed before the feature is marked complete.
+4. **Pull request** → one pull request into `develop`, opened by `/run-this`, following `.github/pull_request_template.md`. A human merges.
 
 Never let a failing build reach git history. Progress is derived from `git log` commit prefixes, not a status file.

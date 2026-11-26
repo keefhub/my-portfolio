@@ -1,6 +1,6 @@
 # Gate criteria
 
-The pass condition for every `/feature-spec` gate. `/feature-spec` Phase 10, `/spec-review` and the three reviewer agents in
+The pass condition for every `/spec-this` gate. `/spec-this` Phase 10, `/enhance-this-spec` and the three reviewer agents in
 [`.claude/agents/`](../../../agents/) use this same file — a criterion changes here or nowhere.
 
 ## Failure protocol
@@ -33,7 +33,7 @@ is not; never invent an answer to make a gate pass.
 
 - The Explore subagent returned only the compact domain map: domain, verified files, exists vs.
   missing, unbuilt dependencies. No file dumps.
-- Every line of the map carries evidence (a command and its result, or `file:line`).
+- Every line of the map carries evidence (a `find` query, a command and its result, or `file:line`).
 - Every file the later phases will name is marked `exists` or `missing`; nothing is `assumed`.
 - Each dependency on another feature is marked built (cite the commit) or unbuilt.
 
@@ -80,6 +80,10 @@ is not; never invent an answer to make a gate pass.
   literal address the repo's rules forbid hard-coding.
 - Every check can fail: probe values are chosen where the bug under test manifests, and boundary
   cases probe the boundary itself.
+- **Every `e2e` row is test-ready.** A test author who has read only the row and the conventions
+  can write the test without a design choice: `Steps` gives literal fixture values and the actions
+  in order, `Assertion` gives literal expected values (text, count, URL, status, stored value). A
+  row that says "an invalid email", "a long name" or "an error message" without the value fails.
 
 ## G7 Traceability — Phase 7 (BA), completed in Phase 8
 
@@ -104,10 +108,27 @@ filled Step.
   with the single-test command in `.claude/repo-profile.md` § Verification commands. A Step never runs
   an id a later Step writes.
 - Steps are dependency-ordered: each **Depends on** names only earlier Steps.
-- Each Step touches about 1–3 files.
-- No Step needs a design decision. A Step that says "choose", "decide", "either", "or similar",
-  "as appropriate" or "TBD", or whose **Change** omits an exact signature, fails.
+- Each Step is one coherent slice of at most 6 non-test files. A plan of many one-file Steps fails:
+  merge them.
+- No Step leaves a product decision open: what the user sees, what is stored, who may do what. A
+  Step that says "choose", "decide", "or similar", "as appropriate" or "TBD" about one of those, or
+  whose **Change** omits the signature of an exported symbol, fails. Implementation choices
+  (internal names, private helpers, structure) are the implementer's and are not specified.
+- **Every Step is self-contained for an implementer that sees only that Step.** Its **Change**
+  gives, per file, the contract: exported signatures, behaviour per kind of input, how each failure
+  is reported, any persisted name or shape, and any value it depends on copied in (not "see Section
+  2"). Its **Reuse** line names the existing symbols to call. It does not contain function bodies,
+  component bodies or private names.
+- Every Step is in exactly one `## Phase`; each phase has a **Delivers** line; every `TS-` and
+  `E2E-` id is delivered by exactly one phase (a spec of up to four Steps is one phase).
 - Every Step has a **Verify** (exact command + expected result) and a **Stop-if**.
+- Every Step has a **Risk** line, `high` or `low` with a one-line reason, that follows
+  `.claude/repo-profile.md` § Gate risk tiers: `high` when the Step implements a safety fact from
+  `impact.md` or a rule about who may see or change data, and `low` otherwise.
+- `npm run check:spec -- <slug>` (`scripts/check-spec.sh`) checks the bookkeeping items of this gate
+  mechanically — TS- and E2E- coverage, phases and Delivers, the six-file limit, open-decision
+  wording, path existence, and Risk / Verify / Stop-if on every Step. It must print
+  `SPEC-LINT: PASS` before the review packet is frozen; its warnings are read, not ignored.
 
 ## G9 Challenge — Phase 9 (BA ↔ SA)
 
@@ -118,10 +139,10 @@ filled Step.
 
 ## G10 Review — Phase 10
 
-- Three artifacts (`spec-traceability`, `spec-codebase-verifier`, `spec-cold-reader`) validated against the same frozen packet.
+- Two artifacts (`spec-codebase-verifier`, `spec-cold-reader`) validated against the same frozen packet. `spec-traceability` is not part of the pipeline's round: `npm run check:spec` covers the id bookkeeping. `/enhance-this-spec` still runs all three when a human asks for a deeper review.
 - Every Critical and Major finding has a disposition: **Applied**, **Documented** (risk, assumption or open question) or **Rejected with evidence**. Silence is not a disposition.
 - Every applied revision has real replacement text, and the affected gates above were re-checked after it.
-- At most 2 rounds were run. Anything still unresolved is in Open Questions with who decides.
+- One round. Anything still unresolved is decided by the writer and recorded as an `[auto]` Decision, or is in Open Questions if it is a stop condition.
 - The packet files did not change between freeze and the reviewers returning (re-hash after the round).
 
 ## Reviewer mapping

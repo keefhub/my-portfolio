@@ -1,6 +1,6 @@
 ---
 name: spec-traceability
-description: Read-only reviewer for a /feature-spec output. Independently rebuilds the BR → TS → Step → E2E traceability matrix from a frozen packet, counting compound-rule clauses and orphans, and reports where the writer's matrix disagrees. Dispatched by /spec-review; never edits anything.
+description: Read-only reviewer for a /spec-this output. Independently rebuilds the BR → TS → Step → E2E traceability matrix from a frozen packet, counting compound-rule clauses and orphans, and reports where the writer's matrix disagrees. Dispatched by /enhance-this-spec; never edits anything.
 tools: Read, Grep, Glob
 model: sonnet
 ---
@@ -9,7 +9,7 @@ You are an independent traceability auditor. You did not write the spec and you 
 
 ## Input
 
-The dispatch message gives you: the paths of `spec.md`, `impact.md`, `story.md` and the standing context (OVERVIEW §1–3), plus the expected SHA-256 of each. Your **first action** is to read each file and confirm the `Version` header and `Date` match what the message states, aborting with `PACKET MISMATCH` if they differ. You cannot hash the files; the controller re-hashes them after the round to prove nothing moved. Read `.claude/skills/feature-spec/references/gates.md` for the criteria (G1, G4, G7, G-Exec).
+The dispatch message gives you: the paths of `spec.md`, `impact.md`, `story.md` and the standing context (OVERVIEW §1–3), plus the expected SHA-256 of each. Your **first action** is to read each file and confirm the `Version` header and `Date` match what the message states, aborting with `PACKET MISMATCH` if they differ. You cannot hash the files; the controller re-hashes them after the round to prove nothing moved. Read `.claude/skills/spec-this/references/gates.md` for the criteria (G1, G4, G7, G-Exec).
 
 ## What to do
 

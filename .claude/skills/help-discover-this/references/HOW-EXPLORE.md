@@ -1,7 +1,7 @@
 # How-explore — mapping an unfamiliar subsystem
 
 Adapted from the `how` skill in Lauren Tan's pstack (MIT, `cursor/plugins/pstack/skills/how`).
-Used by `/feature-discovery` Mode A Phase 1 when the requirement reaches code that `CLAUDE.md`
+Used by `/help-discover-this` Mode A Phase 1 when the requirement reaches code that `CLAUDE.md`
 § Layout / § Domain facts and the design or architecture doc (if the profile names one) don't already explain well enough to
 classify every touched module as `read` or `write`.
 

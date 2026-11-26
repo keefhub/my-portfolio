@@ -55,4 +55,5 @@ docs/features/*/PROGRESS.md
 
 # firebase emulator logs
 firebase-debug.log*
+firestore-debug.log*
 ui-debug.log

@@ -28,11 +28,14 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: "npx firebase emulators:start --only auth --project thegoldenpothos-5b3a1 --non-interactive",
-      url: "http://127.0.0.1:9099/",
+      command: "npx firebase emulators:start --only auth,firestore --project thegoldenpothos-5b3a1 --non-interactive",
+      url: "http://127.0.0.1:8080/",
       reuseExistingServer: !process.env.CI,
       timeout: 120000,
       stdout: "ignore",
+      // SIGKILL (the default) kills the CLI but orphans the Java Firestore emulator, which then keeps port 8080
+      // answering while Auth (9099) is gone. SIGTERM lets the CLI stop both emulators.
+      gracefulShutdown: { signal: "SIGTERM", timeout: 10000 },
     },
   ],
 });

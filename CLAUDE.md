@@ -125,6 +125,11 @@ Auth, committed public web config) and [src/lib/admin/](src/lib/admin/) (owner d
 list) serve only the admin panel at `/bright-warm-greenhouse/`. Never import either from a public
 page, layout or server component: the public site must load no Firebase code.
 
+**Database rules are the security boundary.** [firestore.rules](firestore.rules) allows writes only
+from the owner's user ID (`ownerUid()`, also `OWNER_UID` in `src/lib/admin/owner.ts`; both ship as the
+deny-all placeholder `REPLACE_WITH_OWNER_UID`). The panel being hidden protects nothing. Rules are
+tested against the Firestore emulator (Java) in `e2e/` and deployed only by the live deploy job.
+
 **Metadata** is centralized in [src/app/layout.tsx](src/app/layout.tsx) with a
 `%s | thegoldenpothos` title template. Blog posts add their own via
 `generateMetadata`.

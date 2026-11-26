@@ -1,0 +1,49 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // The single account allowed to change content, named by Firebase user ID.
+    // The placeholder matches no account, so nobody can write until it is filled in.
+    function ownerUid() {
+      return 'REPLACE_WITH_OWNER_UID';
+    }
+
+    function isOwner() {
+      return request.auth != null && request.auth.uid == ownerUid();
+    }
+
+    match /profile/{id} {
+      allow read: if true;
+      allow create, update, delete: if isOwner();
+    }
+
+    match /experience/{id} {
+      allow read: if true;
+      allow create, update, delete: if isOwner();
+    }
+
+    match /projects/{id} {
+      allow read: if true;
+      allow create, update, delete: if isOwner();
+    }
+
+    match /certifications/{id} {
+      allow read: if true;
+      allow create, update, delete: if isOwner();
+    }
+
+    match /techCategories/{id} {
+      allow read: if true;
+      allow create, update, delete: if isOwner();
+    }
+
+    // Drafts are readable only by the owner. A post with no draft field is not public.
+    match /blogPosts/{slug} {
+      allow read: if resource.data.draft == false || isOwner();
+      allow create, update, delete: if isOwner();
+    }
+
+    // Every other path is refused by default.
+  }
+}

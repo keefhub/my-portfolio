@@ -837,7 +837,7 @@ test.describe("manage-experience", () => {
     await nav(page).getByRole("button", { name: "Tech stack", exact: true }).click();
     await expect(page.getByRole("heading", { level: 2, name: "Tech stack" })).toBeVisible();
     await nav(page).getByRole("button", { name: "Blog posts", exact: true }).click();
-    await expect(text(page, "Blog posts editor is not available yet.")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Blog posts" })).toBeVisible();
     await expect(nav(page).getByRole("button")).toHaveText(MENU);
   });
 

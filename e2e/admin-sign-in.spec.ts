@@ -279,7 +279,8 @@ test("E2E-14: choosing a menu item shows its placeholder and replaces the previo
   await btn(page, "Tech stack").click();
   await expect(page.getByRole("heading", { level: 2, name: "Tech stack" })).toBeVisible();
   await btn(page, "Blog posts").click();
-  await expect(page.getByText("Blog posts editor is not available yet.")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Blog posts" })).toBeVisible();
+  await expect(page.getByText("Blog posts editor is not available yet.")).toHaveCount(0);
   await expect(page.getByText("Tech stack editor is not available yet.")).toHaveCount(0);
   await expect(page.getByRole("heading", { level: 2, name: "Tech stack" })).toHaveCount(0);
   await expect(nav(page).getByRole("button")).toHaveText(SECTIONS);

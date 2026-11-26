@@ -740,7 +740,7 @@ test.describe("manage-profile", () => {
     await expect(page.getByText("Tech stack editor is not available yet.")).toHaveCount(0);
     await expect(saveBtn(page)).toBeVisible();
     await nav(page).getByRole("button", { name: "Blog posts", exact: true }).click();
-    await expect(page.getByText("Blog posts editor is not available yet.")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Blog posts" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 2, name: "Profile" })).toHaveCount(0);
   });
 

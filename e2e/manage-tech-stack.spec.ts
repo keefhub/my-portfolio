@@ -966,7 +966,7 @@ test.describe("manage-tech-stack", () => {
     const old = text(page, "Tech stack editor is not available yet.");
     const menu = nav(page).getByRole("button");
     await nav(page).getByRole("button", { name: "Blog posts", exact: true }).click();
-    await expect(blog).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Blog posts" })).toBeVisible();
     await expect(h2).toHaveCount(0);
     await expect(EDITOR(page)).toHaveCount(0);
     await expect(old).toHaveCount(0);
@@ -985,7 +985,7 @@ test.describe("manage-tech-stack", () => {
     await expect(old).toHaveCount(0);
     await expect(menu).toHaveText(MENU);
     await nav(page).getByRole("button", { name: "Blog posts", exact: true }).click();
-    await expect(blog).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Blog posts" })).toBeVisible();
     await expect(h2).toHaveCount(0);
     await expect(old).toHaveCount(0);
     await expect(menu).toHaveText(MENU);

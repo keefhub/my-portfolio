@@ -683,7 +683,7 @@ test.describe("manage-certifications", () => {
     await expect(EDITOR(page)).toHaveCount(0);
     await expect(nav(page).getByRole("button")).toHaveText(MENU);
     await nav(page).getByRole("button", { name: "Blog posts", exact: true }).click();
-    await expect(text(page, "Blog posts editor is not available yet.")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Blog posts" })).toBeVisible();
     await expect(h2).toHaveCount(0);
     await expect(nav(page).getByRole("button")).toHaveText(MENU);
     await nav(page).getByRole("button", { name: "Experience", exact: true }).click();

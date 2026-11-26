@@ -134,6 +134,10 @@ AdminPanel ("use client", src/app/components/admin/AdminPanel.tsx)
     └── ProfileEditor (src/app/components/admin/ProfileEditor.tsx), the "Profile" menu item: one form for
         name, headline, about paragraphs, photo (uploaded image or repo path), email, resume link, social links;
         errors beside fields; the form pattern the later editors reuse
+    └── ExperienceEditor (src/app/components/admin/ExperienceEditor.tsx), the "Experience" menu item: the
+        fields for one entry, inside the shared ListEditor<T> (ListEditor.tsx: list ordered by position, Add
+        entry, Edit, Move up/down, inline Confirm delete, one write at a time) with shared form pieces in
+        formParts.tsx. Projects, certifications and tech stack reuse ListEditor with their own fields.
 ```
 
 Styled with inline `var(--token)` values only; imports `src/lib/firebase` and `src/lib/admin`,

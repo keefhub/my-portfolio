@@ -312,3 +312,37 @@ test("E2E-22: firebase.json points Firestore at the rules and the emulator", () 
     expect(config).not.toHaveProperty(key);
   }
 });
+
+test("E2E-21: the live deploy publishes the rules after hosting and uses no new secret", () => {
+  const workflow = readFileSync(join(ROOT, ".github/workflows/pipeline.yml"), "utf8");
+  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as {
+    scripts: Record<string, string>;
+  };
+  const prodStart = workflow.indexOf("  deploy-production:");
+  const stagingStart = workflow.indexOf("  deploy-staging:");
+  expect(prodStart).toBeGreaterThan(-1);
+  expect(stagingStart).toBeGreaterThan(-1);
+  expect(stagingStart).toBeLessThan(prodStart);
+  const prod = workflow.slice(prodStart);
+  const staging = workflow.slice(stagingStart, prodStart);
+
+  expect(prod).toContain("npm run deploy:rules");
+  expect(prod).toContain("GOOGLE_APPLICATION_CREDENTIALS");
+  expect(prod.indexOf("FirebaseExtended/action-hosting-deploy")).toBeGreaterThan(-1);
+  expect(prod.indexOf("FirebaseExtended/action-hosting-deploy")).toBeLessThan(
+    prod.indexOf("npm run deploy:rules"),
+  );
+  expect(prod).not.toContain("continue-on-error");
+  expect(staging).not.toContain("deploy:rules");
+  expect(staging).not.toContain("firestore");
+
+  const secrets = new Set([...workflow.matchAll(/secrets\.([A-Za-z0-9_]+)/g)].map((m) => m[1]));
+  expect(secrets).toEqual(new Set(["GITHUB_TOKEN", "FIREBASE_SERVICE_ACCOUNT"]));
+
+  expect(pkg.scripts["deploy:rules"]).toBe(
+    "firebase deploy --only firestore:rules --project thegoldenpothos-5b3a1",
+  );
+  expect(pkg.scripts.deploy).toBe(
+    "npm run build && firebase deploy --only hosting --project thegoldenpothos-5b3a1",
+  );
+});

@@ -351,13 +351,13 @@ test("E2E-21: the live deploy publishes the rules after hosting and uses no new 
 // ---- Panel notice rows (E2E-14 to E2E-18, E2E-20) ----
 
 const PANEL = "/bright-warm-greenhouse/";
-const SECTIONS = ["Profile", "Experience", "Projects", "Certifications", "Tech stack", "Blog posts"];
+const SECTIONS = ["Profile", "Experience", "Projects", "Certifications", "Tech stack", "Blog posts", "Images"];
 const NOTICE_TEXT = "Saving is not switched on yet.";
 const EXPLANATION = "You can look around, but nothing you change will be saved until your account is set up.";
 const STEPS = [
   "In src/lib/admin/owner.ts, set OWNER_UID to your user ID, in quotes.",
-  "In firestore.rules, replace REPLACE_WITH_OWNER_UID with your user ID, keeping the quotes.",
-  "Merge the change to master. The live deploy then publishes the database rules.",
+  "In firestore.rules and storage.rules, replace REPLACE_WITH_OWNER_UID with your user ID, keeping the quotes.",
+  "Merge the change to master. The live deploy then publishes the database and file storage rules.",
 ];
 
 async function signInViaPopup(page: Page): Promise<void> {

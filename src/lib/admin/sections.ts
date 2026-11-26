@@ -7,4 +7,5 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { id: "certifications", label: "Certifications" },
   { id: "tech-stack", label: "Tech stack" },
   { id: "blog-posts", label: "Blog posts" },
+  { id: "images", label: "Images" },
 ];

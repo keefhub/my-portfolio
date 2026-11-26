@@ -33,9 +33,9 @@ export default function SavingOffNotice(): React.JSX.Element {
       >
         <li>In src/lib/admin/owner.ts, set OWNER_UID to your user ID, in quotes.</li>
         <li>
-          {`In firestore.rules, replace ${OWNER_UID_PLACEHOLDER} with your user ID, keeping the quotes.`}
+          {`In firestore.rules and storage.rules, replace ${OWNER_UID_PLACEHOLDER} with your user ID, keeping the quotes.`}
         </li>
-        <li>Merge the change to master. The live deploy then publishes the database rules.</li>
+        <li>Merge the change to master. The live deploy then publishes the database and file storage rules.</li>
       </ol>
     </section>
   );

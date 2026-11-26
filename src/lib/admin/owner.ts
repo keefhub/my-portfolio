@@ -1,7 +1,7 @@
 import { isEmulatorHost } from "../firebase/config";
 
 export const OWNER_UID_PLACEHOLDER = "REPLACE_WITH_OWNER_UID";
-// Also put this same user ID in firestore.rules (function ownerUid).
+// Also put this same user ID in firestore.rules and storage.rules (function ownerUid in each).
 export const OWNER_UID: string = OWNER_UID_PLACEHOLDER;
 export const OWNER_UID_OVERRIDE_KEY = "admin.ownerUid";
 

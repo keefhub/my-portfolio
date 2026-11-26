@@ -5,6 +5,7 @@ import { signInWithGoogle, signOutUser, watchAuth } from "@/lib/firebase/auth";
 import { accessFor, getOwnerUid } from "@/lib/admin/owner";
 import { ADMIN_SECTIONS } from "@/lib/admin/sections";
 import SavingOffNotice from "./SavingOffNotice";
+import ImageLibrary from "./ImageLibrary";
 
 type PanelState =
   | { kind: "loading" }
@@ -144,7 +145,8 @@ export default function AdminPanel(): React.JSX.Element {
               ))}
             </ul>
           </nav>
-          {section && (
+          {section && section.id === "images" && <ImageLibrary />}
+          {section && section.id !== "images" && (
             <p role="status" style={{ margin: 0, color: "var(--muted)" }}>
               {section.label} editor is not available yet.
             </p>

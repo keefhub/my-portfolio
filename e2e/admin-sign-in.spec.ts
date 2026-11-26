@@ -19,7 +19,7 @@ test("E2E-19: accessFor decides unfilled, owner and not-allowed from user IDs", 
 });
 
 const PANEL = "/bright-warm-greenhouse/";
-const SECTIONS = ["Profile", "Experience", "Projects", "Certifications", "Tech stack", "Blog posts"];
+const SECTIONS = ["Profile", "Experience", "Projects", "Certifications", "Tech stack", "Blog posts", "Images"];
 const NOT_ALLOWED = "This account is not allowed to use the admin panel.";
 const FAILED = "Sign-in was not completed.";
 const OTHER_UID = "not-this-account-0000000000";
@@ -169,8 +169,8 @@ test("E2E-09: the menu fits a 375px phone", async ({ page }) => {
   await page.goto(PANEL);
   await signIn(page);
   const buttons = nav(page).getByRole("button");
-  await expect(buttons).toHaveCount(6);
-  for (let i = 0; i < 6; i++) {
+  await expect(buttons).toHaveCount(7);
+  for (let i = 0; i < 7; i++) {
     const b = buttons.nth(i);
     await expect(b).toBeVisible();
     const box = await b.boundingBox();

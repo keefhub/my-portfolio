@@ -129,6 +129,8 @@ AdminPanel ("use client", src/app/components/admin/AdminPanel.tsx)
 └── signed-in, owner (or owner ID still a placeholder): section menu, user ID line, Sign out
     └── SavingOffNotice (src/app/components/admin/SavingOffNotice.tsx, no hooks): shown only while
         the owner ID is the placeholder; "Saving is not switched on yet." plus the three switch-on steps
+    └── ImageLibrary (src/app/components/admin/ImageLibrary.tsx), the "Images" menu item: upload
+        (PNG/JPEG/WebP/SVG, at most 5 MB), newest-first list with size, Copy address, inline Confirm delete
 ```
 
 Styled with inline `var(--token)` values only; imports `src/lib/firebase` and `src/lib/admin`,

@@ -21,7 +21,8 @@ summary; that one is the on-demand detail.
 | `npm run build`     | Production build **and static export** → `out/`      |
 | `npm run typecheck` | `tsc --noEmit`                                       |
 | `npm run lint`      | `eslint .`                                           |
-| `npm run test:e2e`  | Build, then all Playwright specs in `e2e/` against `out/` — run before pushing to `develop`, not in CI |
+| `npm run test:e2e`  | Build, then all Playwright specs in `e2e/` — slow, optional, on request only; not a gate, not in CI |
+| `npx playwright test e2e/<slug>.spec.ts` | One feature's own spec against the built `out/` (build first) |
 
 **`npm run build` is the real verification gate.** It is the only step that runs
 the export, so it is the only step that catches server/client boundary
@@ -179,7 +180,7 @@ uses `docs/` instead and never touches them.
 - **Style against the CSS tokens in `globals.css`.** No raw colour values, no Tailwind `dark:` variants.
 - **Never `git add -A`, `git add .`, or `git commit -a`.** Stage explicit paths.
 - **Playwright is the only test runner.** Specs live in `e2e/` and run against the built `out/`. Don't add Vitest, Jest or another runner without asking.
-- **Full e2e (`npm run test:e2e`) must pass before pushing to `develop`.** It is a local gate only: never per task, never added to CI.
+- **Run only the feature's own e2e spec** (`npx playwright test e2e/<slug>.spec.ts`) — at feature completion and before pushing to `develop`. Never the full suite as a gate (too slow), and never e2e in CI.
 - **Never push to `master`.** It deploys the live site; work lands on `develop`.
 
 ---

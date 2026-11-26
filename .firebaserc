@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "thegoldenpothos-5b3a1"
+    "default": "thegoldenpothos-5b3a1",
+    "prod": "thegoldenpothos-5b3a1",
+    "sit": "thegoldenpothos-sit"
   }
 }

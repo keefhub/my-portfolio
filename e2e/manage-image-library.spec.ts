@@ -338,4 +338,70 @@ test.describe("manage-image-library", () => {
       expect(res.stdout).toBe("");
     }
   });
+  test("E2E-16: validateImageFile accepts or refuses a file by size and type", async () => {
+    // Loaded inside the row so a missing module fails only the rows that need it.
+    const { validateImageFile } = await import("../src/lib/admin/images");
+    const TYPE = "Only PNG, JPEG, WebP or SVG images can be uploaded";
+    const BIG = "That image is over 5 MB";
+    const cases: Array<[number, string]> = [
+      [1, "image/png"],
+      [5242880, "image/png"],
+      [5242881, "image/png"],
+      [5347738, "image/png"],
+      [1000, "application/pdf"],
+      [1000, "image/gif"],
+      [1000, ""],
+      [0, "image/png"],
+      [0, "application/pdf"],
+      [5347738, "application/pdf"],
+      [1000, "image/png"],
+      [1000, "image/jpeg"],
+      [1000, "image/webp"],
+      [1000, "image/svg+xml"],
+    ];
+    const results = cases.map(([size, type]) => validateImageFile({ name: "a", size, type }));
+    expect(results).toEqual([
+      null,
+      null,
+      BIG,
+      BIG,
+      TYPE,
+      TYPE,
+      TYPE,
+      "That file is empty",
+      "That file is empty",
+      TYPE,
+      null,
+      null,
+      null,
+      null,
+    ]);
+  });
+
+  test("E2E-17: formatBytes writes a size as B, KB or MB", async () => {
+    const { formatBytes } = await import("../src/lib/admin/images");
+    const inputs = [0, 1023, 1024, 1536, 20480, 204800, 307200, 1048576, 1572864, 5242880, 5347738];
+    expect(inputs.map((n) => formatBytes(n))).toEqual([
+      "0 B",
+      "1023 B",
+      "1 KB",
+      "1.5 KB",
+      "20 KB",
+      "200 KB",
+      "300 KB",
+      "1 MB",
+      "1.5 MB",
+      "5 MB",
+      "5.1 MB",
+    ]);
+  });
+
+  test("E2E-18: storagePathFor names the stored path by type and refuses other types", async () => {
+    const { storagePathFor } = await import("../src/lib/admin/images");
+    expect(storagePathFor("abc", "image/png")).toBe("images/abc.png");
+    expect(storagePathFor("abc", "image/jpeg")).toBe("images/abc.jpg");
+    expect(storagePathFor("abc", "image/webp")).toBe("images/abc.webp");
+    expect(storagePathFor("abc", "image/svg+xml")).toBe("images/abc.svg");
+    expect(() => storagePathFor("abc", "application/pdf")).toThrow();
+  });
 });

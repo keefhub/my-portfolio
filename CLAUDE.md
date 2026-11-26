@@ -285,6 +285,7 @@ Populated by `/help-discover-this` and `/agentic-discover` as features are added
 | 8 | [manage-blog-posts](docs/features/manage-blog-posts/story.md) | Most rules (unique slug, dates, draft, status list), so after the pattern is settled |
 | 9 | [preview-blog-post](docs/features/preview-blog-post/story.md) | Needs the post editor to preview from |
 | 10 | [manage-image-library](docs/features/manage-image-library/story.md) | Builds right after admin-owner-only-access (decomposition Run order 3): storage rules and uploads must exist before any editor can pick an uploaded image; needs the owner-only rules pattern from that slice |
+| 11 | [separate-sit-and-production](docs/features/separate-sit-and-production/story.md) | The only slice of its goal. It needs the built sign-in, owner rules and image storage rules from rows 1, 2 and 10, so it goes after the last existing row |
 
 Do not reorder or skip features without an explicit user request. Do not implement scenarios beyond what's written.
 

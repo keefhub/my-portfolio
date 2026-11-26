@@ -52,3 +52,8 @@ docs/features/*/PROGRESS.md
 
 # pipeline run logs (step packets, gate output, failure digests)
 .run-logs/
+
+# firebase emulator logs
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log

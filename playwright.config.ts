@@ -21,9 +21,21 @@ export default defineConfig({
     trace: "off",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    command: `npx http-server out -p ${PORT} -a 127.0.0.1 -c-1 -s`,
-    url: `http://127.0.0.1:${PORT}/`,
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command: `npx http-server out -p ${PORT} -a 127.0.0.1 -c-1 -s`,
+      url: `http://127.0.0.1:${PORT}/`,
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      command: "npx firebase emulators:start --only auth,firestore,storage --project thegoldenpothos-5b3a1 --non-interactive",
+      url: "http://127.0.0.1:9199/v0/b/thegoldenpothos-5b3a1.firebasestorage.app/o",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000,
+      stdout: "ignore",
+      // SIGKILL (the default) kills the CLI but orphans the Java Firestore emulator, which then keeps port 8080
+      // answering while Auth (9099) is gone. SIGTERM lets the CLI stop both emulators.
+      gracefulShutdown: { signal: "SIGTERM", timeout: 10000 },
+    },
+  ],
 });

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { BlogPost } from "@/lib/blog/types";
 import { formatDate } from "@/lib/blog/types";
+import PostBody from "./PostBody";
 
 interface BlogArticleProps {
   post: BlogPost;
@@ -73,12 +74,7 @@ export default function BlogArticle({ post, htmlContent }: BlogArticleProps) {
       </header>
 
       {/* Content */}
-      {/* Colours, code tokens and element tweaks live in globals.css under
-          "Blog — Prose Theming", driven by the site design tokens. */}
-      <div
-        className="prose prose-lg max-w-none prose-a:no-underline hover:prose-a:underline"
-        dangerouslySetInnerHTML={{ __html: htmlContent }}
-      />
+      <PostBody html={htmlContent} />
 
       {/* Footer */}
       <footer className="mt-16 pt-8 border-t border-[var(--border)]">

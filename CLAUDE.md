@@ -3,7 +3,7 @@
 Personal portfolio + blog for Keith Lim — `https://thegoldenpothos.dev`.
 
 Next.js 16.2.6 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS v4 ·
-Framer Motion · **statically exported** to `out/` and served by Firebase Hosting.
+Framer Motion · Firebase JS SDK (admin panel only) · **statically exported** to `out/` and served by Firebase Hosting.
 
 Import alias: `@/*` → `./src/*`.
 
@@ -53,6 +53,7 @@ Every route is prerendered at build time. There is no server at runtime.
 | `/rss.xml`      | [src/app/rss.xml/route.ts](src/app/rss.xml/route.ts)          |
 | `/sitemap.xml`  | [src/app/sitemap.ts](src/app/sitemap.ts)                      |
 | `/robots.txt`   | [src/app/robots.ts](src/app/robots.ts)                        |
+| `/bright-warm-greenhouse/` | [src/app/bright-warm-greenhouse/page.tsx](src/app/bright-warm-greenhouse/page.tsx) — owner-only admin panel (`AdminPanel`, client component); `noindex`, not in the sitemap or `robots.txt` |
 
 The landing page (`/`) is a multi-section scroll with anchor nav — Hero, About,
 Experience, TechStack, Projects, Certifications. It is not routed; the sections
@@ -119,6 +120,18 @@ against these tokens. An inline script in
 [src/app/layout.tsx](src/app/layout.tsx) sets `data-theme` before paint to
 prevent FOUC; `<html>` carries `suppressHydrationWarning` for that reason.
 
+**Admin modules are client-only.** [src/lib/firebase/](src/lib/firebase/) (Firebase app,
+Auth, committed public web config) and [src/lib/admin/](src/lib/admin/) (owner decision, section
+list) serve only the admin panel at `/bright-warm-greenhouse/`. Never import either from a public
+page, layout or server component: the public site must load no Firebase code.
+
+**Database rules are the security boundary.** [firestore.rules](firestore.rules) allows writes only
+from the owner's user ID (`ownerUid()`, also `OWNER_UID` in `src/lib/admin/owner.ts`; both ship as the
+deny-all placeholder `REPLACE_WITH_OWNER_UID`). The panel being hidden protects nothing. Rules are
+tested against the Firestore emulator (Java) in `e2e/` and deployed only by the live deploy job.
+[storage.rules](storage.rules) does the same for uploaded images under `images/`: public `get`, no
+`list`, owner-only create and delete, at most 5 MB, PNG/JPEG/WebP/SVG only; Storage needs the Blaze plan.
+
 **Metadata** is centralized in [src/app/layout.tsx](src/app/layout.tsx) with a
 `%s | thegoldenpothos` title template. Blog posts add their own via
 `generateMetadata`.
@@ -140,7 +153,7 @@ detail pages, RSS, and the sitemap.
 
 Markdown runs through unified: remark-parse → remark-gfm → remark-rehype →
 rehype-raw → rehype-slug → rehype-autolink-headings → rehype-highlight
-([src/lib/blog/markdown.ts](src/lib/blog/markdown.ts)). Raw HTML in posts is
+([src/lib/markdown.ts](src/lib/markdown.ts), re-exported by `src/lib/blog/markdown.ts`; client-safe, so the admin preview imports `@/lib/markdown` directly). Raw HTML in posts is
 parsed as real elements and **is trusted** — content is authored in this repo.
 If untrusted markdown is ever rendered, add `rehype-sanitize` after
 `rehype-raw`.
@@ -262,6 +275,16 @@ Populated by `/help-discover-this` and `/agentic-discover` as features are added
 
 | Order | Feature story | Why it goes here |
 | ----- | ------------- | ---------------- |
+| 1 | [admin-sign-in](docs/features/admin-sign-in/story.md) | The gate every other slice sits behind; carries the Firebase dependency, emulator set-up and the route |
+| 2 | [admin-owner-only-access](docs/features/admin-owner-only-access/story.md) | Rules must exist before any editor writes; shows the placeholder state to the owner |
+| 3 | [manage-profile](docs/features/manage-profile/story.md) | Simplest editor (one record); fixes the form and save pattern |
+| 4 | [manage-experience](docs/features/manage-experience/story.md) | First list; fixes the reorder and confirm-delete pattern the next three reuse |
+| 5 | [manage-projects](docs/features/manage-projects/story.md) | Reuses the list pattern; no new dependency |
+| 6 | [manage-certifications](docs/features/manage-certifications/story.md) | Reuses the list pattern |
+| 7 | [manage-tech-stack](docs/features/manage-tech-stack/story.md) | Reuses the list pattern, plus nested items |
+| 8 | [manage-blog-posts](docs/features/manage-blog-posts/story.md) | Most rules (unique slug, dates, draft, status list), so after the pattern is settled |
+| 9 | [preview-blog-post](docs/features/preview-blog-post/story.md) | Needs the post editor to preview from |
+| 10 | [manage-image-library](docs/features/manage-image-library/story.md) | Builds right after admin-owner-only-access (decomposition Run order 3): storage rules and uploads must exist before any editor can pick an uploaded image; needs the owner-only rules pattern from that slice |
 
 Do not reorder or skip features without an explicit user request. Do not implement scenarios beyond what's written.
 

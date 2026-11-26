@@ -34,6 +34,7 @@ All routes are prerendered at build time — there is no server at runtime.
 | `/rss.xml`      | `src/app/rss.xml/route.ts`    | `dynamic = "force-static"`        |
 | `/sitemap.xml`  | `src/app/sitemap.ts`          | Next metadata route               |
 | `/robots.txt`   | `src/app/robots.ts`           | Next metadata route               |
+| `/bright-warm-greenhouse/` | `src/app/bright-warm-greenhouse/page.tsx` | Owner-only admin panel; `noindex`; renders `AdminPanel` |
 
 ### Landing Page (`/`)
 
@@ -55,6 +56,7 @@ page.tsx            ← multi-section scroll, anchor-linked (not routed)
 blog/layout.tsx     ← shared blog chrome
 ├── blog/page.tsx        → BlogIndex → BlogCard[]   (server components)
 └── blog/[slug]/page.tsx → BlogArticle              (server component)
+    └── PostBody (blog/PostBody.tsx, hookless; the .prose wrapper, also used by the admin preview)
         ↑ content sourced from content/blog/*.md at build time
 ```
 
@@ -117,6 +119,46 @@ RootLayout
         ├── Social links
         └── Back-to-top FAB (AnimatePresence, scroll threshold 400px)
 ```
+
+Admin panel (`/bright-warm-greenhouse/`, separate from the landing page):
+
+```
+AdminPanel ("use client", src/app/components/admin/AdminPanel.tsx)
+├── loading screen (first render, avoids hydration mismatch)
+├── signed-out: "Sign in with Google" (Firebase Auth popup) + failure alert
+├── signed-in, not allowed: message, own user ID, Sign out
+└── signed-in, owner (or owner ID still a placeholder): section menu, user ID line, Sign out
+    └── SavingOffNotice (src/app/components/admin/SavingOffNotice.tsx, no hooks): shown only while
+        the owner ID is the placeholder; "Saving is not switched on yet." plus the three switch-on steps
+    └── ImageLibrary (src/app/components/admin/ImageLibrary.tsx), the "Images" menu item: upload
+        (PNG/JPEG/WebP/SVG, at most 5 MB), newest-first list with size, Copy address, inline Confirm delete
+    └── ProfileEditor (src/app/components/admin/ProfileEditor.tsx), the "Profile" menu item: one form for
+        name, headline, about paragraphs, photo (uploaded image or repo path), email, resume link, social links;
+        errors beside fields; the form pattern the later editors reuse
+    └── ExperienceEditor (src/app/components/admin/ExperienceEditor.tsx), the "Experience" menu item: the
+        fields for one entry, inside the shared ListEditor<T> (ListEditor.tsx: list ordered by position, Add
+        entry, Edit, Move up/down, inline Confirm delete, one write at a time) with shared form pieces in
+        formParts.tsx. Projects, certifications and tech stack reuse ListEditor with their own fields.
+    └── ProjectsEditor (src/app/components/admin/ProjectsEditor.tsx), the "Projects" menu item: ListEditor with
+        title, short description, paragraphs, tech names, GitHub and demo links; new projects are added last
+        (ListEditor's optional emptyText, listLabel and newPosition props)
+    └── CertificationsEditor (src/app/components/admin/CertificationsEditor.tsx), the "Certifications" menu
+        item: ListEditor (addLabel "Add certification") with name, credential link and badge (uploaded image or
+        repo path, via the profile's photoSelection)
+    └── TechStackEditor (src/app/components/admin/TechStackEditor.tsx), the "Tech stack" menu item: ListEditor of
+        categories (rowDetails lists each item), each with items {name, icon} edited in the form; item moves are
+        stored on Save, a confirmed item removal in an edit form saves at once (ListEditor's saveNow)
+    └── BlogPostsEditor (src/app/components/admin/BlogPostsEditor.tsx), the "Blog posts" menu item: ListEditor
+        (not movable; ordered by date, newest first) over a slug-keyed create-only store; markdown body, title,
+        excerpt, date, tags, Draft/Published, featured, cover image (uploaded or path) and alt text; a taken slug
+        is refused and nothing is overwritten
+        └── PostPreview (src/app/components/admin/PostPreview.tsx): "Preview" in the post form swaps the fields
+            for the body rendered by @/lib/markdown inside PostBody (the same converter the blog uses through
+            src/lib/blog/markdown.ts); "Back to form" returns with nothing lost or saved (ListEditor's hideFormActions)
+```
+
+Styled with inline `var(--token)` values only; imports `src/lib/firebase` and `src/lib/admin`,
+which no public page may import.
 
 ### Navigation Flow
 

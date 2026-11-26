@@ -667,7 +667,7 @@ test.describe("manage-certifications", () => {
     const MENU = ["Profile", "Experience", "Projects", "Certifications", "Tech stack", "Blog posts", "Images"];
     const h2 = page.getByRole("heading", { level: 2, name: "Certifications" });
     await nav(page).getByRole("button", { name: "Tech stack", exact: true }).click();
-    await expect(text(page, "Tech stack editor is not available yet.")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Tech stack" })).toBeVisible();
     await expect(h2).toHaveCount(0);
     await expect(EDITOR(page)).toHaveCount(0);
     await expect(nav(page).getByRole("button")).toHaveText(MENU);

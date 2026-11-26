@@ -34,3 +34,16 @@ Tier: high (Step Risk: high; large-diff; test-passed-before-change)
 Review: risk reviewer PASS (review 1)
 Findings: None.
 =====================================================================
+=====================================================================
+Completion — manage-experience
+Completed: 2026-11-26
+
+Built: shared pure list rules and a generic list store with batched reorder and 10 s write limits, plus the experience modules (Task 1); the reusable ListEditor, shared form pieces and the Experience screen for the "Experience" menu item, with the earlier placeholder tests moved to "Projects" (Task 2).
+Deviations from the spec: None. Locked E2E-11 corrected by a fresh test author (updatedAt pinned to the seed value), not weakened.
+[auto] decisions: 21 lines tagged [auto] in spec.md. No auto-revisions.
+Feature review: PASS
+Findings: edge-case | note | logged | list load() has no timeout (writes do); a hung read leaves "Loading entries…" until the SDK rejects. Optional follow-up: wrap getDocsFromServer in withTimeout.
+Final verification: npm run build ok; npx playwright test e2e/manage-experience.spec.ts 31 passed, 0 failed.
+Manual checks pending: None.
+Follow-ups: the load() timeout above; OQ-5 run admin specs with --workers=1 when several files run together.
+=====================================================================

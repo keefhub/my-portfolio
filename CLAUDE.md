@@ -119,6 +119,11 @@ against these tokens. An inline script in
 [src/app/layout.tsx](src/app/layout.tsx) sets `data-theme` before paint to
 prevent FOUC; `<html>` carries `suppressHydrationWarning` for that reason.
 
+**Admin modules are client-only.** [src/lib/firebase/](src/lib/firebase/) (Firebase app,
+Auth, committed public web config) and [src/lib/admin/](src/lib/admin/) (owner decision, section
+list) serve only the admin panel at `/bright-warm-greenhouse/`. Never import either from a public
+page, layout or server component: the public site must load no Firebase code.
+
 **Metadata** is centralized in [src/app/layout.tsx](src/app/layout.tsx) with a
 `%s | thegoldenpothos` title template. Blog posts add their own via
 `generateMetadata`.

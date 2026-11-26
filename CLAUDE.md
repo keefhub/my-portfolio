@@ -262,6 +262,15 @@ Populated by `/help-discover-this` and `/agentic-discover` as features are added
 
 | Order | Feature story | Why it goes here |
 | ----- | ------------- | ---------------- |
+| 1 | [admin-sign-in](docs/features/admin-sign-in/story.md) | The gate every other slice sits behind; carries the Firebase dependency, emulator set-up and the route |
+| 2 | [admin-owner-only-access](docs/features/admin-owner-only-access/story.md) | Rules must exist before any editor writes; shows the placeholder state to the owner |
+| 3 | [manage-profile](docs/features/manage-profile/story.md) | Simplest editor (one record); fixes the form and save pattern |
+| 4 | [manage-experience](docs/features/manage-experience/story.md) | First list; fixes the reorder and confirm-delete pattern the next three reuse |
+| 5 | [manage-projects](docs/features/manage-projects/story.md) | Reuses the list pattern; no new dependency |
+| 6 | [manage-certifications](docs/features/manage-certifications/story.md) | Reuses the list pattern |
+| 7 | [manage-tech-stack](docs/features/manage-tech-stack/story.md) | Reuses the list pattern, plus nested items |
+| 8 | [manage-blog-posts](docs/features/manage-blog-posts/story.md) | Most rules (unique slug, dates, draft, status list), so after the pattern is settled |
+| 9 | [preview-blog-post](docs/features/preview-blog-post/story.md) | Needs the post editor to preview from |
 
 Do not reorder or skip features without an explicit user request. Do not implement scenarios beyond what's written.
 

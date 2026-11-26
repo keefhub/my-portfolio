@@ -24,6 +24,7 @@ sweep confirms a decision that later features would otherwise reopen.
 2. Blog content lives in `content/blog/*.md` in this repo and is trusted; there is no CMS and no user-submitted content.
 3. Theming uses CSS custom properties with a `[data-theme="dark"]` override, not Tailwind dark variants.
 4. `trailingSlash: true` stays consistent across `next.config.ts`, `firebase.json` and `absoluteUrl()`.
+5. Owner ruling, 2026-11-26 (`docs/requirements/admin-content-panel-intent.md`): item 2 is superseded in stages. A private owner-only admin panel at `/bright-warm-greenhouse/` edits all content (blog posts as markdown) in Firebase Firestore; until the phase-2 migration ships, the public site still renders from the repo (`content/blog/*.md` and component data). The panel stays a static page (item 1 holds); security is enforced by Firestore rules allowing writes only from the owner's Google account.
 
 ## 3. Assumptions to Confirm
 
@@ -38,3 +39,12 @@ One row per feature, appended by `/help-discover-this` Mode B and `/agentic-disc
 
 | Feature | Story |
 | ------- | ----- |
+| Admin sign-in | [admin-sign-in](admin-sign-in/story.md) |
+| Owner-only database access | [admin-owner-only-access](admin-owner-only-access/story.md) |
+| Manage profile | [manage-profile](manage-profile/story.md) |
+| Manage experience | [manage-experience](manage-experience/story.md) |
+| Manage projects | [manage-projects](manage-projects/story.md) |
+| Manage certifications | [manage-certifications](manage-certifications/story.md) |
+| Manage tech stack | [manage-tech-stack](manage-tech-stack/story.md) |
+| Manage blog posts | [manage-blog-posts](manage-blog-posts/story.md) |
+| Preview blog post | [preview-blog-post](preview-blog-post/story.md) |

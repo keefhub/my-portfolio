@@ -34,3 +34,21 @@ Tier: high (Step Risk: high; large-diff)
 Review: risk reviewer PASS (review 1)
 Findings: None.
 =====================================================================
+=====================================================================
+Task 3 — Move six placeholder tests from the "Blog posts" placeholder to its editor
+Completed: 2026-11-26      Commit: 22f094c
+
+Summary: Every toBeVisible on "Blog posts editor is not available yet." in admin-sign-in, manage-profile, manage-experience, manage-projects, manage-certifications and manage-tech-stack now expects the level-2 "Blog posts" heading; count-0 lines kept. All six files pass in full (19, 32, 31, 18, 17, 20). Closes the D-22 gap opened by Task 2.
+Decisions: None (test-only Step; no implementer).
+Deviations: None.
+Files changed: e2e/admin-sign-in.spec.ts, e2e/manage-profile.spec.ts, e2e/manage-experience.spec.ts, e2e/manage-projects.spec.ts, e2e/manage-certifications.spec.ts, e2e/manage-tech-stack.spec.ts (modified)
+E2E tests written: rows named by the packet for the moved tests      Passed before the change: not checked (red after Task 2 by design)
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: LOG emulator MetadataLookupWarning, harmless)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

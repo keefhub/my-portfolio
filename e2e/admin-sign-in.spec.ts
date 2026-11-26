@@ -276,11 +276,11 @@ test("E2E-13: public pages are unchanged and ship no Firebase code", async ({ br
 test("E2E-14: choosing a menu item shows its placeholder and replaces the previous one", async ({ page }) => {
   await page.goto(PANEL);
   await signIn(page);
-  await btn(page, "Profile").click();
-  await expect(page.getByText("Profile editor is not available yet.")).toBeVisible();
+  await btn(page, "Experience").click();
+  await expect(page.getByText("Experience editor is not available yet.")).toBeVisible();
   await btn(page, "Blog posts").click();
   await expect(page.getByText("Blog posts editor is not available yet.")).toBeVisible();
-  await expect(page.getByText("Profile editor is not available yet.")).toHaveCount(0);
+  await expect(page.getByText("Experience editor is not available yet.")).toHaveCount(0);
   await expect(nav(page).getByRole("button")).toHaveText(SECTIONS);
 });
 

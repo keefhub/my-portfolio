@@ -6,6 +6,7 @@ import { accessFor, getOwnerUid } from "@/lib/admin/owner";
 import { ADMIN_SECTIONS } from "@/lib/admin/sections";
 import SavingOffNotice from "./SavingOffNotice";
 import ImageLibrary from "./ImageLibrary";
+import ProfileEditor from "./ProfileEditor";
 
 type PanelState =
   | { kind: "loading" }
@@ -146,7 +147,10 @@ export default function AdminPanel(): React.JSX.Element {
             </ul>
           </nav>
           {section && section.id === "images" && <ImageLibrary />}
-          {section && section.id !== "images" && (
+          {section && section.id === "profile" && (
+            <ProfileEditor savingOn={access === "owner"} />
+          )}
+          {section && section.id !== "images" && section.id !== "profile" && (
             <p role="status" style={{ margin: 0, color: "var(--muted)" }}>
               {section.label} editor is not available yet.
             </p>

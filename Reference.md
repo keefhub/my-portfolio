@@ -131,6 +131,9 @@ AdminPanel ("use client", src/app/components/admin/AdminPanel.tsx)
         the owner ID is the placeholder; "Saving is not switched on yet." plus the three switch-on steps
     └── ImageLibrary (src/app/components/admin/ImageLibrary.tsx), the "Images" menu item: upload
         (PNG/JPEG/WebP/SVG, at most 5 MB), newest-first list with size, Copy address, inline Confirm delete
+    └── ProfileEditor (src/app/components/admin/ProfileEditor.tsx), the "Profile" menu item: one form for
+        name, headline, about paragraphs, photo (uploaded image or repo path), email, resume link, social links;
+        errors beside fields; the form pattern the later editors reuse
 ```
 
 Styled with inline `var(--token)` values only; imports `src/lib/firebase` and `src/lib/admin`,

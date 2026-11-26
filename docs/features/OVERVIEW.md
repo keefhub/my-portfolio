@@ -25,6 +25,7 @@ sweep confirms a decision that later features would otherwise reopen.
 3. Theming uses CSS custom properties with a `[data-theme="dark"]` override, not Tailwind dark variants.
 4. `trailingSlash: true` stays consistent across `next.config.ts`, `firebase.json` and `absoluteUrl()`.
 5. Owner ruling, 2026-11-26 (`docs/requirements/admin-content-panel-intent.md`): item 2 is superseded in stages. A private owner-only admin panel at `/bright-warm-greenhouse/` edits all content (blog posts as markdown) in Firebase Firestore; until the phase-2 migration ships, the public site still renders from the repo (`content/blog/*.md` and component data). The panel stays a static page (item 1 holds); security is enforced by Firestore rules allowing writes only from the owner's Google account.
+6. [human: intent §2.4] The admin panel uses two Firebase projects, chosen by page address: production (`thegoldenpothos-5b3a1`) for `thegoldenpothos.xyz`, `thegoldenpothos-5b3a1.web.app` and `thegoldenpothos-5b3a1.firebaseapp.com`; SIT (`thegoldenpothos-sit`) for `sit.thegoldenpothos.xyz`, `thegoldenpothos-sit.web.app`, `thegoldenpothos-sit.firebaseapp.com` and any unlisted address; local stand-ins for `localhost` and `127.0.0.1`. Only the owner may save on each, by that project's own user ID. This replaces the single-project assumption of item 5.
 
 ## 3. Assumptions to Confirm
 
@@ -49,3 +50,4 @@ One row per feature, appended by `/help-discover-this` Mode B and `/agentic-disc
 | Manage blog posts | [manage-blog-posts](manage-blog-posts/story.md) |
 | Preview blog post | [preview-blog-post](preview-blog-post/story.md) |
 | Manage image library | [manage-image-library](manage-image-library/story.md) |
+| Separate SIT and production | [separate-sit-and-production](separate-sit-and-production/story.md) |

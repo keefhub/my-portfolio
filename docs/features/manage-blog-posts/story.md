@@ -9,16 +9,19 @@ Feature: Manage blog posts
   Scenario Outline: Owner writes a post and sees it listed with its status
     Given the owner is signed in and has opened "Blog posts"
     And the list shows "No posts yet"
-    When the owner adds a post with title "Why I moved to static export", excerpt "Notes on the trade-offs", date "2026-05-15", slug "why-static-export", tags "nextjs, firebase", cover image path "/images/blog/static.png", cover alt text "A diagram of the build", a markdown body, and the status "<status>"
+    And an image "diagram.png" has been uploaded to the image library
+    When the owner adds a post with title "Why I moved to static export", excerpt "Notes on the trade-offs", date "2026-05-15", slug "why-static-export", tags "nextjs, firebase", cover alt text "A diagram of the build", a markdown body, and the status "<status>"
+    And the owner gives the cover image by <cover choice>
     And the owner chooses "Save"
     And the owner reloads the page and opens "Blog posts"
     Then the list should show "Why I moved to static export" with the status "<status>"
     And opening the post should show every value the owner entered
+    And the cover image should still be the one the owner gave
 
     Examples:
-      | status    |
-      | Draft     |
-      | Published |
+      | status    | cover choice                                  |
+      | Draft     | typing the repo path "/images/blog/static.png" |
+      | Published | choosing "diagram.png" from the uploaded images |
 
   Scenario: Owner saves a post with a slug another post already uses
     Given a post with the slug "why-static-export" exists with the title "Why I moved to static export"
@@ -91,13 +94,14 @@ Feature: Manage blog posts
 14. Only the signed-in owner reaches this screen. What a signed-out or non-owner visitor sees is defined by the admin sign-in story. [human: intent §5]
 15. The panel styles itself with the site's colour tokens in light and dark themes, and the status is shown as text, not by colour alone. [human: intent §5]
 16. The last save wins. There is no conflict detection between two tabs, apart from the slug check on adding a post. [human: intent §8]
-17. The cover image is a text path to a file already in the site's repo. The panel does not check that the file exists. [human: intent §2.4]
+17. The cover image is either an image chosen from the uploaded images in the image library, or a text path to a file already in the site's repo. The post keeps whichever the owner gave and shows it again after a reload. The panel does not check that a typed repo path exists. [human: intent §2.4]
+19. Choosing an uploaded image fills the cover image with that image's address. Deleting an uploaded image that a post still uses leaves the post as it is and the cover then fails to load, as a wrong repo path would. [auto]
 18. The panel works with the page loaded. Offline, a save fails and is handled as in assumption 10. [auto]
 
 ## Out of Scope
 
 - Previewing the markdown as the blog renders it (the preview-blog-post story)
-- Uploading or storing images
+- Uploading or storing images (the manage-image-library story; this story only chooses from what it holds)
 - Showing these posts on the public blog, RSS feed or sitemap (phase 2)
 - Importing the existing markdown posts from the repo
 - Changing a post's slug after the first save

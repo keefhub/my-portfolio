@@ -6,17 +6,23 @@ Feature: Manage certifications
   I want to add, edit, reorder and delete my certifications in the admin panel
   So that I can keep my credentials current without editing code
 
-  Scenario: Owner adds the first certification to an empty list
+  Scenario Outline: Owner adds the first certification to an empty list with a badge from either source
     Given the owner is signed in and has opened "Certifications" from the menu
     And no certification has been saved yet
     And the owner sees "No certifications yet" and an "Add certification" control
+    And the image library holds an uploaded image "scrum-badge.png"
     When the owner chooses "Add certification"
     And the owner enters the name "Professional Scrum Developer"
-    And the owner enters the badge image path "/certs/scrum.png"
+    And the owner gives the badge image by <badge source>
     And the owner enters the credential link "https://www.credly.com/badges/example/public_url"
     And the owner saves
-    Then the list should show "Professional Scrum Developer"
-    And after the owner reloads the page the list should still show "Professional Scrum Developer" with the same badge image path and credential link
+    Then the list should show "Professional Scrum Developer" with its badge image
+    And after the owner reloads the page the list should still show "Professional Scrum Developer" with the same badge image and credential link
+
+    Examples:
+      | badge source                                  |
+      | choosing the uploaded image "scrum-badge.png" |
+      | entering the repo path "/certs/scrum.png"     |
 
   Scenario: Owner edits a saved certification
     Given the owner has opened "Certifications"
@@ -75,8 +81,8 @@ Feature: Manage certifications
 
 ## Assumptions
 
-1. A certification has three fields, all required: name, badge image path and credential link. They match what the public Certifications section shows today. `[auto]`
-2. The badge image path is text that starts with `/` and points at a file under the site's `public/` folder. The panel does not check that the file exists, because images are not uploaded through the panel. `[human: intent §3, §2.4]`
+1. A certification has three fields, all required: name, badge image (uploaded or repo path) and credential link. They match what the public Certifications section shows today. `[auto]`
+2. The badge image is either an image chosen from the owner's uploaded images (the image library) or a repo path. A repo path is text that starts with `/` and points at a file under the site's `public/` folder; the panel does not check that the file exists. The form shows one source at a time, and the other is cleared when the owner switches. `[human: intent §2.4, §6]`
 3. The credential link must start with `https://`. A link that starts with `http://` or has no scheme is refused. `[auto]`
 4. A name made only of spaces counts as blank. Leading and trailing spaces are trimmed before saving. `[auto]`
 5. Two certifications may have the same name. Nothing identifies a certification except its place in the list. `[auto]`
@@ -95,7 +101,8 @@ Feature: Manage certifications
 
 ## Out of Scope
 
-- Uploading or previewing the badge image file
+- Uploading images from the certification form (uploads happen in the image library)
+- Previewing the badge image file
 - Checking that the credential link opens or that the badge file exists
 - Drag-and-drop reordering
 - Undo or a trash for deleted certifications

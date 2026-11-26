@@ -22,6 +22,8 @@ export type ListFieldsProps<T> = {
   onChange: (next: T) => void;
   errors: FieldErrors;
   disabled: boolean;
+  mode: "add" | "edit";
+  saveNow: (next: T) => void;
 };
 
 export type ListEditorProps<T> = {
@@ -36,6 +38,8 @@ export type ListEditorProps<T> = {
   listLabel?: string;
   addLabel?: string;
   newPosition?: (entries: readonly ListEntry<T>[]) => number;
+  rowDetails?: (content: T) => React.ReactNode;
+  deleteText?: (content: T) => string;
 };
 
 type LoadState = "loading" | "failed" | "ready";
@@ -58,6 +62,13 @@ const itemStyle: React.CSSProperties = {
   gap: 8,
   minWidth: 0,
 };
+
+function FieldsHost<T>(props: {
+  render: (fields: ListFieldsProps<T>) => React.ReactNode;
+  fields: ListFieldsProps<T>;
+}): React.JSX.Element {
+  return <>{props.render(props.fields)}</>;
+}
 
 export default function ListEditor<T>(props: ListEditorProps<T>): React.JSX.Element {
   const { heading, savingOn, store, label, emptyContent, check, renderFields } = props;
@@ -114,12 +125,23 @@ export default function ListEditor<T>(props: ListEditorProps<T>): React.JSX.Elem
     setForm(null);
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    if (busyRef.current || form === null || draft === null) return;
+    if (draft === null) return;
+    void saveContent(draft);
+  }
+
+  function saveNow(next: T): void {
+    if (busy || form === null) return;
+    setDraft(next);
+    void saveContent(next);
+  }
+
+  async function saveContent(source: T): Promise<void> {
+    if (busyRef.current || form === null) return;
     setErrors({});
     setMessage(null);
-    const result = check(draft);
+    const result = check(source);
     if (!result.ok) {
       setErrors(result.errors);
       return;
@@ -227,10 +249,20 @@ export default function ListEditor<T>(props: ListEditorProps<T>): React.JSX.Elem
         {messageLine}
         <form
           noValidate
-          onSubmit={(e) => void handleSubmit(e)}
+          onSubmit={handleSubmit}
           style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}
         >
-          {renderFields({ value: draft, onChange: setDraft, errors, disabled: busy })}
+          <FieldsHost<T>
+            render={renderFields}
+            fields={{
+              value: draft,
+              onChange: setDraft,
+              errors,
+              disabled: busy,
+              mode: form.mode,
+              saveNow,
+            }}
+          />
           <div style={rowButtonsStyle}>
             <button type="submit" style={buttonStyle} disabled={busy}>
               Save
@@ -261,6 +293,7 @@ export default function ListEditor<T>(props: ListEditorProps<T>): React.JSX.Elem
                   >
                     {text}
                   </span>
+                  {props.rowDetails ? props.rowDetails(entry.content) : null}
                   <div style={rowButtonsStyle}>
                     <button
                       type="button"
@@ -306,7 +339,7 @@ export default function ListEditor<T>(props: ListEditorProps<T>): React.JSX.Elem
                       style={{ display: "flex", flexDirection: "column", gap: 8 }}
                     >
                       <p style={{ margin: 0, color: "var(--foreground)", overflowWrap: "anywhere" }}>
-                        {deleteQuestion(text)}
+                        {props.deleteText ? props.deleteText(entry.content) : deleteQuestion(text)}
                       </p>
                       <div style={rowButtonsStyle}>
                         <button

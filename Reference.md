@@ -144,6 +144,9 @@ AdminPanel ("use client", src/app/components/admin/AdminPanel.tsx)
     └── CertificationsEditor (src/app/components/admin/CertificationsEditor.tsx), the "Certifications" menu
         item: ListEditor (addLabel "Add certification") with name, credential link and badge (uploaded image or
         repo path, via the profile's photoSelection)
+    └── TechStackEditor (src/app/components/admin/TechStackEditor.tsx), the "Tech stack" menu item: ListEditor of
+        categories (rowDetails lists each item), each with items {name, icon} edited in the form; item moves are
+        stored on Save, a confirmed item removal in an edit form saves at once (ListEditor's saveNow)
 ```
 
 Styled with inline `var(--token)` values only; imports `src/lib/firebase` and `src/lib/admin`,

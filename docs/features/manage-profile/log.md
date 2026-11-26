@@ -34,3 +34,16 @@ Tier: high (Step Risk: high; large-diff; test-passed-before-change)
 Review: risk reviewer PASS (review 1)
 Findings: edge-case | note | logged | link errors are keyed by row index until the next Save (D-16); removing a row after a failed Save can leave an error on the wrong row
 =====================================================================
+=====================================================================
+Completion — manage-profile
+Completed: 2026-11-26
+
+Built: pure profile rules and the profile read/write module, with the earlier "email" searches skipping exactly the three profile files (Task 1); the Profile screen for the "Profile" menu item, the form pattern later editors reuse (Task 2).
+Deviations from the spec: None. Locked E2E-09 and E2E-21 corrected by a fresh test author (updatedAt pinned to the seed value), not weakened.
+[auto] decisions: 20 lines tagged [auto] in spec.md. No auto-revisions.
+Feature review: PASS
+Findings: edge-case | note | logged | link errors keyed by row index until the next Save (D-16); clear errors in the remove handlers if this is ever changed
+Final verification: npm run build ok; npx playwright test e2e/manage-profile.spec.ts 32 passed, 0 failed.
+Manual checks pending: None.
+Follow-ups: OQ-2 (a save that never settles shows as failed after 10 s, but the SDK may still deliver it later if the connection returns before a reload).
+=====================================================================

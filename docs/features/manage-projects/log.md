@@ -34,3 +34,16 @@ Tier: high (Step Risk: high; large-diff)
 Review: risk reviewer PASS (review 1)
 Findings: None.
 =====================================================================
+=====================================================================
+Completion — manage-projects
+Completed: 2026-11-26
+
+Built: bottomPosition and the projects modules (Task 1); three optional ListEditor props and the Projects screen for the "Projects" menu item, new projects added last, three placeholder tests moved to "Certifications" (Task 2).
+Deviations from the spec: None. Two locked-test corrections (toHaveValues on multi-element locators; E2E-17 banned-pattern construction), neither weakened.
+[auto] decisions: 13 lines tagged [auto] in spec.md. No auto-revisions.
+Feature review: PASS (Task 1, low tier, probed with edge inputs)
+Findings: None.
+Final verification: npm run build ok; npx playwright test e2e/manage-projects.spec.ts 18 passed, 0 failed.
+Manual checks pending: None.
+Follow-ups: None.
+=====================================================================

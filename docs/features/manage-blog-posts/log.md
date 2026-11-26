@@ -16,3 +16,21 @@ Tier: high (large-diff, 213 non-test lines)
 Review: risk reviewer PASS (review 1)
 Findings: None.
 =====================================================================
+=====================================================================
+Task 2 — Extend the list editor, build the Blog posts screen and show it for the "Blog posts" menu item
+Completed: 2026-11-26      Commit: 2a35908
+
+Summary: BlogPostsEditor on ListEditor (not movable; newest first) over the slug-keyed store; AdminPanel's placeholder branch removed since every menu item now has an editor. 23/23 blog rows; experience 30, projects 17, certifications 16, tech stack 19 pass with --grep-invert on their menu placeholder test (the six earlier placeholder tests are moved in Task 3, D-22: red between this commit and Task 3's).
+Decisions: order applied inside the setEntries updater after add and edit; saveFailure only in the save catch; Slug input read-only in edit mode, disabled only in add mode while busy; field ids use a blog- prefix.
+Deviations: None.
+Files changed: src/app/components/admin/ListEditor.tsx, AdminPanel.tsx, Reference.md (modified), src/app/components/admin/BlogPostsEditor.tsx (created), e2e/manage-blog-posts.spec.ts (modified)
+E2E tests written: E2E-05 to E2E-23      Passed before the change: None.
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: LOG emulator MetadataLookupWarning, harmless; DOCS Reference.md is the orchestrator's update)
+Tier: high (Step Risk: high; large-diff)
+Review: risk reviewer PASS (review 1)
+Findings: None.
+=====================================================================

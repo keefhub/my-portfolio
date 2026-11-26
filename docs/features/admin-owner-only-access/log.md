@@ -52,3 +52,16 @@ Tier: high (Step Risk: high; test-passed-before-change)
 Review: risk reviewer PASS (review 1)
 Findings: None.
 =====================================================================
+=====================================================================
+Completion — admin-owner-only-access
+Completed: 2026-11-26
+
+Built: firestore.rules (public reads of profile, experience, projects, certifications, techCategories; blogPosts publicly readable only when draft == false; owner-only writes; everything else denied; owner ID is the deny-all placeholder), the Firestore emulator in Playwright with graceful shutdown (Task 1); the live deploy job deploys the rules after hosting, staging untouched (Task 2); the "Saving is not switched on yet." notice with the three switch-on steps while the owner ID is the placeholder (Task 3).
+Deviations from the spec: gracefulShutdown SIGTERM on the emulator webServer (fix for orphaned Java emulators; not in the spec, no user-visible behaviour). CLAUDE.md and Reference.md doc edits.
+[auto] decisions: 15 lines tagged [auto] in spec.md. No auto-revisions.
+Feature review: PASS
+Findings: nit | note | logged | E2E-19 asserts both owner-ID copies equal the placeholder (lines 298-299); drop those two lines when the owner switches saving on, or the test fails although both copies agree.
+Final verification: npm run build ok; npx playwright test e2e/admin-owner-only-access.spec.ts 22 passed, 0 failed.
+Manual checks pending: None in this spec. Human-only (intent §7): the live rules deploy and the deploy service account's Firebase Rules Admin role; a live write after the owner fills in the ID.
+Follow-ups: the E2E-19 placeholder assertion above.
+=====================================================================

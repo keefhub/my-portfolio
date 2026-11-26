@@ -34,3 +34,21 @@ Tier: high (Step Risk: high)
 Review: risk reviewer PASS (review 1)
 Findings: None.
 =====================================================================
+=====================================================================
+Task 3 — Show the saving-off notice and finish the owner ID handoff
+Completed: 2026-11-26      Commit: e0f4c98
+
+Summary: Added SavingOffNotice to the allowed screen while accessFor is "unfilled", telling the owner how to switch saving on (OWNER_UID, firestore.rules, merge to master). E2E-19 already proves both owner-ID copies agree.
+Decisions: notice and user ID line share a fragment in the "unfilled" branch, notice first; step 2 text built from OWNER_UID_PLACEHOLDER; SavingOffNotice has no hooks and is imported by the client panel.
+Deviations: None.
+Files changed: src/app/components/admin/SavingOffNotice.tsx (created), src/app/components/admin/AdminPanel.tsx (modified), src/lib/admin/owner.ts (modified, comment), e2e/admin-owner-only-access.spec.ts (modified), Reference.md (modified)
+E2E tests written: E2E-14 to E2E-18, E2E-20      Passed before the change: E2E-16, E2E-17, E2E-20 (negative rows)
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: LOG emulator MetadataLookupWarning, harmless; DOCS Reference.md is the orchestrator's update)
+Tier: high (Step Risk: high; test-passed-before-change)
+Review: risk reviewer PASS (review 1)
+Findings: None.
+=====================================================================

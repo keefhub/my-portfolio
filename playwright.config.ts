@@ -14,6 +14,7 @@ if (process.env.TEST_WORKER_INDEX === undefined) {
   process.env.AUTH_GOOGLE_SECRET = randomBytes(12).toString("hex");
   process.env.ADMIN_EMAIL = `owner-${randomBytes(4).toString("hex")}@example.test`;
   process.env.SUPABASE_DB_URL = `stand-in:${path.join(os.tmpdir(), "portfolio-standin-" + randomBytes(6).toString("hex") + ".json")}`;
+  process.env.SUPABASE_URL = `stand-in:${path.join(os.tmpdir(), "portfolio-standin-storage-" + randomBytes(6).toString("hex"))}`;
 }
 
 // `npm run verify` sets VERIFY_PLAYWRIGHT_JSON so it can read the result as data; the console report still goes

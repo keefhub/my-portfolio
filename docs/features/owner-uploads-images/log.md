@@ -16,3 +16,23 @@ Tier: high (large-diff 166 non-test lines)
 Review: risk reviewer PASS (review 1)
 Findings: None.
 =====================================================================
+
+=====================================================================
+Task 2 — Image SQL, the stand-in's image list, the database functions and the storage module
+Completed: 2026-11-27      Commit: 2d4a857
+
+Summary: Added the image table SQL (own file, row level security on with no policy), the database functions to list, add, find and delete entries, the storage module (bucket check, signed upload address, stored-file size and type check, removal) and file-based stand-ins for both, chosen by the setting values. Every failure is one fixed error with one allow-listed log line. The profile stand-in write now keeps the images.
+Decisions: publicImageUrl and every real-mode operation require both a usable SUPABASE_URL and a non-blank SUPABASE_SERVICE_ROLE_KEY (stricter than needed for the address alone). An internal HttpFailure carries only the status; the failed response body is cancelled and never read. The bucket-ready promise is held per base-and-key pair and cleared on rejection. statStoredImage treats only a 200 as stored; a non-integer content-length gives size null. The stand-in treats an absent directory as reachable.
+Deviations: None.
+Files changed: src/lib/server/imageSql.ts (created), src/lib/server/standin.ts (modified), src/lib/server/database.ts (modified), src/lib/server/storageStandin.ts (created), src/lib/server/storage.ts (created), e2e/owner-uploads-images.spec.ts (modified)
+E2E tests written: E2E-04, E2E-05      Passed before the change: None.
+Manual checks pending: E2E-36 (the owner's SIT check: the real Storage calls and the pooler role are untested here).
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: high (spec Risk: high; large-diff 356 non-test lines)
+Review: risk reviewer PASS (review 1)
+Findings: nit | note | logged | success-path storage responses are not drained or cancelled, so undici may hold connections until garbage collection on a long-lived server
+ edge | note | logged | the storage functions put id into a URL or file path without checking it; Task 3 (the routes) MUST apply IMAGE_ID_PATTERN before every call, including DELETE ?id= and the register body, or the stand-in could read ../x and the real URL could take an arbitrary path (D-9, D-14)
+=====================================================================

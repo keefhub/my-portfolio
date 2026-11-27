@@ -3,7 +3,7 @@
 Personal portfolio + blog for Keith Lim — `https://thegoldenpothos.xyz`.
 
 Next.js 16.2.6 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS v4 ·
-Framer Motion · public site prerendered; only sign-in (Auth.js, `next-auth` v5) and the admin panel run on the server · served by Vercel · Firebase JS SDK remains only in the leftover admin stores until retire-firebase.
+Framer Motion · public site prerendered; only sign-in (Auth.js, `next-auth` v5) and the admin panel run on the server · served by Vercel · the panel's content lives in Supabase PostgreSQL, reached with `postgres` · Firebase JS SDK remains only in the leftover admin stores until retire-firebase.
 
 Import alias: `@/*` → `./src/*`.
 
@@ -43,7 +43,7 @@ passing does not mean the site builds.
 
 ## Routes
 
-Every public route is prerendered at build time. Only the admin panel and `/api/auth/*` run on the server.
+Every public route is prerendered at build time. Only the admin panel, `/api/auth/*` and `/api/admin/*` run on the server.
 
 | URL             | Source                                                       |
 | --------------- | ------------------------------------------------------------ |
@@ -54,8 +54,8 @@ Every public route is prerendered at build time. Only the admin panel and `/api/
 | `/sitemap.xml`  | [src/app/sitemap.ts](src/app/sitemap.ts)                      |
 | `/robots.txt`   | [src/app/robots.ts](src/app/robots.ts)                        |
 | `/bright-warm-greenhouse/` | [src/app/bright-warm-greenhouse/page.tsx](src/app/bright-warm-greenhouse/page.tsx) — owner-only admin panel (`AdminPanel`, client component), dynamic; `noindex`, not in the sitemap or `robots.txt` |
-| `/api/auth/*` | [src/app/api/auth/[...nextauth]/route.ts](src/app/api/auth/[...nextauth]/route.ts) — the Auth.js handlers, including the Google return address `/api/auth/callback/google`, registered without a trailing slash; the only dynamic route besides the admin panel |
-| `/api/admin/profile/` | [src/app/api/admin/profile/route.ts](src/app/api/admin/profile/route.ts) — the owner-only profile store (GET, PUT); it decides access with `getPanelState()` before any database call and talks to the database only through `src/lib/server/` |
+| `/api/auth/*` | [src/app/api/auth/[...nextauth]/route.ts](src/app/api/auth/[...nextauth]/route.ts) — the Auth.js handlers, including the Google return address `/api/auth/callback/google`, registered without a trailing slash; dynamic, with `/api/admin/*` and the admin panel the only other server routes |
+| `/api/admin/profile/` | [src/app/api/admin/profile/route.ts](src/app/api/admin/profile/route.ts) — the owner-only JSON entry point for the profile (`GET`, `PUT`), dynamic; it decides access with `getPanelState()` before any database call and talks to the database only through `src/lib/server/` |
 
 The landing page (`/`) is a multi-section scroll with anchor nav — Hero, About,
 Experience, TechStack, Projects, Certifications. It is not routed; the sections
@@ -66,13 +66,13 @@ are components on one page.
 ## Invariants — breaking these breaks the site
 
 **1. Public pages are prerendered; only sign-in and the panel run on a server.**
-`next.config.ts` has no `output`. The panel page is dynamic, and `/api/auth/[...nextauth]` is the
-only API route. No middleware, no ISR. A public page, layout or metadata route never calls `auth()`
+`next.config.ts` has no `output`. The panel page is dynamic, and the API routes are two families only: `/api/auth/*` and
+`/api/admin/*`. No middleware, no ISR. A public page, layout or metadata route never calls `auth()`
 or reads cookies or headers (it would silently stop being static). Only
-`src/app/bright-warm-greenhouse/**` and `src/app/api/auth/**` import `@/lib/auth`. Every dynamic
+`src/app/bright-warm-greenhouse/**`, `src/app/api/auth/**` and `src/app/api/admin/**` import `@/lib/auth`. Every dynamic
 public route keeps `generateStaticParams` and `dynamicParams = false`. Public route handlers stay
-`export const dynamic = "force-static"`; the Auth.js handler at `/api/auth/[...nextauth]` is the one
-dynamic handler.
+`export const dynamic = "force-static"`; the Auth.js handler at `/api/auth/[...nextauth]` and the
+`/api/admin/*` entry points are the dynamic handlers. `/api/admin/*` is called at its slashed address.
 
 **2. `trailingSlash: true` is load-bearing in three places.**
 [next.config.ts](next.config.ts), [vercel.json](vercel.json), and
@@ -132,12 +132,20 @@ at `/bright-warm-greenhouse/`. Never import either from a public page, layout or
 the public site must load no Firebase code. The owner is the verified Google email in `ADMIN_EMAIL`,
 decided on the server by `src/lib/admin/access.ts` and `src/lib/auth.ts`; the panel's access no longer
 depends on database rules.
+`src/lib/server/` holds the server-only modules (the SQL text, the database connection, the stand-in, the
+profile store); it is imported only by `src/app/api/admin/**`, never by a client component, a public page
+or a layout. The owner decision stays in `src/lib/admin/access.ts` and `src/lib/auth.ts`.
 
-**Leftover rules.** The remaining Firebase stores and the two rules files ([firestore.rules](firestore.rules),
-[storage.rules](storage.rules)) stay until the slice that replaces each one; retire-firebase removes what is left.
+**Leftover rules.** The profile is now stored in Supabase and its Firebase store is gone. The other Firebase
+stores and the two rules files ([firestore.rules](firestore.rules), [storage.rules](storage.rules)) stay until
+the slice that replaces each one; retire-firebase removes what is left.
 
-**Settings.** The site reads four settings by name: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
-`ADMIN_EMAIL`. The owner sets them in Vercel for Production and SIT; they are never in the repo. The Google
+**Settings.** The site reads five settings by name: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
+`ADMIN_EMAIL` and `SUPABASE_DB_URL`. The owner sets them in Vercel for Production and SIT; they are never in the repo.
+`SUPABASE_DB_URL` is the connection string of Supabase's transaction pooler, a secret with the password inside;
+the app creates its table on first use (from `src/lib/server/sql.ts`), and a free project that has paused shows
+"The profile could not be loaded." until the owner restores it in Supabase. In the test run it is `stand-in:`
+followed by a temporary file (`playwright.config.ts`). The Google
 sign-in app lists three return addresses: `https://thegoldenpothos.xyz/api/auth/callback/google`,
 `https://sit.thegoldenpothos.xyz/api/auth/callback/google` and `http://localhost:3000/api/auth/callback/google`.
 

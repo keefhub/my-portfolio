@@ -1407,3 +1407,36 @@ test("E2E-31: a request without the owner's session cannot change the profile, a
   expect(dbStored()).toEqual(BASE);
   await context.close();
 });
+
+// Step 4: the standing docs the database makes false.
+
+test("E2E-29: the standing docs describe the database, the new route and the five settings, and the old Firebase profile files are gone", async () => {
+  dbReset();
+
+  expect(fs.existsSync("src/lib/firebase/profile.ts"), "src/lib/firebase/profile.ts").toBe(false);
+  expect(fs.existsSync("e2e/manage-profile.spec.ts"), "e2e/manage-profile.spec.ts").toBe(false);
+
+  const claude = fs.readFileSync("CLAUDE.md", "utf8");
+  for (const text of [
+    "SUPABASE_DB_URL",
+    "/api/admin/profile/",
+    "src/lib/server/",
+    "stand-in:",
+    "src/app/api/admin/**",
+    "AUTH_SECRET",
+    "/api/auth/callback/google",
+  ]) {
+    expect(claude, "CLAUDE.md contains " + text).toContain(text);
+  }
+  for (const text of ["The site reads four settings by name", "only API route"]) {
+    expect(claude, "CLAUDE.md no longer contains " + text).not.toContain(text);
+  }
+
+  const profile = fs.readFileSync(".claude/repo-profile.md", "utf8");
+  for (const text of ["SUPABASE_DB_URL", "stand-in:", "next start", "ADMIN_EMAIL"]) {
+    expect(profile, "repo-profile.md contains " + text).toContain(text);
+  }
+  for (const text of ["There is no database, so no test database.", "reads four settings by name"]) {
+    expect(profile, "repo-profile.md no longer contains " + text).not.toContain(text);
+  }
+});

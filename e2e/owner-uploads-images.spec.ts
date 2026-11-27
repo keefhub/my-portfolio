@@ -2364,3 +2364,38 @@ test("E2E-33: when the uploaded images cannot be loaded the profile form still l
   expect((dbStored() as { photo: string }).photo).toBe("/images/keith.jpg");
   await context.close();
 });
+
+test("E2E-34: the earlier Firebase-era image code is gone and nothing in src or e2e still names it", async () => {
+  dbReset();
+  storeReset();
+
+  // The patterns are built from pieces so this file does not match itself.
+  const oldPath = ["fire", "base"].join("") + "/" + "images";
+  const oldType = ["Image", "Record"].join("");
+  const oldHelper = ["storage", "Path", "For"].join("");
+
+  expect(fs.existsSync(["src", "lib", ["fire", "base"].join(""), "images.ts"].join("/"))).toBe(false);
+  expect(fs.existsSync(["e2e", ["manage", "image", "library"].join("-") + ".spec.ts"].join("/"))).toBe(false);
+
+  const rules = fs.readFileSync("src/lib/admin/images.ts", "utf8");
+  expect(new RegExp("\\b" + oldType + "\\b").test(rules), "images.ts names the old type").toBe(false);
+  expect(new RegExp("\\b" + oldHelper + "\\b").test(rules), "images.ts names the old helper").toBe(false);
+
+  const editors = ["BlogPostsEditor", "CertificationsEditor", "TechStackEditor"];
+  for (const editor of editors) {
+    const file = "src/app/components/admin/" + editor + ".tsx";
+    const text = fs.readFileSync(file, "utf8");
+    expect(text.includes('from "@/lib/admin/imagesClient"'), file + " imports the new client").toBe(true);
+    expect(text.includes("UploadedImage"), file + " uses the new type").toBe(true);
+    expect(new RegExp("\\b" + oldType + "\\b").test(text), file + " names the old type").toBe(false);
+    expect(text.includes(oldPath), file + " names the old module").toBe(false);
+  }
+
+  const path = gitGrep(["-n", "-E", oldPath, "--", "src", "e2e"]);
+  expect(path.stdout, "old module path").toBe("");
+  expect(path.status).toBe(1);
+
+  const names = gitGrep(["-n", "-w", "-E", "-e", oldType, "-e", oldHelper, "--", "src", "e2e"]);
+  expect(names.stdout, "old type or helper").toBe("");
+  expect(names.status).toBe(1);
+});

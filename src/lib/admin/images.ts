@@ -24,23 +24,6 @@ export const IMAGE_MESSAGES = {
   emptyList: "No images uploaded yet",
 };
 
-export type ImageRecord = {
-  id: string;
-  name: string;
-  storagePath: string;
-  url: string;
-  contentType: string;
-  size: number;
-  createdAt: number;
-};
-
-const EXTENSIONS: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/webp": "webp",
-  "image/svg+xml": "svg",
-};
-
 export function validateImageFile(file: { name: string; size: number; type: string }): string | null {
   if (file.size === 0) return IMAGE_MESSAGES.empty;
   if (!ALLOWED_IMAGE_TYPES.includes(file.type)) return IMAGE_MESSAGES.wrongType;
@@ -104,12 +87,4 @@ export function checkImageInput(input: unknown): ImageInputCheck {
   if (!ALLOWED_IMAGE_TYPES.includes(type)) return { ok: false, reason: "wrong-type" };
   if (size > MAX_IMAGE_BYTES) return { ok: false, reason: "too-big" };
   return { ok: true, value: { name: trimmedName, type, size } };
-}
-
-export function storagePathFor(id: string, contentType: string): string {
-  const ext = Object.prototype.hasOwnProperty.call(EXTENSIONS, contentType)
-    ? EXTENSIONS[contentType]
-    : undefined;
-  if (!ext) throw new Error("Unsupported image type.");
-  return `images/${id}.${ext}`;
 }

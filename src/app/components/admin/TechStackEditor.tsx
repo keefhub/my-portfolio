@@ -15,9 +15,9 @@ import {
 } from "@/lib/admin/techstack";
 import { bottomPosition } from "@/lib/admin/list";
 import { photoSelection } from "@/lib/admin/profile";
-import type { ImageRecord } from "@/lib/admin/images";
+import type { UploadedImage } from "@/lib/admin/images";
 import { techStore } from "@/lib/firebase/techstack";
-import { listImages } from "@/lib/firebase/images";
+import { listImages } from "@/lib/admin/imagesClient";
 import ListEditor, { type ListFieldsProps } from "./ListEditor";
 import {
   FieldError,
@@ -30,7 +30,7 @@ import {
   legendStyle,
 } from "./formParts";
 
-type ImagesState = { images: ImageRecord[]; failed: boolean };
+type ImagesState = { images: UploadedImage[]; failed: boolean };
 
 const rowStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 8 };
 
@@ -42,7 +42,7 @@ const lineStyle: React.CSSProperties = {
 
 type FieldsProps = {
   fields: ListFieldsProps<TechCategoryContent>;
-  images: ImageRecord[];
+  images: UploadedImage[];
   failed: boolean;
 };
 

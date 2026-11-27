@@ -10,9 +10,9 @@ import {
 } from "@/lib/admin/certifications";
 import { bottomPosition } from "@/lib/admin/list";
 import { photoSelection } from "@/lib/admin/profile";
-import type { ImageRecord } from "@/lib/admin/images";
+import type { UploadedImage } from "@/lib/admin/images";
 import { certificationsStore } from "@/lib/firebase/certifications";
-import { listImages } from "@/lib/firebase/images";
+import { listImages } from "@/lib/admin/imagesClient";
 import ListEditor, { type ListFieldsProps } from "./ListEditor";
 import {
   FieldError,
@@ -24,7 +24,7 @@ import {
   legendStyle,
 } from "./formParts";
 
-type ImagesState = { images: ImageRecord[]; failed: boolean };
+type ImagesState = { images: UploadedImage[]; failed: boolean };
 
 export default function CertificationsEditor(props: { savingOn: boolean }): React.JSX.Element {
   const [loaded, setLoaded] = useState<ImagesState>({ images: [], failed: false });

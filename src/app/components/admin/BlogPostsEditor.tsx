@@ -12,9 +12,9 @@ import {
   type BlogStatus,
 } from "@/lib/admin/blogposts";
 import { photoSelection } from "@/lib/admin/profile";
-import type { ImageRecord } from "@/lib/admin/images";
+import type { UploadedImage } from "@/lib/admin/images";
 import { SlugTakenError, blogPostsStore } from "@/lib/firebase/blogposts";
-import { listImages } from "@/lib/firebase/images";
+import { listImages } from "@/lib/admin/imagesClient";
 import PostPreview from "./PostPreview";
 import ListEditor, { type ListFieldsProps } from "./ListEditor";
 import {
@@ -29,7 +29,7 @@ import {
   textareaStyle,
 } from "./formParts";
 
-type ImagesState = { images: ImageRecord[]; failed: boolean };
+type ImagesState = { images: UploadedImage[]; failed: boolean };
 
 function rowDetails(content: BlogPostContent): React.ReactNode {
   return (

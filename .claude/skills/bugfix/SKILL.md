@@ -7,11 +7,11 @@ description: "Disciplined maintenance workflow for defects, regressions, errors,
 
 ## Purpose
 
-`/bugfix` handles defects in the existing **my-portfolio** codebase — a statically exported Next.js 16 (App Router) + React 19 portfolio site with a build-time Markdown blog, deployed to Firebase Hosting. It covers errors, regressions, broken functionality, and incorrect output. It behaves as a careful maintenance engineer making the smallest defensible change — not as a feature builder. It never silently invokes brainstorming, `user-story-creator`, or open-ended architecture/implementation planning.
+`/bugfix` handles defects in the existing **my-portfolio** codebase — a Next.js 16 (App Router) + React 19 portfolio site with a build-time Markdown blog, prerendered public pages, a server-run sign-in and admin panel, deployed on Vercel. It covers errors, regressions, broken functionality, and incorrect output. It behaves as a careful maintenance engineer making the smallest defensible change — not as a feature builder. It never silently invokes brainstorming, `user-story-creator`, or open-ended architecture/implementation planning.
 
 ## When to Use
 
-Use for: exceptions, stack traces, hydration errors, wrong output, broken flows, regressions since a recent change, intermittent failures. Typical areas: header scrollspy / mobile drawer, dark-mode theme toggle and `localStorage` persistence, Framer Motion animations and `whileInView` triggers, project/experience flip cards, blog Markdown parsing and `[slug]` routing, RSS generation, responsive layout and design tokens in `globals.css`, static-export or Firebase Hosting routing failures.
+Use for: exceptions, stack traces, hydration errors, wrong output, broken flows, regressions since a recent change, intermittent failures. Typical areas: header scrollspy / mobile drawer, dark-mode theme toggle and `localStorage` persistence, Framer Motion animations and `whileInView` triggers, project/experience flip cards, blog Markdown parsing and `[slug]` routing, RSS generation, responsive layout and design tokens in `globals.css`, routing failures on the built site or on Vercel.
 
 Do not use for: new features, new user journeys, product-requirement changes, or "fixes" that actually change accepted business rules — see **Routing Rule** below.
 
@@ -47,7 +47,7 @@ Then:
 - Locate entry points and trace the render/data chain to the suspected fault — typically `src/app/page.tsx` or `src/app/blog/**` → `src/app/components/**` → `src/lib/**` (blog parsing helpers), plus `src/app/globals.css` for token- and animation-driven symptoms.
 - Run the supplied reproduction command or documented steps as-is, without editing source first.
 - **Windows shell hazard:** this repo is developed on Windows. Search patterns containing `/`, `=`, or quote characters can silently return zero matches in both Git Bash and PowerShell. A clean "no matches" during investigation is not proof of absence — rephrase the pattern before concluding a string doesn't exist.
-- **Reproduce at the right layer:** `npm run dev` (Turbopack) does not exercise static export. If the symptom involves routing, `[slug]` pages, images, or only appears on the deployed site, reproduce with `npm run build` and serve `out/` — the Firebase `**` → `/index.html` rewrite in `firebase.json` can mask or cause route-level bugs that never appear in dev.
+- **Reproduce at the right layer:** `npm run dev` (Turbopack) does not exercise the production build. If the symptom involves routing, `[slug]` pages, images, or only appears on the deployed site, reproduce with `npm run build` and `npm start` — the `vercel.json` `trailingSlash` redirects and `generateStaticParams` gaps never appear in dev.
 - If it can't be reproduced: report exactly what was attempted, the actual result, and the smallest next diagnostic step. Do not guess a fix.
 
 ### 3. Root-cause analysis
@@ -66,7 +66,7 @@ Do not patch symptoms. Before editing, produce a **bugfix brief**:
 
 Keep the brief short for a low-risk single-file fix.
 
-**Stop after the brief and ask for approval before editing** when the fix is multi-file, or touches: `next.config.ts` (especially `output: "export"` / `images.unoptimized`), `firebase.json` or `.firebaserc` hosting config, `src/app/layout.tsx` or `ThemeProvider` (theme flash / hydration), the design-token blocks in `src/app/globals.css`, the blog content pipeline in `src/lib/blog/**` or the `content/blog/` front-matter contract, `public/rss.xml` generation, or anything that changes published URLs.
+**Stop after the brief and ask for approval before editing** when the fix is multi-file, or touches: `next.config.ts` (especially `output: "export"` / `images.unoptimized`), `vercel.json` hosting config, `src/app/layout.tsx` or `ThemeProvider` (theme flash / hydration), the design-token blocks in `src/app/globals.css`, the blog content pipeline in `src/lib/blog/**` or the `content/blog/` front-matter contract, `public/rss.xml` generation, or anything that changes published URLs.
 
 ### 4. Regression test design
 
@@ -118,9 +118,9 @@ End every run with exactly this structure:
 
 ## Implementation Constraints (always)
 
-- No unrequested commits, branches, pushes, PRs, or deploys. Never run `firebase deploy` — deployment is the user's call.
+- No unrequested commits, branches, pushes, PRs, or deploys. Never deploy — deployment is the user's call.
 - No `git add -A` / `git add .` / `git commit -a` — stage explicit paths.
-- Don't commit build output (`out/`, `.next/`, `.firebase/`) as part of a fix.
+- Don't commit build output (`out/`, `.next/`) as part of a fix.
 - Treat build/export config, hosting config, and anything that changes published URLs as high-risk: ask before changing them.
 
 ## Routing Rule

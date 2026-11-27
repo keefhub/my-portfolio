@@ -10,6 +10,18 @@
 
 <!-- Steps a reviewer can follow, or the command to run. Name the page, viewport and theme for anything visual. -->
 
+## Settings to set in Vercel
+
+Set each one in Vercel, once for Production and once for SIT. Names only: never write a value here.
+
+- `AUTH_SECRET`
+- `AUTH_GOOGLE_ID`
+- `AUTH_GOOGLE_SECRET`
+- `ADMIN_EMAIL`
+- `SUPABASE_DB_URL`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
 ## Screenshots
 
 <!-- UI changes only. Light and dark, desktop and mobile if the change affects them. Delete this section otherwise. -->

@@ -722,3 +722,92 @@ test("E2E-63: the standing documents describe the new stack and keep the strings
   ];
   expect(problems, "document strings that are missing or still present").toEqual([]);
 });
+
+// ---- Step 4: the search of the whole repository and the pull request template --------------------------------------
+
+const ALLOWED_RECORD_PATHS = [/^docs\/features\/[a-z0-9-]+\/(story|spec|impact|log)\.md$/, /^docs\/requirements\/[A-Za-z0-9._-]+\.md$/];
+const ALLOWED_PUBLIC_PATHS = ["content/blog/building-portfolio-nextjs.md", "src/app/components/project.tsx"];
+const OVERVIEW_INDEX_ROW = `| retire ${OLD} and document the new stack | [retire-${OLD}](retire-${OLD}/story.md) |`;
+
+type Search = { raw: string[]; leftovers: string[] };
+
+/** The search of D-02: content matches of both product names, then path matches, minus the allow-list. */
+function searchBothNames(cwd: string): Search {
+  const content = git(gitGrepArgs(["-i", "-E"], [OLD, OLD2]), cwd);
+  const raw = content.stdout.split("\n").filter((line) => line !== "");
+  const leftovers: string[] = [];
+  for (const entry of raw) {
+    const first = entry.indexOf(":");
+    const second = entry.indexOf(":", first + 1);
+    const file = entry.slice(0, first);
+    const line = entry.slice(second + 1);
+    const where = `${file}:${entry.slice(first + 1, second)}`;
+    if (ALLOWED_RECORD_PATHS.some((pattern) => pattern.test(file)) || ALLOWED_PUBLIC_PATHS.includes(file)) continue;
+    if (file === "CLAUDE.md" && /^\| (1|2|3|4|5|6|7|8|9|10|20) \| /.test(line)) continue;
+    if (file === "docs/features/OVERVIEW.md" && line.trim().toLowerCase() === OVERVIEW_INDEX_ROW) continue;
+    leftovers.push(where);
+  }
+  const names = new RegExp(`${OLD}|${OLD2}`, "i");
+  const paths = git(["ls-files", "--cached", "--others", "--exclude-standard"], cwd)
+    .stdout.split("\n")
+    .filter((entry) => entry !== "" && names.test(entry) && fs.existsSync(path.join(cwd, entry)));
+  for (const file of paths) {
+    if (file === SELF) continue;
+    if (ALLOWED_RECORD_PATHS.some((pattern) => pattern.test(file)) || ALLOWED_PUBLIC_PATHS.includes(file)) continue;
+    leftovers.push(file);
+  }
+  return { raw, leftovers };
+}
+
+test("E2E-64: no file or path outside the earlier records and the public content names the removed backend", async () => {
+  const probe = fixture({ [`notes/${OLD}-probe.txt`]: `a line that names ${OLD}\n` });
+  try {
+    const control = searchBothNames(probe);
+    expect(control.raw, "the search control must match its probe").not.toEqual([]);
+    expect(control.leftovers, "the search control must report its probe").not.toEqual([]);
+  } finally {
+    dropFixture(probe);
+  }
+
+  const found = searchBothNames(process.cwd());
+  const rawFiles = new Set(found.raw.map((entry) => entry.slice(0, entry.indexOf(":"))));
+  for (const named of ["docs/features/admin-sign-in/spec.md", "content/blog/building-portfolio-nextjs.md", "src/app/components/project.tsx"]) {
+    expect(rawFiles.has(named), `the search cannot see ${named}`).toBe(true);
+  }
+  expect(found.leftovers, "leftover path:line and path entries").toEqual([]);
+});
+
+const SETTINGS_HEADING = "## Settings to set in Vercel";
+
+function templateSection(): { headings: number; text: string; lines: string[] } {
+  const all = fs.readFileSync(".github/pull_request_template.md", "utf8").split("\n");
+  const headings = all.filter((line) => line === SETTINGS_HEADING).length;
+  const start = all.indexOf(SETTINGS_HEADING);
+  if (start === -1) return { headings, text: "", lines: [] };
+  const rest = all.slice(start + 1);
+  const length = rest.findIndex((line) => line.startsWith("## "));
+  const lines = length === -1 ? rest : rest.slice(0, length);
+  return { headings, text: [SETTINGS_HEADING, ...lines].join("\n"), lines };
+}
+
+test("E2E-65: the pull request template lists the seven settings by name", async () => {
+  const section = templateSection();
+  expect(section.headings, "the heading must occur exactly once").toBe(1);
+  const listed = section.lines.filter((line) => line.startsWith("- "));
+  expect(listed).toEqual(SETTINGS.map((name) => `- \`${name}\``));
+});
+
+test("E2E-66: the pull request template says to set them for Production and for SIT", async () => {
+  const section = templateSection();
+  expect(section.text).toContain("Production");
+  expect(section.text).toContain("SIT");
+});
+
+test("E2E-67: the pull request template writes no value after any setting name", async () => {
+  const section = templateSection();
+  expect(section.text.toLowerCase()).toContain("never write a value");
+  expect(section.lines.filter((line) => line.includes("=")), "a line of the section holds =").toEqual([]);
+  const items = section.lines.filter((line) => line.startsWith("- "));
+  expect(items.length).toBeGreaterThan(0);
+  expect(items.filter((line) => !/^- `[A-Z_]+`$/.test(line)), "an item with text after the name").toEqual([]);
+});

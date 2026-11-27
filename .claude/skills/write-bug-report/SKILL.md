@@ -43,7 +43,7 @@ If the user cannot supply everything, produce the best report possible and list 
 
 ## Safety and Confidentiality
 
-- Treat Firebase tokens and project credentials, API keys, `.firebaserc`/CI secrets, and any personal contact data beyond what the site already publishes as sensitive. Redact with `[REDACTED]`.
+- Treat sign-in and database secrets, API keys, CI secrets, and any personal contact data beyond what the site already publishes as sensitive. Redact with `[REDACTED]`.
 - This is a public static site with no auth, no database, and no server-side logic, so classic account/payment vulnerabilities do not apply. If a report does involve credential exposure or hosting misconfiguration: label it `Sensitive — do not file publicly`, minimize reproduction detail, and note that this repository has no documented private security-reporting process, so confirm with the user before any wider distribution.
 - Never place a secret or raw production credential in the report, including inside quoted logs or request/response evidence — redact first.
 
@@ -74,13 +74,13 @@ Produce the report in this exact format:
 - **Impact:** <who is affected, what they cannot do, scope/frequency if known>
 
 ## Environment
-- **Deployment:** `npm run dev` | Local static build (`out/`) | Deployed (Firebase Hosting) | Unknown
+- **Deployment:** `npm run dev` | Local static build (`out/`) | Deployed (Vercel) | Unknown
 - **Application version / commit:** <value or Unknown>
 - **OS:** <value or Unknown>
 - **Browser / device:** <value or Unknown>
 - **Viewport / breakpoint:** <e.g. 375px mobile, 1440px desktop, or Unknown>
 - **Theme:** Light | Dark | Both | Unknown
-- **Relevant content or configuration:** <e.g. blog post slug, front-matter, next.config.ts, firebase.json — or Unknown>
+- **Relevant content or configuration:** <e.g. blog post slug, front-matter, next.config.ts, vercel.json — or Unknown>
 
 ## Preconditions
 <List only conditions required before reproduction, or "None known.">
@@ -103,7 +103,7 @@ Produce the report in this exact format:
 ## Evidence
 - **Screenshots / recording:** <attachment name, link, or Not provided>
 - **Browser console / stack trace:** <sanitized excerpt, attachment reference, or Not provided>
-- **Build / deploy output:** <sanitized excerpt from `npm run build`, `npx tsc --noEmit`, `npm run lint`, or `firebase deploy` — or Not provided>
+- **Build / deploy output:** <sanitized excerpt from `npm run build`, `npx tsc --noEmit`, `npm run lint`, or the Vercel build log — or Not provided>
 - **Failing command:** <command and output summary, or Not provided>
 
 ## Workaround

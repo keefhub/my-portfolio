@@ -35,3 +35,16 @@ Tier: high only because of the test-passed-before-change escalation (the Step it
 Review: risk reviewer PASS (review 1)
 Findings: None.
 =====================================================================
+
+=====================================================================
+Completion — owner-manages-certifications
+Completed: 2026-11-27
+
+Built: The panel's Certifications screen. The owner adds, edits, reorders and, after confirming, deletes certifications and they persist through an owner-only route at /api/admin/certifications/, a faithful copy of the projects route. The badge is an uploaded image or a typed path; a typed or saved address still saves when the image list fails, and the list load does not depend on the images. Each row shows its badge image and credential link. The closed list-table set gained one name and nothing else in the list SQL changed; the generic list service, the browser list client, the shared list editor and the image picker were reused. The Firebase certifications store and its old spec are removed.
+Deviations from the spec: None.
+[auto] decisions: 31 lines tagged [auto] in the spec. No auto-revision was needed.
+Feature review: PASS. Findings (note): two decisions in the spec are both numbered D-30 in Section 2.7 (documentation only; renumber if the spec is edited again).
+Final verification: npm run typecheck ok; npm run build ok; npx playwright test e2e/owner-manages-certifications.spec.ts 34 passed, 0 failed (the five earlier specs also pass whole: sign-in 33, projects 30, experience 29, profile 30, images 35).
+Manual checks still pending (never run): E2E-36 (the owner's SIT check after the merge to develop and once the database setting is in Vercel: add, edit, reorder and delete a certification, and pick an uploaded badge; the real database, the pooler, row level security and the real storage are untested here). The shared schema step now creates three list tables; if the pooler refused one statement on SIT it would hide every database-backed screen at once.
+Follow-ups not in scope: the numbering nit above. No new setting name, no new dependency and no change to scripts/check-task.sh or playwright.config.ts in this feature.
+=====================================================================

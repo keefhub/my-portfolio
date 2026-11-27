@@ -6,7 +6,7 @@ analysis; §4 is only an index. Individual stories assume this context and don't
 ## 1. Product Overview
 
 my-portfolio is the personal portfolio and blog of Keith Lim, published at
-`https://thegoldenpothos.dev`. It is a statically exported Next.js site (no server at runtime)
+`https://thegoldenpothos.xyz`. It is a statically exported Next.js site (no server at runtime)
 served by Firebase Hosting: a single-page scroll landing page (Hero, About, Experience, Tech
 Stack, Projects, Certifications) plus a build-time Markdown blog with RSS, sitemap and robots.
 

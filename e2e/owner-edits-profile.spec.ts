@@ -936,9 +936,9 @@ test("E2E-17: an unreachable database shows only the load message, no form and n
   await expect(menu(page).getByRole("button")).toHaveText(SECTION_LABELS);
   await expect(buttonNamed(page, "Sign out")).toBeVisible();
 
-  await menu(page).getByRole("button", { name: "Experience", exact: true }).click();
-  await expect(statusWith(page, "Experience editor is not available yet.")).toHaveText(
-    "Experience editor is not available yet.",
+  await menu(page).getByRole("button", { name: "Blog posts", exact: true }).click();
+  await expect(statusWith(page, "Blog posts editor is not available yet.")).toHaveText(
+    "Blog posts editor is not available yet.",
   );
   await expect(alertWith(page, LOAD_FAILED)).toHaveCount(0);
 
@@ -1182,8 +1182,8 @@ test("E2E-25: unsaved typing is dropped on a menu switch or a reload, with no di
   await expect(field(page, "Name")).toHaveValue("Keith Lim");
   await field(page, "Name").fill("Draft Name");
 
-  await menu(page).getByRole("button", { name: "Experience", exact: true }).click();
-  await expect(statusWith(page, "Experience editor is not available yet.")).toBeVisible();
+  await menu(page).getByRole("button", { name: "Blog posts", exact: true }).click();
+  await expect(statusWith(page, "Blog posts editor is not available yet.")).toBeVisible();
   await openProfile(page);
   await expect(field(page, "Name")).toHaveValue("Keith Lim");
   await field(page, "Name").fill("Draft Again");

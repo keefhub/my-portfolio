@@ -36,3 +36,22 @@ Review: risk reviewer PASS (review 1; mutation check on a scratch copy: skipping
 Findings: spec-defect | note | logged | the list schema statements run inside the same schema step as the profile and image statements, as the Step specifies; if the pooler refuses the experience statements, the profile and image routes fail too on SIT (look at the experience statements first); mention in the pull request
  edge-case | note | logged | no length or count limit on strings or on details (owner-only; revisit if a later slice adds size limits)
 =====================================================================
+
+=====================================================================
+Task 3 — The Experience screen, retire the earlier Firebase experience code, amend the earlier specs and the docs
+Completed: 2026-11-27      Commit: 745c208
+
+Summary: The panel's Experience item now shows the editor on the owner-only store: the owner adds, edits, reorders and, after confirming, deletes work and education entries, and the changes persist. The shared list editor works against the new store and no longer needs the saving-off flag. The Firebase experience store and its old spec are deleted. The three earlier specs now use "Blog posts" for the not-available notice and the sign-in menu loop skips Experience. CLAUDE.md describes the generic list service.
+Decisions: ListEditor reads savingOn once as props.savingOn ?? true so the three failureMessage call sites are unchanged. ExperienceEditor's store is a module-level const. AdminPanel's notice condition is split across lines to add the experience exclusion. The CLAUDE.md Admin modules sentence is appended to the last sentence of that paragraph. The existing /api/admin/experience/ Routes row was left alone.
+Deviations: The test author first missed the three earlier-spec amendments (they are test files, so they are the test author's, not the implementer's); the orchestrator sent the test author a narrow correction and checked the diff was exactly the named replacements. The implementer removed the two deleted files with git rm --cached followed by rm, so the deletions were already staged.
+Files changed: src/app/components/admin/ListEditor.tsx (modified), src/app/components/admin/ExperienceEditor.tsx (modified), src/app/components/admin/AdminPanel.tsx (modified), src/lib/firebase/experience.ts (deleted), e2e/manage-experience.spec.ts (deleted), CLAUDE.md (modified), e2e/owner-manages-experience.spec.ts, e2e/owner-edits-profile.spec.ts, e2e/owner-uploads-images.spec.ts, e2e/owner-google-sign-in.spec.ts (modified)
+E2E tests written: E2E-14 to E2E-27, E2E-29, E2E-30 (E2E-28 is a compiler check)      Passed before the change: None.
+Manual checks pending: E2E-31 (the owner's SIT check).
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

@@ -1999,9 +1999,9 @@ test("E2E-25: when the list cannot be loaded the screen says so, the panel stays
     await expect(menu(page).getByRole("button"), mode).toHaveText(SECTION_LABELS);
     await expect(page.getByRole("button", { name: "Sign out", exact: true }), mode).toBeVisible();
 
-    await menu(page).getByRole("button", { name: "Experience", exact: true }).click();
+    await menu(page).getByRole("button", { name: "Blog posts", exact: true }).click();
     await expect(page.getByRole("region", { name: "Admin" }).getByRole("status"), mode).toHaveText(
-      "Experience editor is not available yet.",
+      "Blog posts editor is not available yet.",
     );
     await expect(page.getByRole("alert").filter({ hasText: LOAD_FAILED }), mode).toHaveCount(0);
     const second = await request.get("/");

@@ -1,6 +1,15 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import { expect, test, type APIRequestContext, type APIResponse } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type APIResponse,
+  type Browser,
+  type BrowserContext,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 import { encode } from "next-auth/jwt";
 import { checkExperience, experienceFromData, experienceShape, experienceToData } from "../src/lib/admin/experience";
 import { LIST_ID_PATTERN } from "../src/lib/admin/list";
@@ -1013,4 +1022,878 @@ test("E2E-13: no public page or script carries the route or the database, and th
   const serverMentions = gitGrep(["-l", "-E", "lib/server", "--", "src", ":(exclude)src/lib/server", ":(exclude)src/app/api/admin"]);
   expect(serverMentions.stdout).toBe("");
   expect(serverMentions.status).toBe(1);
+});
+
+// Step 3: the Experience screen in the browser, the retired earlier code, the amended earlier specs and the docs.
+
+const PANEL = "/bright-warm-greenhouse/";
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const ENTRY_SAVED = "Entry saved";
+const ORDER_SAVED = "Order saved";
+const NO_ENTRIES = "No entries yet.";
+const LOAD_FAILED = "The entries could not be loaded.";
+const SAVE_FAILED = "The entry could not be saved. Try again, and check that you are signed in as the owner.";
+const MOVE_FAILED = "The entry could not be moved. Try again, and check that you are signed in as the owner.";
+const DELETE_FAILED = "The entry could not be deleted. Try again, and check that you are signed in as the owner.";
+const ASK_ACME = 'Delete "Software Engineer at Acme"? This cannot be undone.';
+const SECTION_NAMES = ["Profile", "Experience", "Projects", "Certifications", "Tech stack", "Blog posts", "Images"];
+
+async function ownerPage(
+  browser: Browser,
+  baseURL: string,
+  options: Parameters<Browser["newContext"]>[0] = {},
+): Promise<{ context: BrowserContext; page: Page }> {
+  const context = await browser.newContext(options);
+  await context.addCookies([{ name: SESSION_COOKIE, value: await mint(OWNER()), url: baseURL }]);
+  const page = await context.newPage();
+  return { context, page };
+}
+
+type Scope = Pick<Page, "getByRole">;
+
+const menu = (page: Page) => page.getByRole("navigation", { name: "Admin sections" });
+const screenOf = (page: Page) => page.locator('section[aria-label="Experience editor"]');
+const listOf = (page: Page) => page.getByRole("list", { name: "Experience entries" });
+const itemsOf = (page: Page) => listOf(page).getByRole("listitem");
+const labelsOf = (page: Page) => listOf(page).locator("li > span:first-child");
+const button = (scope: Scope, name: string) => scope.getByRole("button", { name, exact: true });
+const confirmGroup = (page: Page) => page.getByRole("group", { name: "Confirm delete" });
+const escapeRe = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const itemStarting = (page: Page, text: string) =>
+  itemsOf(page).filter({ hasText: new RegExp("^\\s*" + escapeRe(text)) });
+const statusWith = (page: Page, text: string) => screenOf(page).getByRole("status").filter({ hasText: text });
+
+// Click the menu button until the screen's heading is there (a click that lands before hydration is lost).
+async function openExperience(page: Page): Promise<void> {
+  await page.goto(PANEL);
+  const choose = button(menu(page), "Experience");
+  const heading = page.getByRole("heading", { name: "Experience", level: 2, exact: true });
+  await expect(async () => {
+    await choose.click({ timeout: 5000 });
+    await expect(heading).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 15000 });
+}
+
+type Fields = { year?: string; title?: string; company?: string; duration?: string; description?: string };
+const FIELD_LABELS: [keyof Fields, string][] = [
+  ["year", "Year"],
+  ["title", "Title"],
+  ["company", "Company"],
+  ["duration", "Duration"],
+  ["description", "Description"],
+];
+const ACME_FIELDS = {
+  year: "2024",
+  title: "Software Engineer",
+  company: "Acme",
+  duration: "Jan 2024 - Present",
+  description: "Built the billing service.",
+};
+
+async function fill(page: Page, values: Fields): Promise<void> {
+  for (const [key, label] of FIELD_LABELS) {
+    const value = values[key];
+    if (value !== undefined) await page.getByLabel(label, { exact: true }).fill(value);
+  }
+}
+
+// Holds every request of one method to the route until release() is called, then lets it through.
+async function holdRoute(page: Page, method: string): Promise<{ release: () => void; count: () => number }> {
+  let seen = 0;
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(/\/api\/admin\/experience\/(\?.*)?$/, async (route) => {
+    if (route.request().method() !== method) {
+      await route.fallback();
+      return;
+    }
+    seen += 1;
+    await gate;
+    await route.continue();
+  });
+  return { release: () => release(), count: () => seen };
+}
+
+async function expectAllDisabled(locator: Locator, label: string): Promise<void> {
+  const all = await locator.all();
+  expect(all.length, label + " is present").toBeGreaterThan(0);
+  for (const one of all) await expect(one, label).toBeDisabled();
+}
+
+test("E2E-14: the owner adds an entry to an empty list and it is stored and listed after a reload", async ({
+  browser,
+  baseURL,
+  request,
+}) => {
+  test.setTimeout(60000);
+  dbReset();
+  const before = await (await request.get("/")).text();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openExperience(page);
+  const screen = screenOf(page);
+
+  await expect(statusWith(page, NO_ENTRIES)).toBeVisible();
+  await expect(listOf(page)).toHaveCount(0);
+  await expect(button(screen, "Add entry")).toBeVisible();
+
+  await button(screen, "Add entry").click();
+  await fill(page, ACME_FIELDS);
+  await button(screen, "Add detail line").click();
+  await page.getByLabel("Detail line 1", { exact: true }).fill("Cut invoice errors by 40%");
+  await button(screen, "Save").click();
+
+  await expect(screen.getByRole("status")).toHaveText(ENTRY_SAVED);
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(labelsOf(page)).toHaveText(["Software Engineer at Acme"]);
+  await expect(page.getByRole("heading", { name: "Add entry" })).toHaveCount(0);
+  const stored = dbExperience() as { id: string; position: number; data: unknown }[];
+  expect(stored).toHaveLength(1);
+  expect(stored[0].id).toMatch(UUID);
+  expect(stored[0].position).toBe(0);
+  expect(stored[0].data).toEqual(ACME);
+
+  await page.reload();
+  await openExperience(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(labelsOf(page)).toHaveText(["Software Engineer at Acme"]);
+  await expect(screen.getByText(NO_ENTRIES)).toHaveCount(0);
+
+  const after = await request.get("/");
+  expect(after.status()).toBe(200);
+  expect(await after.text()).toBe(before);
+  await context.close();
+});
+
+test("E2E-15: the owner edits an entry and the change is stored and kept after a reload", async ({ browser, baseURL }) => {
+  test.setTimeout(60000);
+  dbReset();
+  seedTwo();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openExperience(page);
+  const screen = screenOf(page);
+
+  await button(itemStarting(page, "Software Engineer at Acme"), "Edit").click();
+  await expect(page.getByRole("heading", { name: "Edit entry" })).toBeVisible();
+  await expect(page.getByLabel("Year", { exact: true })).toHaveValue("2024");
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("Software Engineer");
+  await expect(page.getByLabel("Company", { exact: true })).toHaveValue("Acme");
+  await expect(page.getByLabel("Duration", { exact: true })).toHaveValue("Jan 2024 - Present");
+  await expect(page.getByLabel("Description", { exact: true })).toHaveValue("Built the billing service.");
+  await expect(page.getByRole("textbox", { name: "Detail line 1", exact: true })).toHaveValue("Cut invoice errors by 40%");
+
+  await fill(page, { title: "Senior Software Engineer" });
+  await button(page, "Remove detail line 1").click();
+  await button(screen, "Save").click();
+
+  await expect(screen.getByRole("status")).toHaveText(ENTRY_SAVED);
+  await expect(labelsOf(page)).toHaveText(["Senior Software Engineer at Acme", "Analyst at Beta"]);
+  expect(dbExperience()).toEqual([
+    row(ACME_ID, 0, { ...ACME, title: "Senior Software Engineer", details: [] }),
+    row(BETA_ID, 1, BETA),
+  ]);
+
+  await page.reload();
+  await openExperience(page);
+  await expect(labelsOf(page).first()).toHaveText("Senior Software Engineer at Acme");
+  await button(itemsOf(page).first(), "Edit").click();
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("Senior Software Engineer");
+  await expect(page.getByRole("textbox", { name: "Detail line 1", exact: true })).toHaveCount(0);
+  await context.close();
+});
+
+test("E2E-16: the owner moves entries up and down, the order is stored and the end buttons are absent", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(60000);
+  dbReset();
+  seedThree();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openExperience(page);
+  const screen = screenOf(page);
+
+  await expect(itemsOf(page)).toHaveCount(3);
+  const counts = async (index: number): Promise<[number, number]> => [
+    await button(itemsOf(page).nth(index), "Move up").count(),
+    await button(itemsOf(page).nth(index), "Move down").count(),
+  ];
+  expect(await counts(0)).toEqual([0, 1]);
+  expect(await counts(1)).toEqual([1, 1]);
+  expect(await counts(2)).toEqual([1, 0]);
+
+  await button(itemStarting(page, "Software Engineer at Acme"), "Move down").click();
+  await expect(screen.getByRole("status")).toHaveText(ORDER_SAVED);
+  await expect(labelsOf(page)).toHaveText(["Analyst at Beta", "Software Engineer at Acme", "Intern at Gamma"]);
+  expect(positionsOf()).toEqual({ [BETA_ID]: 0, [ACME_ID]: 1, [GAMMA_ID]: 2 });
+
+  await button(itemStarting(page, "Software Engineer at Acme"), "Move up").click();
+  await expect(labelsOf(page)).toHaveText(["Software Engineer at Acme", "Analyst at Beta", "Intern at Gamma"]);
+  await expect(screen.getByRole("status")).toHaveText(ORDER_SAVED);
+
+  await button(itemStarting(page, "Software Engineer at Acme"), "Move down").click();
+  await expect(labelsOf(page)).toHaveText(["Analyst at Beta", "Software Engineer at Acme", "Intern at Gamma"]);
+  await expect(screen.getByRole("status")).toHaveText(ORDER_SAVED);
+  await page.reload();
+  await openExperience(page);
+  await expect(labelsOf(page)).toHaveText(["Analyst at Beta", "Software Engineer at Acme", "Intern at Gamma"]);
+  expect(dbTitles()).toEqual(["Analyst", "Software Engineer", "Intern"]);
+  await context.close();
+});
+
+test("E2E-17: deleting asks first, Cancel keeps the entry and Confirm removes it for good", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(90000);
+  for (const confirm of [false, true]) {
+    dbReset();
+    seedTwo();
+    const seed = [row(ACME_ID, 0, ACME), row(BETA_ID, 1, BETA)];
+    const { context, page } = await ownerPage(browser, baseURL as string);
+    await openExperience(page);
+    await expect(itemsOf(page)).toHaveCount(2);
+
+    await button(itemStarting(page, "Software Engineer at Acme"), "Delete").click();
+    const group = confirmGroup(page);
+    await expect(group).toBeVisible();
+    await expect(group.locator("p")).toHaveText(ASK_ACME);
+    await expect(button(group, "Confirm")).toBeVisible();
+    await expect(button(group, "Cancel")).toBeVisible();
+    expect(dbExperience()).toEqual(seed);
+
+    if (!confirm) {
+      await button(group, "Cancel").click();
+      await expect(group).toHaveCount(0);
+      await expect(labelsOf(page)).toHaveText(["Software Engineer at Acme", "Analyst at Beta"]);
+      expect(dbExperience()).toEqual(seed);
+      await page.reload();
+      await openExperience(page);
+      await expect(labelsOf(page)).toHaveText(["Software Engineer at Acme", "Analyst at Beta"]);
+      expect(dbExperience()).toEqual(seed);
+    } else {
+      await button(group, "Confirm").click();
+      await expect(statusWith(page, "Entry deleted")).toBeVisible();
+      await expect(labelsOf(page)).toHaveText(["Analyst at Beta"]);
+      expect(dbExperience()).toEqual([row(BETA_ID, 1, BETA)]);
+      await page.reload();
+      await openExperience(page);
+      await expect(labelsOf(page)).toHaveText(["Analyst at Beta"]);
+      expect(dbExperience()).toEqual([row(BETA_ID, 1, BETA)]);
+    }
+    await context.close();
+  }
+});
+
+test("E2E-18: a blank required field is refused next to the field with nothing sent, and saved text is trimmed", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  dbReset();
+  dbSeedExperience([row(ACME_ID, 0, ACME)]);
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openExperience(page);
+  const screen = screenOf(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+
+  const cases: [keyof Fields, string, string, string][] = [
+    ["year", "", "Year", "Year is required"],
+    ["title", "   ", "Title", "Title is required"],
+    ["company", "", "Company", "Company is required"],
+    ["duration", "   ", "Duration", "Duration is required"],
+    ["description", "", "Description", "Description is required"],
+  ];
+  for (const [key, bad, label, message] of cases) {
+    await button(screen, "Add entry").click();
+    await fill(page, ACME_FIELDS);
+    await fill(page, { [key]: bad } as Fields);
+    await button(screen, "Save").click();
+
+    const field = page.getByLabel(label, { exact: true });
+    await expect(field, label + " invalid").toHaveAttribute("aria-invalid", "true");
+    const describedBy = await field.getAttribute("aria-describedby");
+    expect(describedBy, label + " describedby").not.toBeNull();
+    await expect(page.locator("#" + describedBy), label + " message").toHaveText(message);
+    for (const [otherKey, otherLabel] of FIELD_LABELS) {
+      if (otherKey === key) continue;
+      await expect(page.getByLabel(otherLabel, { exact: true }), otherLabel + " kept").toHaveValue(ACME_FIELDS[otherKey as keyof typeof ACME_FIELDS]);
+    }
+    await expect(page.getByRole("heading", { name: "Add entry" })).toBeVisible();
+    await expect(statusWith(page, ENTRY_SAVED)).toHaveCount(0);
+    expect(dbExperience(), label).toEqual([row(ACME_ID, 0, ACME)]);
+    await button(screen, "Cancel").click();
+    await expect(page.getByRole("heading", { name: "Add entry" })).toHaveCount(0);
+  }
+
+  await button(itemStarting(page, "Software Engineer at Acme"), "Edit").click();
+  await fill(page, { title: "   " });
+  await button(screen, "Save").click();
+  const title = page.getByLabel("Title", { exact: true });
+  await expect(title).toHaveAttribute("aria-invalid", "true");
+  await expect(page.locator("#" + (await title.getAttribute("aria-describedby")))).toHaveText("Title is required");
+  expect(dbExperience()).toEqual([row(ACME_ID, 0, ACME)]);
+  await button(screen, "Cancel").click();
+  await page.reload();
+  await openExperience(page);
+  await expect(labelsOf(page)).toHaveText(["Software Engineer at Acme"]);
+
+  await button(screen, "Add entry").click();
+  await fill(page, {
+    year: "  2023  ",
+    title: "  Analyst ",
+    company: " Beta  ",
+    duration: "2023 - 2024 ",
+    description: "  Reported on sales. ",
+  });
+  for (let i = 0; i < 3; i += 1) await button(screen, "Add detail line").click();
+  await page.getByLabel("Detail line 1", { exact: true }).fill("  First  ");
+  await page.getByLabel("Detail line 2", { exact: true }).fill("   ");
+  await page.getByLabel("Detail line 3", { exact: true }).fill("Second");
+  await button(screen, "Save").click();
+  await expect(screen.getByRole("status")).toHaveText(ENTRY_SAVED);
+  await expect(labelsOf(page).first()).toHaveText("Analyst at Beta");
+  const stored = (dbExperience() as { id: string; position: number; data: unknown }[]).filter((r) => r.id !== ACME_ID);
+  expect(stored).toHaveLength(1);
+  expect(stored[0].data).toEqual({
+    year: "2023",
+    title: "Analyst",
+    company: "Beta",
+    duration: "2023 - 2024",
+    description: "Reported on sales.",
+    details: ["First", "Second"],
+  });
+  expect(stored[0].position).toBe(-1);
+  await context.close();
+});
+
+test("E2E-19: an unreachable database shows one fixed load message, keeps the menu working and recovers", async ({
+  browser,
+  baseURL,
+  request,
+}) => {
+  test.setTimeout(60000);
+  dbReset();
+  seedTwo();
+  dbBreak();
+  const before = await (await request.get("/")).text();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openExperience(page);
+  const screen = screenOf(page);
+
+  await expect(page.getByRole("alert").filter({ hasText: LOAD_FAILED })).toHaveText(LOAD_FAILED);
+  await expect(screen.getByText(NO_ENTRIES)).toHaveCount(0);
+  await expect(button(screen, "Add entry")).toHaveCount(0);
+  await expect(listOf(page)).toHaveCount(0);
+  const panelText = await page.locator("body").innerText();
+  for (const leak of LEAKS) expect(panelText, "panel leaks " + leak).not.toContain(leak);
+  for (const name of SECTION_NAMES) await expect(button(menu(page), name), name).toBeVisible();
+  await expect(button(page, "Sign out")).toBeVisible();
+
+  await button(menu(page), "Blog posts").click();
+  await expect(page.getByRole("status").filter({ hasText: "Blog posts editor is not available yet." })).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: LOAD_FAILED })).toHaveCount(0);
+  const after = await request.get("/");
+  expect(after.status()).toBe(200);
+  expect(await after.text()).toBe(before);
+
+  dbFix();
+  await button(menu(page), "Experience").click();
+  await expect(labelsOf(page)).toHaveText(["Software Engineer at Acme", "Analyst at Beta"]);
+  await context.close();
+});
+
+test("E2E-20: a failed save, move or delete shows one fixed message, keeps the form and the list, and works again after recovery", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  dbReset();
+  seedTwo();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openExperience(page);
+  const screen = screenOf(page);
+  await expect(itemsOf(page)).toHaveCount(2);
+  dbBreak();
+
+  await button(itemsOf(page).first(), "Edit").click();
+  await fill(page, { title: "Staff Engineer" });
+  await button(screen, "Save").click();
+  await expect(screen.getByRole("alert")).toHaveText(SAVE_FAILED);
+  await expect(page.getByRole("heading", { name: "Edit entry" })).toBeVisible();
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("Staff Engineer");
+  await expect(statusWith(page, ENTRY_SAVED)).toHaveCount(0);
+  const failedText = await page.locator("body").innerText();
+  for (const leak of LEAKS) expect(failedText, "save leaks " + leak).not.toContain(leak);
+
+  await button(screen, "Cancel").click();
+  await expect(labelsOf(page)).toHaveText(["Software Engineer at Acme", "Analyst at Beta"]);
+
+  await button(itemsOf(page).first(), "Move down").click();
+  await expect(screen.getByRole("alert")).toHaveText(MOVE_FAILED);
+  await expect(labelsOf(page)).toHaveText(["Software Engineer at Acme", "Analyst at Beta"]);
+  await expect(statusWith(page, ORDER_SAVED)).toHaveCount(0);
+
+  await button(itemsOf(page).first(), "Delete").click();
+  await button(confirmGroup(page), "Confirm").click();
+  await expect(screen.getByRole("alert")).toHaveText(DELETE_FAILED);
+  await expect(itemsOf(page)).toHaveCount(2);
+
+  dbFix();
+  await button(confirmGroup(page), "Cancel").click();
+  await button(itemsOf(page).first(), "Edit").click();
+  await fill(page, { title: "Staff Engineer" });
+  await button(screen, "Save").click();
+  await expect(screen.getByRole("status")).toHaveText(ENTRY_SAVED);
+  await expect(labelsOf(page).first()).toHaveText("Staff Engineer at Acme");
+  const stored = dbExperience() as { id: string; position: number; data: { title: string } }[];
+  expect(stored.find((r) => r.id === ACME_ID)?.data.title).toBe("Staff Engineer");
+  const beta = stored.find((r) => r.id === BETA_ID);
+  expect(beta?.position).toBe(1);
+  expect(beta?.data).toEqual(BETA);
+  await context.close();
+});
+
+test("E2E-21: an entry deleted in another tab is not brought back and the stale screen shows the failure", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  dbReset();
+  seedThree();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  const second = await context.newPage();
+  await openExperience(page);
+  await openExperience(second);
+  await expect(itemsOf(page)).toHaveCount(3);
+  await expect(itemsOf(second)).toHaveCount(3);
+
+  await button(itemStarting(page, "Software Engineer at Acme"), "Delete").click();
+  await button(confirmGroup(page), "Confirm").click();
+  await expect(statusWith(page, "Entry deleted")).toBeVisible();
+  const afterDelete = dbExperience() as { id: string }[];
+  expect(afterDelete.map((r) => r.id).sort()).toEqual([BETA_ID, GAMMA_ID]);
+
+  const screen2 = screenOf(second);
+  await button(itemStarting(second, "Software Engineer at Acme"), "Edit").click();
+  await fill(second, { title: "Resurrected" });
+  await button(screen2, "Save").click();
+  await expect(screen2.getByRole("alert")).toHaveText(SAVE_FAILED);
+  await button(screen2, "Cancel").click();
+
+  await button(itemStarting(second, "Analyst at Beta"), "Move up").click();
+  await expect(screen2.getByRole("alert")).toHaveText(MOVE_FAILED);
+  expect((dbExperience() as { id: string }[]).map((r) => r.id).sort()).toEqual([BETA_ID, GAMMA_ID]);
+  expect(positionsOf()).toEqual({ [BETA_ID]: 1, [GAMMA_ID]: 2 });
+
+  await button(itemStarting(second, "Software Engineer at Acme"), "Delete").click();
+  await button(confirmGroup(second), "Confirm").click();
+  await expect(screen2.getByRole("alert")).toHaveText(DELETE_FAILED);
+
+  await second.reload();
+  await openExperience(second);
+  await expect(labelsOf(second)).toHaveText(["Analyst at Beta", "Intern at Gamma"]);
+  expect((dbExperience() as { data: { title: string } }[]).some((r) => r.data.title === "Resurrected")).toBe(false);
+  await context.close();
+});
+
+test("E2E-22: a move or save after sign-in ended or with no network shows the fixed failure and keeps the typed text", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  const seed = [row(ACME_ID, 0, ACME), row(BETA_ID, 1, BETA)];
+
+  // Case 1: the sign-in ended.
+  dbReset();
+  seedTwo();
+  const one = await ownerPage(browser, baseURL as string);
+  await openExperience(one.page);
+  await expect(itemsOf(one.page)).toHaveCount(2);
+  await one.context.clearCookies();
+  const screen1 = screenOf(one.page);
+  await button(itemsOf(one.page).first(), "Move down").click();
+  await expect(screen1.getByRole("alert")).toHaveText(MOVE_FAILED);
+  await button(itemsOf(one.page).first(), "Edit").click();
+  await fill(one.page, { title: "Staff Engineer" });
+  await button(screen1, "Save").click();
+  await expect(screen1.getByRole("alert")).toHaveText(SAVE_FAILED);
+  await expect(editHeading(one.page)).toBeVisible();
+  await expect(one.page.getByLabel("Title", { exact: true })).toHaveValue("Staff Engineer");
+  expect(dbExperience()).toEqual(seed);
+  await one.context.close();
+
+  // Case 2: no network.
+  dbReset();
+  seedTwo();
+  const two = await ownerPage(browser, baseURL as string);
+  await openExperience(two.page);
+  await expect(itemsOf(two.page)).toHaveCount(2);
+  const screen2 = screenOf(two.page);
+  await two.context.setOffline(true);
+  await button(itemsOf(two.page).first(), "Move down").click();
+  await expect(screen2.getByRole("alert")).toHaveText(MOVE_FAILED);
+  await button(itemsOf(two.page).first(), "Edit").click();
+  await fill(two.page, { title: "Offline Title" });
+  await button(screen2, "Save").click();
+  await expect(screen2.getByRole("alert")).toHaveText(SAVE_FAILED);
+  await expect(two.page.getByLabel("Title", { exact: true })).toHaveValue("Offline Title");
+  expect(dbExperience()).toEqual(seed);
+  await two.context.setOffline(false);
+  await button(screen2, "Save").click();
+  await expect(screen2.getByRole("status")).toHaveText(ENTRY_SAVED);
+  await expect(labelsOf(two.page).first()).toHaveText("Offline Title at Acme");
+  await two.context.close();
+});
+
+function editHeading(page: Page): Locator {
+  return page.getByRole("heading", { name: "Edit entry" });
+}
+
+test("E2E-23: while a request is in flight the screen shows its state, disables the controls and sends it once", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  dbReset();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openExperience(page);
+  const screen = screenOf(page);
+
+  // Part 1: add, held.
+  const post = await holdRoute(page, "POST");
+  await button(screen, "Add entry").click();
+  await fill(page, ACME_FIELDS);
+  await button(screen, "Save").dblclick();
+  await expect(screen.getByRole("status")).toHaveText("Saving…");
+  await expect(button(screen, "Save")).toBeDisabled();
+  await expect(button(screen, "Cancel")).toBeDisabled();
+  for (const [, label] of FIELD_LABELS) await expect(page.getByLabel(label, { exact: true }), label).toBeDisabled();
+  expect(post.count()).toBe(1);
+  post.release();
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(labelsOf(page)).toHaveText(["Software Engineer at Acme"]);
+  expect(post.count()).toBe(1);
+  expect(dbExperience()).toHaveLength(1);
+
+  // Part 2: move, held.
+  seedTwo();
+  await page.reload();
+  await openExperience(page);
+  await expect(itemsOf(page)).toHaveCount(2);
+  const patch = await holdRoute(page, "PATCH");
+  await button(itemsOf(page).first(), "Move down").click();
+  await expect(screen.getByRole("status")).toHaveText("Saving…");
+  for (const name of ["Edit", "Move up", "Move down", "Delete", "Add entry"]) {
+    await expectAllDisabled(button(screen, name), name);
+  }
+  patch.release();
+  await expect(screen.getByRole("status")).toHaveText(ORDER_SAVED);
+
+  // Part 3: delete, held.
+  const remove = await holdRoute(page, "DELETE");
+  await button(itemsOf(page).first(), "Delete").click();
+  await button(confirmGroup(page), "Confirm").click();
+  await expect(screen.getByRole("status")).toHaveText("Deleting…");
+  await expect(button(confirmGroup(page), "Confirm")).toBeDisabled();
+  await expect(button(confirmGroup(page), "Cancel")).toBeDisabled();
+  remove.release();
+  await expect(screen.getByRole("status")).toHaveText("Entry deleted");
+  await expect(itemsOf(page)).toHaveCount(1);
+  await context.close();
+});
+
+test("E2E-24: nothing typed in an unsaved form is kept after Cancel or a reload", async ({ browser, baseURL }) => {
+  test.setTimeout(60000);
+  dbReset();
+  dbSeedExperience([row(ACME_ID, 0, ACME)]);
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openExperience(page);
+  const screen = screenOf(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+
+  await button(screen, "Add entry").click();
+  await fill(page, { title: "Draft" });
+  await button(screen, "Cancel").click();
+  await expect(page.getByRole("heading", { name: "Add entry" })).toHaveCount(0);
+  await expect(labelsOf(page)).toHaveText(["Software Engineer at Acme"]);
+  expect(dbExperience()).toEqual([row(ACME_ID, 0, ACME)]);
+
+  await button(screen, "Add entry").click();
+  await fill(page, { title: "Draft again", year: "1999" });
+  await page.reload();
+  await openExperience(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: "Add entry" })).toHaveCount(0);
+  const text = await page.locator("body").innerText();
+  expect(text).not.toContain("Draft");
+  expect(text).not.toContain("1999");
+  expect(dbExperience()).toEqual([row(ACME_ID, 0, ACME)]);
+  const keys = await page.evaluate(() => {
+    try {
+      return Object.keys(localStorage);
+    } catch {
+      return [];
+    }
+  });
+  expect(keys.filter((k) => k.toLowerCase().includes("draft"))).toEqual([]);
+  await context.close();
+});
+
+test("E2E-25: two entries with the same text are two entries, and the last save from two tabs wins quietly", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  dbReset();
+  const first = await ownerPage(browser, baseURL as string);
+  await openExperience(first.page);
+  const screen = screenOf(first.page);
+  for (let i = 0; i < 2; i += 1) {
+    await button(screen, "Add entry").click();
+    await fill(first.page, ACME_FIELDS);
+    await button(screen, "Save").click();
+    await expect(itemsOf(first.page)).toHaveCount(i + 1);
+    await expect(screen.getByRole("status")).toHaveText(ENTRY_SAVED);
+  }
+  await expect(labelsOf(first.page)).toHaveText(["Software Engineer at Acme", "Software Engineer at Acme"]);
+  const stored = dbExperience() as { id: string }[];
+  expect(stored).toHaveLength(2);
+  expect(stored[0].id).not.toBe(stored[1].id);
+
+  await button(itemsOf(first.page).first(), "Delete").click();
+  await button(confirmGroup(first.page), "Confirm").click();
+  await expect(itemsOf(first.page)).toHaveCount(1);
+  expect(dbExperience()).toHaveLength(1);
+  await first.context.close();
+
+  dbSeedExperience([row(ACME_ID, 0, ACME)]);
+  const one = await ownerPage(browser, baseURL as string);
+  const two = await one.context.newPage();
+  await openExperience(one.page);
+  await openExperience(two);
+  await expect(itemsOf(one.page)).toHaveCount(1);
+  await expect(itemsOf(two)).toHaveCount(1);
+
+  await button(itemsOf(one.page).first(), "Edit").click();
+  await fill(one.page, { title: "First" });
+  await button(screenOf(one.page), "Save").click();
+  await expect(screenOf(one.page).getByRole("status")).toHaveText(ENTRY_SAVED);
+
+  await button(itemsOf(two).first(), "Edit").click();
+  await expect(two.getByLabel("Title", { exact: true })).toHaveValue("Software Engineer");
+  await fill(two, { title: "Second" });
+  await button(screenOf(two), "Save").click();
+  await expect(screenOf(two).getByRole("status")).toHaveText(ENTRY_SAVED);
+  await expect(screenOf(two).getByRole("alert")).toHaveCount(0);
+
+  await one.page.reload();
+  await openExperience(one.page);
+  await expect(labelsOf(one.page).first()).toHaveText("Second at Acme");
+  const final = dbExperience() as { data: { title: string } }[];
+  expect(final).toHaveLength(1);
+  expect(final[0].data.title).toBe("Second");
+  await one.context.close();
+});
+
+test("E2E-26: the Experience screen fits a phone, follows the theme tokens and works from the keyboard", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(180000);
+  const surfaceByTheme: Record<string, string> = {};
+  const thirty = Array.from({ length: 30 }, (_, i) => {
+    const nn = String(i + 1).padStart(2, "0");
+    const long = nn === "15";
+    return row("00000000-0000-4000-8000-0000000000" + nn, i, {
+      year: "2024",
+      title: long ? "N".repeat(120) : "Role " + nn,
+      company: "Co " + nn,
+      duration: "2024",
+      description: long ? "D".repeat(300) : "Text " + nn,
+      details: [] as string[],
+    });
+  });
+
+  for (const theme of ["light", "dark"]) {
+    dbReset();
+    dbSeedExperience(thirty);
+    const { context, page } = await ownerPage(browser, baseURL as string, { viewport: { width: 375, height: 800 } });
+    await page.addInitScript((t) => {
+      try {
+        localStorage.setItem("theme", t);
+      } catch {
+        // storage unavailable: the page falls back to its default theme
+      }
+    }, theme);
+    await openExperience(page);
+    const screen = screenOf(page);
+    await expect(itemsOf(page)).toHaveCount(30);
+
+    const fits = async (when: string): Promise<void> => {
+      const widths = await page.evaluate(() => ({
+        root: document.documentElement.scrollWidth,
+        body: document.body.scrollWidth,
+      }));
+      expect(widths.root, theme + " root width " + when).toBeLessThanOrEqual(375);
+      expect(widths.body, theme + " body width " + when).toBeLessThanOrEqual(375);
+      const boxes = await page.locator("button, input, textarea").evaluateAll((nodes) =>
+        nodes.map((node) => {
+          const rect = node.getBoundingClientRect();
+          return {
+            label: node.tagName + " " + (node.textContent ?? "").slice(0, 20),
+            x: rect.x,
+            right: rect.x + rect.width,
+            width: rect.width,
+            height: rect.height,
+          };
+        }),
+      );
+      for (const box of boxes) {
+        if (box.width === 0 && box.height === 0) continue;
+        expect(box.x, theme + " " + when + " " + box.label).toBeGreaterThanOrEqual(0);
+        expect(box.right, theme + " " + when + " " + box.label).toBeLessThanOrEqual(375);
+      }
+    };
+    await fits("list");
+
+    const listBox = await listOf(page).boundingBox();
+    const longBox = await itemsOf(page).nth(14).boundingBox();
+    expect(listBox, "list box").not.toBeNull();
+    expect(longBox, "long item box").not.toBeNull();
+    expect((longBox as { width: number }).width, theme + " long item width").toBeLessThanOrEqual(
+      (listBox as { width: number }).width + 0.5,
+    );
+
+    const probe = (property: "backgroundColor" | "color", token: string) =>
+      page.evaluate(
+        ([prop, value]) => {
+          const div = document.createElement("div");
+          (div.style as unknown as Record<string, string>)[prop] = value;
+          document.body.appendChild(div);
+          const computed = (getComputedStyle(div) as unknown as Record<string, string>)[prop];
+          div.remove();
+          return computed;
+        },
+        [property, "var(" + token + ")"] as const,
+      );
+    const computed = (locator: Locator, property: "background-color" | "color") =>
+      locator.evaluate((el, p) => getComputedStyle(el).getPropertyValue(p), property);
+
+    const item = itemsOf(page).first();
+    const surfaceAlt = await probe("backgroundColor", "--surface-alt");
+    expect(await computed(item, "background-color"), theme + " item").toBe(surfaceAlt);
+    expect(await computed(labelsOf(page).first(), "color"), theme + " item text").toBe(await probe("color", "--foreground"));
+    surfaceByTheme[theme] = surfaceAlt;
+    if (theme === "dark") await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+    await button(item, "Edit").click();
+    await fill(page, { title: "   " });
+    await button(screen, "Save").click();
+    const alert = page.getByRole("alert").filter({ hasText: "Title is required" });
+    await expect(alert).toHaveText("Title is required");
+    expect(await computed(alert, "color"), theme + " alert").toBe(await probe("color", "--accent-rose"));
+    await fits("form");
+    await button(screen, "Cancel").click();
+
+    const first = itemsOf(page).first();
+    await button(first, "Delete").focus();
+    await page.keyboard.press("Enter");
+    await expect(confirmGroup(page)).toBeVisible();
+    await button(confirmGroup(page), "Confirm").focus();
+    await page.keyboard.press("Tab");
+    await expect(button(confirmGroup(page), "Cancel")).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(confirmGroup(page)).toHaveCount(0);
+    expect(dbExperience()).toHaveLength(30);
+    await context.close();
+  }
+  expect(surfaceByTheme.dark).not.toBe(surfaceByTheme.light);
+});
+
+// The words and module names below are put together from pieces because the gate scans this file.
+const piece = (...parts: string[]): string => parts.join("");
+
+test("E2E-27: the earlier Experience store and spec are gone, the shared files stay, and nothing imports the old store", async () => {
+  dbReset();
+  const mustNotExist = [piece("src/lib/", FIRE, "/experience.ts"), "e2e/manage-experience.spec.ts"];
+  for (const path of mustNotExist) expect(fs.existsSync(path), path + " is gone").toBe(false);
+  const mustExist = [
+    piece("src/lib/", FIRE, "/list.ts"),
+    "src/lib/admin/list.ts",
+    "src/lib/admin/experience.ts",
+    "src/app/components/admin/ListEditor.tsx",
+  ];
+  for (const path of mustExist) expect(fs.existsSync(path), path + " exists").toBe(true);
+
+  const read = (path: string): string => fs.readFileSync(path, "utf8");
+  const listEditor = read("src/app/components/admin/ListEditor.tsx");
+  expect(listEditor).toContain('from "@/lib/admin/list"');
+  expect(listEditor).toContain("ListStore");
+  expect(listEditor.toLowerCase()).not.toContain(FIRE);
+
+  const editor = read("src/app/components/admin/ExperienceEditor.tsx");
+  expect(editor).toContain("createHttpListStore");
+  expect(editor).toContain("/api/admin/experience/");
+  for (const word of [FIRE, piece("lib/", "server"), piece("lib/", "auth"), piece("next", "-auth"), PG, piece("server", "-only")]) {
+    expect(editor.toLowerCase(), "ExperienceEditor names " + word).not.toContain(word);
+  }
+
+  const panel = read("src/app/components/admin/AdminPanel.tsx");
+  expect(panel).toContain("ExperienceEditor");
+  expect(panel).not.toContain(piece("lib/", "auth"));
+  expect(panel.toLowerCase()).not.toContain(FIRE);
+
+  for (const path of ["src/lib/admin/list.ts", "src/lib/admin/listClient.ts"]) {
+    expect(read(path).toLowerCase(), path).not.toContain(FIRE);
+  }
+
+  const oldList = read(piece("src/lib/", FIRE, "/list.ts"));
+  expect(oldList).toContain("export type { ListStore }");
+  expect(oldList).toContain("createListStore");
+  expect(oldList).toContain("withTimeout");
+
+  const importers = gitGrep(["-n", "-E", piece(FIRE, "/experience"), "--", "src", "e2e"]);
+  expect(importers.stdout).toBe("");
+  expect(importers.status).toBe(1);
+});
+
+test("E2E-29: the three earlier specs now expect the Blog posts notice and skip Experience", async () => {
+  dbReset();
+  const read = (path: string): string => fs.readFileSync(path, "utf8");
+  const gone = gitGrep(["-n", "-F", piece("Experience editor is", " not available yet."), "--", "e2e"]);
+  expect(gone.stdout).toBe("");
+  expect(gone.status).toBe(1);
+  expect(read("e2e/owner-edits-profile.spec.ts")).toContain("Blog posts editor is not available yet.");
+  expect(read("e2e/owner-uploads-images.spec.ts")).toContain("Blog posts editor is not available yet.");
+  expect(read("e2e/owner-google-sign-in.spec.ts")).toContain('l !== "Experience"');
+});
+
+test("E2E-30: CLAUDE.md lists the route, the shared list pattern and the settings, and drops the old counts", async () => {
+  dbReset();
+  const doc = fs.readFileSync("CLAUDE.md", "utf8");
+  for (const text of [
+    "/api/admin/experience/",
+    "src/app/api/admin/experience/route.ts",
+    "createListService",
+    "createHttpListStore",
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "/api/admin/images/",
+    "/api/admin/images/upload/",
+    "/api/admin/profile/",
+    "src/lib/server/",
+    "src/app/api/admin/**",
+    "stand-in:",
+    "SUPABASE_DB_URL",
+    "AUTH_SECRET",
+    "/api/auth/callback/google",
+    "The site reads seven settings by name",
+  ]) {
+    expect(doc, text).toContain(text);
+  }
+  for (const text of ["The site reads five settings by name", "The site reads four settings by name", "only API route"]) {
+    expect(doc, text).not.toContain(text);
+  }
 });

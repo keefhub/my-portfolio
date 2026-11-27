@@ -112,3 +112,16 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+
+=====================================================================
+Completion — owner-uploads-images
+Completed: 2026-11-27
+
+Built: The owner can upload a PNG, JPEG, WebP or SVG of up to 5 MB from the panel's Images screen, see the list newest first, copy an image's address and delete it after confirming, and pick an uploaded image as the profile photo. The browser asks an owner-only route for a one-file upload address and sends the file straight to Supabase Storage (a 5 MB body cannot pass through a free Vercel function), then registers it; the server checks the stored file's real size and type and removes a file outside the rules. Every route checks the owner before any body read, and the image-id pattern runs before every storage or database call. Tests run against file-based stand-ins chosen by the setting values. The Firebase image store and its old spec are removed and the three other editors list images through the new client.
+Deviations from the spec: None.
+[auto] decisions: 33 lines tagged [auto] in the spec. Added by an auto-revision: D-33 (E2E-34's grep for the old names uses whole-word matching, so the unrelated database function names no longer match; scope and intent unchanged).
+Feature review: PASS. Findings (all notes): a repeat registration of an already-listed id with a different name answers the new name while the stored entry keeps the old one (D-10 says it answers the same entry); a repeat registration of a listed image whose declared type or ending mismatches removes that image's stored file but leaves the list entry (owner-only; the owner can delete the entry afterwards); reply() and refusal() are now copied in three route files (extract one shared helper when a later slice touches them; the profile route is do-not-touch in this feature); validateImageFile (browser) and checkImageInput (server) apply the same order twice and could be built on each other (E2E-02 checks both).
+Final verification: npm run build ok; npx playwright test e2e/owner-uploads-images.spec.ts 35 passed, 0 failed (the profile spec's 30 tests also pass as a regression).
+Manual checks still pending (never run): E2E-36 (the owner's SIT check of the real Supabase Storage after the merge to develop and once SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set for SIT: upload, list, open signed out, delete). Unproven against the real service: the bucket-create and signing contract, the browser upload with only a content-type header (OQ-2), which key form works (OQ-3), the CDN after a delete (OQ-4), the first-use bucket race, and the pooler role bypassing row level security.
+Follow-ups not in scope: the four notes above. The pull request must list the setting names SUPABASE_URL (the project address) and SUPABASE_SERVICE_ROLE_KEY (a secret, read in one server-only file) as new, with SUPABASE_DB_URL reused for the image list. scripts/check-task.sh was not changed in this feature, and no dependency was added.
+=====================================================================

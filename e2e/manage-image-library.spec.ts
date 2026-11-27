@@ -446,7 +446,7 @@ test.describe("manage-image-library", () => {
     }
   });
 
-  test("E2E-14: the live deploy publishes the storage rules and staging does not", async () => {
+  test("E2E-14: the live deploy publishes the storage rules and staging publishes the SIT rules only", async () => {
     const pkg = JSON.parse(repoText("package.json")) as { scripts: Record<string, string> };
     const workflow = repoText(".github/workflows/pipeline.yml");
     const prodStart = workflow.indexOf("  deploy-production:");
@@ -459,9 +459,9 @@ test.describe("manage-image-library", () => {
       "firebase deploy --only firestore:rules,storage --project thegoldenpothos-5b3a1",
     );
     expect(prod).toContain("npm run deploy:rules");
-    expect(staging).not.toContain("deploy:rules");
-    expect(staging).not.toContain("storage");
-    expect(staging).not.toContain("firestore");
+    expect(staging).not.toMatch(/npm run deploy:rules(?!:sit)/);
+    // SIT has no Storage bucket yet, so its script deploys Firestore rules only.
+    expect(pkg.scripts["deploy:rules:sit"]).not.toContain("storage");
   });
 
   test("E2E-15: the storage rules name no email and read no environment", async () => {

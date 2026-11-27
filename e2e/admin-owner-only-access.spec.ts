@@ -334,14 +334,19 @@ test("E2E-21: the live deploy publishes the rules after hosting and uses no new 
     prod.indexOf("npm run deploy:rules"),
   );
   expect(prod).not.toContain("continue-on-error");
-  expect(staging).not.toContain("deploy:rules");
-  expect(staging).not.toContain("firestore");
+  // SIT is its own Firebase project: staging deploys the SIT rules only, never the production script.
+  expect(staging).toContain("npm run deploy:rules:sit");
+  expect(staging).not.toMatch(/npm run deploy:rules(?!:sit)/);
+  expect(staging).not.toContain("thegoldenpothos-5b3a1");
 
   const secrets = new Set([...workflow.matchAll(/secrets\.([A-Za-z0-9_]+)/g)].map((m) => m[1]));
   expect(secrets).toEqual(new Set(["GITHUB_TOKEN", "FIREBASE_SERVICE_ACCOUNT"]));
 
   expect(pkg.scripts["deploy:rules"]).toBe(
     "firebase deploy --only firestore:rules,storage --project thegoldenpothos-5b3a1",
+  );
+  expect(pkg.scripts["deploy:rules:sit"]).toBe(
+    "firebase deploy --only firestore:rules --project thegoldenpothos-sit",
   );
   expect(pkg.scripts.deploy).toBe(
     "npm run build && firebase deploy --only hosting --project thegoldenpothos-5b3a1",

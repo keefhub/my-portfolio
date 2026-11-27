@@ -127,8 +127,9 @@ page, layout or server component: the public site must load no Firebase code.
 
 **Database rules are the security boundary.** [firestore.rules](firestore.rules) allows writes only
 from the owner's user ID (`ownerUid()`, also `OWNER_UID` in `src/lib/admin/owner.ts`; both ship as the
-deny-all placeholder `REPLACE_WITH_OWNER_UID`). The panel being hidden protects nothing. Rules are
-tested against the Firestore emulator (Java) in `e2e/` and deployed only by the live deploy job.
+deny-all placeholder `REPLACE_WITH_OWNER_UID`). User IDs are per Firebase project, so production and SIT
+each have one: `sitOwnerUid()` in both rules files and `SIT_OWNER_UID` in `owner.ts` hold the SIT ID (`ownerUidFor()` picks by page address). The panel being hidden protects nothing. Rules are
+tested against the Firestore emulator (Java) in `e2e/`; each deploy job publishes its own project's rules (`deploy:rules` on `master`, `deploy:rules:sit`, Firestore only, on `develop`).
 [storage.rules](storage.rules) does the same for uploaded images under `images/`: public `get`, no
 `list`, owner-only create and delete, at most 5 MB, PNG/JPEG/WebP/SVG only; Storage needs the Blaze plan.
 

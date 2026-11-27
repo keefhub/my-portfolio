@@ -3,7 +3,8 @@ name: CI/CD Pipeline
 # feature/* -> develop -> master
 #   - Pull request into develop or master: CI only (typecheck, lint, build).
 #   - Pull request into master: also fails unless it comes from develop in this repository.
-#   - Push to develop: CI, then deploy to the SIT project (thegoldenpothos-sit, sit.thegoldenpothos.xyz).
+#   - Push to develop: CI, then deploy to the SIT project (thegoldenpothos-sit, sit.thegoldenpothos.xyz),
+#     then the SIT Firestore rules.
 #   - Push to master:  CI, then deploy to the production project (thegoldenpothos-5b3a1,
 #     thegoldenpothos.xyz), then the rules.
 #
@@ -93,6 +94,24 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: thegoldenpothos-sit
           channelId: live
+
+      # SIT is its own Firebase project, so its rules are deployed here and never touch production.
+      # Firestore only: the SIT project has no Storage bucket yet (needs the Blaze plan); once it does,
+      # add storage to deploy:rules:sit.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      - name: Write service account for the rules deploy
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
+
+      - run: npm run deploy:rules:sit
 
   deploy-production:
     name: Deploy master to production

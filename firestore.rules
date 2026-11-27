@@ -9,8 +9,15 @@ service cloud.firestore {
       return 'REPLACE_WITH_OWNER_UID';
     }
 
+    // Firebase user IDs are per project, so the SIT project has its own ID for the same person.
+    // Each project's sign-in only ever issues that project's IDs, so listing both here is safe.
+    function sitOwnerUid() {
+      return 'WLkxsNcmo6MYOiWlODYiHxQVz7q2';
+    }
+
     function isOwner() {
-      return request.auth != null && request.auth.uid == ownerUid();
+      return request.auth != null
+        && (request.auth.uid == ownerUid() || request.auth.uid == sitOwnerUid());
     }
 
     match /profile/{id} {

@@ -2369,7 +2369,7 @@ test("E2E-33: when the uploaded images cannot be loaded the profile form still l
   await context.close();
 });
 
-test("E2E-34: the earlier Firebase-era image code is gone and nothing in src or e2e still names it", async () => {
+test("E2E-34: the earlier image code is gone and nothing in src or e2e still names it", async () => {
   dbReset();
   storeReset();
 

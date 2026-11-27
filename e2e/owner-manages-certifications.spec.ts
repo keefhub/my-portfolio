@@ -306,7 +306,6 @@ test("E2E-01: no dependency or setting name was added", async () => {
   };
 
   expect(Object.keys(pkg.dependencies ?? {}).sort()).toEqual([
-    "firebase",
     "framer-motion",
     "gray-matter",
     "lucide-react",

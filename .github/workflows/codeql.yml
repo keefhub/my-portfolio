@@ -1,6 +1,6 @@
 name: Code Scanning
 
-# Advisory only: findings here never block pipeline.yml's deploy jobs.
+# Advisory only: findings here never block pipeline.yml.
 # Blocking prod on a dependency CVE would take down an already-working site
 # over a risk that isn't made worse by staying deployed one more day.
 on:

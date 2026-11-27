@@ -531,3 +531,100 @@ test("E2E-70: a write to a public page changes nothing and is never accepted", a
   }
   expect(failures, "writes to public pages that were neither refused nor unchanged").toEqual([]);
 });
+
+test("E2E-58: the removed packages and rules scripts are gone from package.json and the lock", async () => {
+  const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+  const lock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
+  const dependencies: Record<string, string> = pkg.dependencies ?? {};
+  const devDependencies: Record<string, string> = pkg.devDependencies ?? {};
+  const scripts: Record<string, string> = pkg.scripts ?? {};
+
+  expect(Object.keys(dependencies).filter((name) => name.toLowerCase().includes(OLD))).toEqual([]);
+  expect(Object.keys(devDependencies).filter((name) => name.toLowerCase().includes(OLD))).toEqual([]);
+  expect(Object.keys(scripts).filter((name) => name.startsWith("deploy:rules"))).toEqual([]);
+  expect(Object.values(scripts).filter((value) => value.toLowerCase().includes(OLD))).toEqual([]);
+
+  const lockText = JSON.stringify(lock).toLowerCase();
+  expect(lockText.includes(OLD), "the lock names the removed backend").toBe(false);
+  expect(lockText.includes(OLD2), "the lock names the removed database").toBe(false);
+
+  expect(lock.packages[""].dependencies).toEqual(pkg.dependencies);
+  expect(lock.packages[""].devDependencies).toEqual(pkg.devDependencies);
+  expect(lock.packages["node_modules/next"].version).toBe("16.2.6");
+  expect(lock.packages["node_modules/next-auth"].version).toBe("5.0.0-beta.32");
+  expect(lock.packages["node_modules/postgres"].version).toBe("4.1.1");
+});
+
+test("E2E-59: the pipeline keeps its checks and has no deploy job", async () => {
+  const text = fs.readFileSync(".github/workflows/pipeline.yml", "utf8");
+  const lines = text.split("\n");
+  const start = lines.findIndex((line) => line === "jobs:");
+  expect(start, "the jobs: line").toBeGreaterThanOrEqual(0);
+  const jobIds = lines
+    .slice(start + 1)
+    .map((line) => line.match(/^  ([a-z][a-z-]*):\s*$/))
+    .filter((match): match is RegExpMatchArray => match !== null)
+    .map((match) => match[1]);
+  expect(jobIds).toEqual(["master-source", "verify"]);
+
+  expect(text).toMatch(/^\s*- run: npm run typecheck\s*$/m);
+  expect(text).toMatch(/^\s*- run: npm run lint:new\s*$/m);
+  expect(text).toMatch(/^\s*- run: npm run build\s*$/m);
+  expect(text).toMatch(/^ {2}push:\s*$/m);
+  expect(text).toMatch(/^ {2}pull_request:\s*$/m);
+  expect(text.split("branches: [develop, master]").length - 1, "branches: [develop, master]").toBe(2);
+  for (const forbidden of ["deploy-staging", "deploy-production", "npm run deploy"]) {
+    expect(text.includes(forbidden), `the pipeline names ${forbidden}`).toBe(false);
+  }
+});
+
+test("E2E-60: no workflow holds a secret, an environment, a credential path or the removed backend", async () => {
+  const dir = ".github/workflows";
+  const files = fs.readdirSync(dir).filter((name) => name.endsWith(".yml"));
+  expect(files.length).toBeGreaterThan(0);
+  for (const file of files) {
+    const text = fs.readFileSync(path.join(dir, file), "utf8");
+    const lower = text.toLowerCase();
+    expect(text.includes("secrets."), `${file} holds secrets.`).toBe(false);
+    expect(text.includes("GOOGLE_APPLICATION_CREDENTIALS"), `${file} holds a credentials path`).toBe(false);
+    expect(text.includes("deploy:rules"), `${file} runs a rules deploy`).toBe(false);
+    expect(
+      text.split("\n").filter((line) => line.trim().startsWith("environment:")),
+      `${file} names an environment`,
+    ).toEqual([]);
+    expect(lower.includes(OLD), `${file} names the removed backend`).toBe(false);
+    expect(lower.includes(OLD2), `${file} names the removed database`).toBe(false);
+  }
+});
+
+test("E2E-61: the site stays free of provider code, hosting commands and function settings", async () => {
+  const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+  const vercel = JSON.parse(fs.readFileSync("vercel.json", "utf8"));
+  const names = [...Object.keys(pkg.dependencies ?? {}), ...Object.keys(pkg.devDependencies ?? {})].map((name) =>
+    name.toLowerCase(),
+  );
+  const forbiddenStarts = [OLD, ["@ver", "cel/"].join(""), ["@supa", "base/"].join(""), ["@google", "-cloud/"].join(""), "googleapis"];
+  for (const start of forbiddenStarts) {
+    expect(names.filter((name) => name.startsWith(start)), `dependencies starting ${start}`).toEqual([]);
+  }
+
+  const allowedKeys = ["$schema", "framework", "installCommand", "buildCommand", "trailingSlash", "cleanUrls", "headers"];
+  expect(Object.keys(vercel).filter((key) => !allowedKeys.includes(key))).toEqual([]);
+
+  expect(fs.readFileSync("next.config.ts", "utf8")).toMatch(/unoptimized:\s*true/);
+
+  const settingPattern = ["maxDuration", "preferredRegion"].join("|");
+  const settings = git(gitGrepArgs(["-E"], [settingPattern], ["src"]));
+  expect(head(settings.stdout), "a function setting under src").toBe("");
+  expect(settings.status).toBe(1);
+
+  const hostingCommand = /vercel\s+(deploy|pull|build|promote|--prod)/i;
+  const dir = ".github/workflows";
+  for (const file of fs.readdirSync(dir).filter((name) => name.endsWith(".yml"))) {
+    const text = fs.readFileSync(path.join(dir, file), "utf8");
+    expect(hostingCommand.test(text), `${file} holds a hosting command`).toBe(false);
+    expect(text.includes("npx vercel"), `${file} runs npx vercel`).toBe(false);
+    expect(text.includes("VERCEL_"), `${file} names a VERCEL_ setting`).toBe(false);
+    expect(text.includes("secrets."), `${file} holds secrets.`).toBe(false);
+  }
+});

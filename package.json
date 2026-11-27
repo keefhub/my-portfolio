@@ -8,8 +8,6 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "deploy:rules": "firebase deploy --only firestore:rules,storage --project thegoldenpothos-5b3a1",
-    "deploy:rules:sit": "firebase deploy --only firestore:rules --project thegoldenpothos-sit",
     "test:e2e": "npm run build && playwright test",
     "lint:new": "node scripts/lint-new.mjs",
     "check:task": "bash scripts/check-task.sh",
@@ -18,7 +16,6 @@
     "verify": "tsx scripts/verify/run.ts"
   },
   "dependencies": {
-    "firebase": "^13.4.0",
     "framer-motion": "^12.7.4",
     "gray-matter": "^4.0.3",
     "lucide-react": "^0.503.0",
@@ -48,7 +45,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
-    "firebase-tools": "^15.37.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5.8"

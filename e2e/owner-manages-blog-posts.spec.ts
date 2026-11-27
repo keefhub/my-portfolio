@@ -500,7 +500,6 @@ test("E2E-01: no dependency or setting name was added", async () => {
   };
 
   expect(Object.keys(pkg.dependencies ?? {}).sort()).toEqual([
-    FIRE,
     "framer-motion",
     "gray-matter",
     "lucide-react",
@@ -530,7 +529,6 @@ test("E2E-01: no dependency or setting name was added", async () => {
     "@types/react-dom",
     "eslint",
     "eslint-config-next",
-    FIRE + "-tools",
     "tailwindcss",
     "tsx",
     "typescript",
@@ -2249,7 +2247,6 @@ test("E2E-35: CLAUDE.md lists the blog posts routes once each, keeps the shared 
     "The site reads five settings by name",
     "The site reads four settings by name",
     "only API route",
-    "The one remaining Firebase store",
   ]) {
     expect(doc, text).not.toContain(text);
   }

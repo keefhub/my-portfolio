@@ -69,7 +69,6 @@ test("E2E-01: no dependency or setting name was added", async () => {
   };
 
   expect(Object.keys(pkg.dependencies ?? {}).sort()).toEqual([
-    "firebase",
     "framer-motion",
     "gray-matter",
     "lucide-react",
@@ -532,7 +531,7 @@ function gitGrep(args: string[]): { stdout: string; status: number | null } {
   return { stdout: result.stdout ?? "", status: result.status };
 }
 
-test("E2E-04: the list SQL is exactly the proven text, the server files are marked server-only, and nothing names Firebase", async () => {
+test("E2E-04: the list SQL is exactly the proven text, the server files are marked server-only, and nothing names the old backend", async () => {
   dbReset();
 
   const sql = fs.readFileSync("src/lib/server/listSql.ts", "utf8").split(TABLE_MARK).join("experience");

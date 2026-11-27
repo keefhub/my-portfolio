@@ -3,18 +3,12 @@ name: CI/CD Pipeline
 # feature/* -> develop -> master
 #   - Pull request into develop or master: CI only (typecheck, lint, build).
 #   - Pull request into master: also fails unless it comes from develop in this repository.
-#   - Push to develop: CI, then the SIT Firebase rules (thegoldenpothos-sit).
-#   - Push to master:  CI, then the production Firebase rules (thegoldenpothos-5b3a1).
+#   - Push to develop or master: the same CI.
 #
-# The site itself is deployed by Vercel's GitHub integration, not by this workflow: `master` is the Vercel
-# production branch (thegoldenpothos.xyz) and `develop` is served at sit.thegoldenpothos.xyz (vercel.json
-# holds the build settings). This workflow no longer needs a hosting token.
-#
-# Firebase still provides sign-in and the database for the admin panel. SIT and production are separate
-# Firebase projects (aliases in .firebaserc), so each deploy job publishes only that project's security
-# rules. Each runs in a GitHub environment (sit, production) that holds its own FIREBASE_SERVICE_ACCOUNT,
-# the key for that project only. A workflow cannot stop a direct push to master; the branch ruleset on
-# GitHub does that.
+# Vercel's Git integration publishes the site: master is production (thegoldenpothos.xyz) and
+# develop is served at sit.thegoldenpothos.xyz (vercel.json holds the build settings).
+# This workflow holds no secret, no GitHub environment and no hosting token.
+# A workflow cannot stop a direct push to master; the branch ruleset on GitHub does that.
 on:
   push:
     branches: [develop, master]
@@ -23,7 +17,7 @@ on:
 
 concurrency:
   group: pipeline-${{ github.ref }}
-  # A superseded pull request run is cancelled; a deploy run never is, so a deploy is never cut off halfway.
+  # A superseded pull request run is cancelled.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -65,63 +59,3 @@ jobs:
       - run: npm run lint:new
 
       - run: npm run build
-
-  deploy-staging:
-    name: Deploy SIT Firebase rules
-    needs: verify
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    environment:
-      name: sit
-      url: https://sit.thegoldenpothos.xyz
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-
-      - name: Write service account for the rules deploy
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: |
-          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
-
-      # Firestore only: the SIT project has no Storage bucket yet (needs the Blaze plan); once it does, add storage to deploy:rules:sit.
-      - run: npm run deploy:rules:sit
-
-  deploy-production:
-    name: Deploy production Firebase rules
-    needs: verify
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    environment:
-      name: production
-      url: https://thegoldenpothos.xyz
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-
-      - name: Write service account for the rules deploy
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: |
-          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
-
-      # Firestore and Storage rules for the production project.
-      - run: npm run deploy:rules

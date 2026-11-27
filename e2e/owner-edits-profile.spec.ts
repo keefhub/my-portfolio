@@ -207,7 +207,7 @@ test("E2E-01: the mechanical gate accepts new files under src/app/api/admin/ and
   expect(starts(g, "FAIL IMPORTS"), "(g) FAIL IMPORTS").toEqual([]);
 });
 
-test("E2E-02: the database library is pinned exactly and no other database or Firebase dependency changed", async () => {
+test("E2E-02: the database library is pinned exactly and no other database dependency changed", async () => {
   dbReset();
   const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")) as {
     dependencies?: Record<string, string>;
@@ -221,8 +221,6 @@ test("E2E-02: the database library is pinned exactly and no other database or Fi
 
   expect(pkg.dependencies?.[LIB]).toBe("4.1.1");
   expect(pkg.dependencies?.["next-auth"]).toBe("5.0.0-beta.32");
-  expect(pkg.dependencies?.firebase).toBeDefined();
-  expect(pkg.devDependencies?.["firebase-tools"]).toBeDefined();
   expect(pkg.dependencies?.pg).toBeUndefined();
   expect(pkg.devDependencies?.pg).toBeUndefined();
   expect(pkg.dependencies?.[supabaseClient]).toBeUndefined();
@@ -1346,7 +1344,7 @@ test("E2E-28: nothing the browser receives carries a database setting or detail,
       "--untracked",
       "-n",
       "-i",
-      "firebase",
+      ["fire", "base"].join(""),
       "--",
       "src/app/components/admin/ProfileEditor.tsx",
       "src/app/components/admin/AdminPanel.tsx",

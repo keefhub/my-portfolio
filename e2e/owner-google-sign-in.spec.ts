@@ -106,7 +106,7 @@ test("E2E-26: vercel.json and next.config.ts no longer declare a static export",
   expect(nextConfig).toMatch(/unoptimized:\s*true/);
 });
 
-test("E2E-27: next-auth is pinned exactly, http-server is gone and the Firebase packages stay", async () => {
+test("E2E-27: next-auth is pinned exactly, http-server is gone", async () => {
   const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")) as {
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
@@ -114,8 +114,6 @@ test("E2E-27: next-auth is pinned exactly, http-server is gone and the Firebase 
   expect(pkg.dependencies?.["next-auth"]).toBe("5.0.0-beta.32");
   expect(pkg.dependencies?.["http-server"]).toBeUndefined();
   expect(pkg.devDependencies?.["http-server"]).toBeUndefined();
-  expect(pkg.dependencies?.firebase).toBeDefined();
-  expect(pkg.devDependencies?.["firebase-tools"]).toBeDefined();
 });
 
 // E2E-35 builds a throw-away git repository and runs the mechanical gate in it. This file is itself scanned by the

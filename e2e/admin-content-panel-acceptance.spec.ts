@@ -1608,11 +1608,19 @@ test.describe("admin content panel: intent acceptance", () => {
     expect(tracked.filter((f) => /(^|\/)\.env(\.|$)/.test(f) && !/\.env\.example$/.test(f))).toEqual([]);
     expect(tracked.filter((f) => /service[-_]?account.*\.json$|\.pem$|\.p12$|\.key$/i.test(f))).toEqual([]);
 
-    const secretPatterns = ["-----BEGIN [A-Z ]*PRIVATE" + " KEY-----", '"private' + '_key"', "client" + "_secret", "AIza[0-9A-Za-z_-]{30,}"];
+    const secretPatterns = ["-----BEGIN [A-Z ]*PRIVATE" + " KEY-----", '"private' + '_key"', "client" + "_secret"];
     for (const pattern of secretPatterns) {
       const hit = spawnSync("git", ["grep", "--untracked", "-IlE", pattern, "--", ".", ":(exclude)package-lock.json", ":(exclude)e2e"], { cwd: ROOT, encoding: "utf8" });
       expect(hit.stdout, pattern).toBe("");
     }
+    // Public web API keys are allowed in the Firebase web config file only, one per project.
+    const webKey = "AIza[0-9A-Za-z_-]{30,}";
+    const keyArgs = ["--", ".", ":(exclude)package-lock.json", ":(exclude)e2e"];
+    const keyFiles = spawnSync("git", ["grep", "--untracked", "-IlE", webKey, ...keyArgs], { cwd: ROOT, encoding: "utf8" }).stdout.split("\n").filter(Boolean);
+    expect(keyFiles).toEqual(["src/lib/firebase/config.ts"]);
+    const keys = spawnSync("git", ["grep", "--untracked", "-IhoE", webKey, ...keyArgs], { cwd: ROOT, encoding: "utf8" }).stdout.split("\n").filter(Boolean);
+    expect(keys).toHaveLength(2);
+    expect(new Set(keys).size).toBe(2);
     const emailPattern = "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+\\.[A-Za-z]{2,}";
     const paths = ["firestore.rules", "storage.rules", "firebase.json", ".github/workflows/pipeline.yml", ...ADMIN_SOURCES];
     const hits = spawnSync("git", ["grep", "--untracked", "-IhoE", emailPattern, "--", ...paths], { cwd: ROOT, encoding: "utf8" }).stdout.split("\n").filter(Boolean);

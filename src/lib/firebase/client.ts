@@ -6,8 +6,8 @@ import {
   AUTH_EMULATOR_URL,
   FIRESTORE_EMULATOR,
   STORAGE_EMULATOR,
-  firebaseWebConfig,
   isEmulatorHost,
+  webConfigFor,
 } from "./config";
 
 let cached: Auth | null = null;
@@ -15,7 +15,7 @@ let cachedDb: Firestore | null = null;
 let cachedStorage: FirebaseStorage | null = null;
 
 function sharedApp(): FirebaseApp {
-  return getApps().length > 0 ? getApp() : initializeApp(firebaseWebConfig);
+  return getApps().length > 0 ? getApp() : initializeApp(webConfigFor(window.location.hostname));
 }
 
 export function getFirebaseAuth(): Auth {

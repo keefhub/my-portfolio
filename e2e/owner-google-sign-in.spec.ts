@@ -906,3 +906,53 @@ test("E2E-34: the earlier Firebase sign-in files are gone and the panel code nam
   expect(named.stdout).toBe("");
   expect(named.status).toBe(1);
 });
+
+test("E2E-31: the standing docs no longer describe a static export or Firebase sign-in and name the new settings", async () => {
+  const docs: { file: string; absent: string[]; present: string[] }[] = [
+    {
+      file: "CLAUDE.md",
+      absent: [
+        "**statically exported** to `out/`",
+        "Production build **and static export**",
+        "**1. Static export. No server exists at runtime.**",
+        "Every route is prerendered at build time. There is no server at runtime.",
+        "is required by static export",
+        "**Never write or read a secret.** The site has none.",
+        "REPLACE_WITH_OWNER_UID",
+      ],
+      present: ["AUTH_SECRET", "AUTH_GOOGLE_ID", "AUTH_GOOGLE_SECRET", "ADMIN_EMAIL", "/api/auth/callback/google"],
+    },
+    {
+      file: "docs/features/OVERVIEW.md",
+      absent: [
+        "no feature may require a server",
+        "`firebase.json` and `absoluteUrl()`",
+        "The panel stays a static page",
+        "served by Firebase Hosting",
+      ],
+      present: ["Superseded in part by item 6"],
+    },
+    {
+      file: ".claude/repo-profile.md",
+      absent: [
+        "The site has no environment variables.",
+        "serves `out/` with `http-server`",
+        "Needs a current `out/`",
+        "firebase emulators:start",
+        "It is the static export",
+        "writes `.next/` and `out/`",
+      ],
+      present: ["next start", "ADMIN_EMAIL"],
+    },
+  ];
+
+  for (const doc of docs) {
+    const text = fs.readFileSync(doc.file, "utf8");
+    for (const s of doc.absent) {
+      expect(text.includes(s), doc.file + " still contains: " + s).toBe(false);
+    }
+    for (const s of doc.present) {
+      expect(text.includes(s), doc.file + " is missing: " + s).toBe(true);
+    }
+  }
+});

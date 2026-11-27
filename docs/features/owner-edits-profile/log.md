@@ -77,3 +77,16 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+
+=====================================================================
+Completion — owner-edits-profile
+Completed: 2026-11-27
+
+Built: The panel's Profile screen. The owner edits name, headline, about paragraphs, photo path, email, resume link and social links; load and save go through an owner-only route (/api/admin/profile/) that checks the owner before any body read or database call. The route keeps its data in Supabase PostgreSQL through the postgres library (schema applied by the app once per process, row level security on with no policy). Any database failure answers one fixed message and logs only an operation and an allow-listed code. Tests run against a file-based stand-in chosen by the setting value, so no test database and no extra setting are needed. The Firebase profile store and its spec are deleted, and the standing docs describe the new route and module.
+Deviations from the spec: Task 1's scripts/check-task.sh edit was made by the orchestrator on the owner's explicit instruction ("Unblock it yourself. Make the decision.") after the implementer's own edit was refused by the permission system and the run stopped to ask. Exactly five text changes add src/app/api/admin/ beside src/app/api/auth/; nothing else in the gate is loosened.
+[auto] decisions: 21 lines tagged [auto] in the spec (including the library choice, the SUPABASE_DB_URL name, the stand-in design, the status codes, and the gate allowance D-14).
+Feature review: PASS. Findings (all notes, already logged per task): the owner check fails open if a fourth PanelState value is ever added; a profile value of [] loads an empty form instead of a load failure; a PUT containing U+0000 reaches jsonb and gets 503 instead of 400; E2E-22 (double click) may pass without the saving guard; a replaced postgres client is not .end()ed (tests only); and the gate change deserves a human look.
+Final verification: npm run build ok; npx playwright test e2e/owner-edits-profile.spec.ts 30 passed, 0 failed.
+Manual checks still pending (never run): E2E-30 (the owner's SIT check: after the merge to develop and once SUPABASE_DB_URL is set in Vercel, save a profile and read it back; this is the only check of the real Supabase database, pooler and row level security).
+Follow-ups not in scope: the four small hardening notes above; the new setting SUPABASE_DB_URL (the transaction-pooler connection string) must be set by the owner in Vercel for Production and SIT and goes in the pull request list; the stand-in lives in the production bundle (spec R-1) and only activates for a value starting with "stand-in:"; @electric-sql/pglite could be approved as a dev dependency so later slices run the real SQL in tests (spec OQ-2), a decision for the owner.
+=====================================================================

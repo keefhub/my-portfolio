@@ -16,3 +16,23 @@ Tier: high (spec Risk: high; test-passed-before-change)
 Review: risk reviewer PASS (review 1)
 Findings: test-coverage | note | logged | E2E-22 checks the /blog/no-such-post/ 404 only by status and headings, so it would pass without dynamicParams = false; matches the spec row exactly
 =====================================================================
+
+=====================================================================
+Task 2 — Let the mechanical gate accept this feature's server pieces
+Completed: 2026-11-27      Commit: 160cc1f
+
+Summary: scripts/check-task.sh now accepts the use-server directive only in the panel's actions file and new files only under src/app/api/auth/, and no longer forbids the next-auth import. Middleware and proxy files, other api routes and every other forbidden import still fail.
+Decisions: The use-server exemption compares the exact path; the api/auth case sits before the general api and middleware case.
+Deviations: The test author's first version of E2E-35 had two type errors (an env typed as ProcessEnv). The test author corrected only that one type annotation, I re-staged the file after checking the diff was that single line, and E2E-35 was confirmed to fail against the old script and pass against the new one.
+Files changed: scripts/check-task.sh (modified), e2e/owner-google-sign-in.spec.ts (modified)
+E2E tests written: E2E-35      Passed before the change: None.
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: high (spec Risk: high)
+Review: risk reviewer PASS (review 1)
+Findings: None.
+NOTE FOR THE PULL REQUEST REVIEWER: this task loosens the repository's own mechanical gate, narrowly, under the intent's section 4 approvals (D22, human: intent section 4). It deserves a human look.
+=====================================================================

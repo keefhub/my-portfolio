@@ -5,7 +5,7 @@
 |                  |                                                                                          |
 | ---------------- | ---------------------------------------------------------------------------------------- |
 | Feature          | Owner Signs In With Google                                                               |
-| Version          | 0.1.0                                                                                    |
+| Version          | 0.2.0                                                                                    |
 | Spec source      | `docs/features/owner-google-sign-in/story.md`                                            |
 | Standing context | OVERVIEW §1–3 (`docs/features/OVERVIEW.md`); intent `docs/requirements/hosting-and-backend-migration-intent.md` §3–§5, §7 |
 | Domain entry     | `src/app/bright-warm-greenhouse/page.tsx` and `src/lib/admin/` (the story names no `domain:`; the profile fallback `CLAUDE.md` § Invariants, `src/lib/site.ts`, `content/blog/` is read for the public-page rules) |
@@ -26,7 +26,7 @@
 | G7 Traceability | AC verification matrix  | BA    | PASSED |
 | G-Exec          | Implementation plan     | SA    | PASSED |
 | G9 Challenge    | Contrarian review       | BA↔SA | PASSED |
-| G10 Review      | Independent review      | —     | PENDING (the orchestrator dispatches the two reviewers after this write) |
+| G10 Review      | Independent review      | —     | PASSED (one round applied: 3 Major, 13 Minor, see Section 6, "Independent review, round 1") |
 
 ## 1. Business analysis — BA
 
@@ -103,6 +103,7 @@ The owner opens the private panel at `/bright-warm-greenhouse/`, signs in with t
 | BR-20c | `.claude/repo-profile.md` states the new server, the settings and the test harness. | Assumption 18 |
 | BR-21 | On the SIT site a real Google sign-in with the owner's account shows the menu, and one with another Google account is told it is not allowed. | Intent §7; Assumption 16 |
 | BR-22 | Google's "email verified" claim counts as verified only when it is exactly the boolean `true`. | Assumption 1 [derived] |
+| BR-23 | The mechanical gate (`scripts/check-task.sh`) accepts exactly this feature's server pieces and nothing more: the `"use server"` line only in `src/app/bright-warm-greenhouse/actions.ts`; new files under `src/app/api/` only under `src/app/api/auth/`; `next-auth` is no longer a forbidden import. Every other STATIC and IMPORTS rule still fails. | Ruling [human: intent §4] (`docs/requirements/hosting-and-backend-migration-intent.md` §4, the "Data store, sign-in or hosting change" row and the `next-auth` v5 row); verifier finding on `scripts/check-task.sh` lines 355-361 and 404-415 |
 
 ### 1.4 Data touched
 
@@ -125,16 +126,17 @@ The owner opens the private panel at `/bright-warm-greenhouse/`, signs in with t
 - A public page that silently becomes dynamic because it reads the session [derived] (intent §8 pitfall).
 - An unknown blog address being rendered on demand and failing instead of showing the 404 page [derived].
 - Leftover old admin specs that cannot pass once the panel stops rendering the Firebase editors [derived]; handled in Decision D13 and Section 7.
+- The mechanical gate failing this feature's own Server Action file, auth handler or `next-auth` import because its rules were written for the static export [derived]; handled by Decision D22 and Step 2.
 
 ### 1.6 Out of scope
 
-Editing, saving, reading or uploading any content; any user other than the owner; password or email-link sign-in; showing the account's email or ID; sign-in on preview addresses other than SIT and production; removing Firebase files other than the sign-in code (retire-firebase does the rest); a live sign-out notice across tabs; a chosen session length (Library default stands); a loading screen ("Checking sign-in…", D9).
+Editing, saving, reading or uploading any content; any user other than the owner; password or email-link sign-in; showing the account's email or ID; sign-in on preview addresses other than SIT and production; removing Firebase files other than the sign-in code (retire-firebase does the rest); a live sign-out notice across tabs; a chosen session length (Library default stands); a loading screen ("Checking sign-in…", D9); any change to the mechanical gate beyond the three edits of D22.
 
 ## 2. Technical specification — SA
 
 ### 2.1 Approach
 
-`next.config.ts` and `vercel.json` stop exporting a static site, so the panel page and `/api/auth/*` run on Vercel's server while every public route stays prerendered (proved on a scratch copy, impact.md SF-1). Auth.js v5 (`next-auth`, exact pin) signs the owner in with Google by redirect and keeps the session in a signed, encrypted cookie; there is no database. A server-only module (`src/lib/auth.ts`) holds the Auth.js configuration and `getPanelState()`, which reads the session on every request and returns `signed-out`, `owner` or `not-allowed` using a pure function (`accessFor`) over the verified email and the `ADMIN_EMAIL` setting. The panel page is a dynamic server component that passes only that state and a failed-sign-in flag to the client `AdminPanel`, which renders the three screens and posts to Server Actions for sign-in and sign-out, so no Auth.js code ships to the browser and no client call to `/api/auth/*` is needed. Tests run against `next start` with a per-run `AUTH_SECRET`, mint session cookies with it, and stand in for Google at the browser boundary; the real Google token exchange is checked once by the owner on SIT.
+`next.config.ts` and `vercel.json` stop exporting a static site, so the panel page and `/api/auth/*` run on Vercel's server while every public route stays prerendered (proved on a scratch copy, impact.md SF-1). Auth.js v5 (`next-auth`, exact pin) signs the owner in with Google by redirect and keeps the session in a signed, encrypted cookie; there is no database. A server-only module (`src/lib/auth.ts`) holds the Auth.js configuration and `getPanelState()`, which reads the session on every request and returns `signed-out`, `owner` or `not-allowed` using a pure function (`accessFor`) over the verified email and the `ADMIN_EMAIL` setting. The panel page is a dynamic server component that passes only that state and a failed-sign-in flag to the client `AdminPanel`, which renders the three screens and posts to Server Actions for sign-in and sign-out, so no Auth.js code ships to the browser and no client call to `/api/auth/*` is needed. Tests run against `next start` with a per-run `AUTH_SECRET`, mint session cookies with it, and stand in for Google at the browser boundary; the real Google token exchange is checked once by the owner on SIT. The mechanical gate's STATIC and IMPORTS checks were written for the static export and would fail the Server Action file, the auth handler and the `next-auth` import, so one earlier Step makes the smallest allowance for exactly those (D22).
 
 ### 2.2 Design elements
 
@@ -154,6 +156,7 @@ Editing, saving, reading or uploading any content; any user other than the owner
 | TS-12 | Amend the standing docs the lift makes false. | BR-20a, BR-20b, BR-20c | `CLAUDE.md` |
 | TS-13 | Constraint: no public page, layout, metadata route or component imports `@/lib/auth` or reads cookies or headers; only the panel files and the handler import it; sitemap, robots, feed and public links stay as they are. | BR-11a, BR-12a, BR-12b, BR-12c, BR-12d, BR-12e, BR-12f, BR-13a, BR-13c, BR-14a | `src/app/layout.tsx` |
 | TS-14 | Constraint: the page passes no email, name, ID or setting value to the client; the sign-in code logs no account detail; no real address or value is written to the repo. | BR-05e, BR-13b, BR-18b, BR-18c | `src/app/bright-warm-greenhouse/page.tsx` |
+| TS-15 | `scripts/check-task.sh`: three edits only (D22): the `"use server"` STATIC check allows `src/app/bright-warm-greenhouse/actions.ts`; the new-file STATIC rule allows `src/app/api/auth/`; `next-auth` leaves the forbidden-import pattern; failure and pass messages no longer say "static export". | BR-23 | `scripts/check-task.sh` |
 
 ### 2.3 Data model
 
@@ -169,6 +172,8 @@ type SessionClaims = {
 export type PanelState = "signed-out" | "owner" | "not-allowed";
 ```
 
+The cookie also carries the library's default claims (`picture`, `iat`, `exp`, `jti`). The page passes only `{ state, failed }` to the client, so none of these reaches the browser as page content.
+
 Settings read by name (values only in Vercel): `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` (read by Auth.js), `ADMIN_EMAIL` (read in `getPanelState`, per request).
 
 ### 2.4 Module map
@@ -183,6 +188,7 @@ Settings read by name (values only in Vercel): `AUTH_SECRET`, `AUTH_GOOGLE_ID`, 
 | `src/app/components/admin/AdminPanel.tsx` | change | Three screens. |
 | `src/lib/admin/owner.ts`, `src/app/components/admin/SavingOffNotice.tsx`, `src/lib/firebase/auth.ts` | delete | Replaced Firebase-era code. |
 | `next.config.ts`, `vercel.json` | change | Lift the export. |
+| `scripts/check-task.sh` | change | Gate allowance (D22). |
 | `src/app/blog/[slug]/page.tsx` | change | `dynamicParams = false`. |
 | `package.json`, `package-lock.json` | change | `next-auth` pin; drop `http-server`. |
 | `playwright.config.ts` | change | `next start`, per-run settings. |
@@ -223,11 +229,13 @@ Settings read by name (values only in Vercel): `AUTH_SECRET`, `AUTH_GOOGLE_ID`, 
 - **D14 [auto]** `src/app/blog/[slug]/page.tsx` gets `export const dynamicParams = false;`. Why: without the export the page code would run on demand for unknown slugs, reading `content/` at request time on Vercel's function; with it Next answers the 404 page without running it (`fallback: false` in `.next/prerender-manifest.json`, proved).
 - **D15 [auto]** Auth.js's default logger prints stacks and a cause object; the configuration replaces `logger.error` with one that prints `authLogLine(error)` and silences `warn` and `debug`, to meet "no account detail logged" (Assumptions 9, 17).
 - **D16 [auto]** `http-server` is removed from `devDependencies` (its only user was `playwright.config.ts`). `firebase` and `firebase-tools` stay until retire-firebase.
-- **D17 [auto]** Docs: this feature amends `OVERVIEW.md` §1 and §2 items 1, 4, 5, `CLAUDE.md` (header line, Commands and build paragraph, Routes, Invariants 1, 2, 6, the "Admin modules" and "Database rules" paragraphs where they name Firebase Auth or `OWNER_UID`, the secret rule, the "six Invariants" bullet, a short settings paragraph) and `.claude/repo-profile.md` (build and playwright rows, `.env` paragraph, behavioral gate, "no database" paragraph). `README.md`, `Reference.md` and every other Firebase mention stay for retire-firebase. The pull request flags the reworded secret rule (intent §4).
+- **D17 [auto]** Docs: this feature amends `OVERVIEW.md` §1 and §2 items 1, 4, 5, `CLAUDE.md` (header line, Commands and build paragraph, Routes, Invariants 1, 2, 6, the "Admin modules" and "Database rules" paragraphs where they name Firebase Auth or `OWNER_UID`, the secret rule, the "six Invariants" bullet, a short settings paragraph) and `.claude/repo-profile.md` (build and playwright rows, the sentence that `npm run build` writes `out/`, `.env` paragraph, behavioral gate, "no database" paragraph). OVERVIEW §2 item 5 is reworded to the exact text in Step 5. `README.md`, `Reference.md` and every other Firebase mention stay for retire-firebase. The pull request flags the reworded secret rule (intent §4).
 - **D18 [auto]** The menu notice keeps the earlier markup: `<p role="status">` with the text "<label> editor is not available yet." under the `nav`. The earlier editor components stay on disk, unimported, until the slice that replaces each one.
 - **D19 [auto]** The panel page sets `export const dynamic = "force-dynamic"`. No `middleware`/`proxy.ts` is added. Only `src/app/bright-warm-greenhouse/**` and `src/app/api/auth/**` may import `@/lib/auth`.
 - **D20 [auto]** The failure message wording is exactly "Sign-in was not completed."; the sign-in failure to start (Server Action error that is not a Next redirect) redirects to `/bright-warm-greenhouse/?error=SignIn`.
 - **D21 [auto]** `.github/workflows/pipeline.yml` is not touched: it needs no setting to build, and its Firebase rules jobs go in retire-firebase.
+- **D22 [human: intent §4]** The mechanical gate's STATIC and IMPORTS checks in `scripts/check-task.sh` were written for the static-export rule and conflict with the approved change (the intent §4 "Data store, sign-in or hosting change" row lifts the export for sign-in and the panel; the `next-auth` v5 row approves the dependency). Step 2 makes the smallest allowance and nothing else: the `"use server"` line is allowed only in `src/app/bright-warm-greenhouse/actions.ts`; new files under `src/app/api/` are allowed only under `src/app/api/auth/` (`src/app/api/<other>`, `middleware.ts` and `proxy.ts` still fail); `next-auth` is removed from the forbidden-import list; the messages stop saying "static export". No other check is loosened, no test is weakened, and E2E-35 proves both the allowance and that the neighbouring cases still fail. **The pull request must flag this gate change for a human reviewer** (OQ-3).
+- **D23 [auto]** Review round 1 (Section 6): the gate Step is inserted as Step 2 and the later Steps become 3, 4, 5 (the spec is committed but nothing is built, so no commit or `PROGRESS.md` refers to the old numbers); Step 4 stays at six non-test files rather than splitting off the deletions (R-9); the `next-auth` type augmentation is given as a contract with an example, any form that typechecks being accepted, because the installed types cannot be read before Step 1 (R-6); every other reviewer finding is applied as the disposition table says.
 
 ### 2.8 Do not touch
 
@@ -235,7 +243,8 @@ Settings read by name (values only in Vercel): `AUTH_SECRET`, `AUTH_GOOGLE_ID`, 
 - `src/lib/admin/sections.ts` and the record-shape modules in `src/lib/admin/` other than the new file: reused as they are.
 - The seven editors, `ImageLibrary`, `ListEditor`, `PostPreview`, `formParts.tsx` and the rest of `src/lib/firebase/` (including `client.ts`, `config.ts`): stay until their own slices.
 - `firestore.rules`, `storage.rules`, `firebase.json`, `.firebaserc`, `.github/workflows/pipeline.yml`, `.firebase/`: retire-firebase.
-- `README.md`, `Reference.md`, `scripts/**`, `.claude/settings.json`, `content/blog/**`, `docs/features/<other slug>/`.
+- `README.md`, `Reference.md`, `.claude/settings.json`, `content/blog/**`, `docs/features/<other slug>/`.
+- `scripts/**`, with one exception: `scripts/check-task.sh`, which only Step 2 may change, and only as D22 says. No other file under `scripts/` is touched.
 - The other earlier admin specs listed in D13.
 - `story.md` of this feature.
 
@@ -562,6 +571,22 @@ Scenario: The Firebase sign-in code is gone and the panel imports no Firebase
   Then src/lib/firebase/auth.ts, src/lib/admin/owner.ts, SavingOffNotice.tsx and the two replaced specs do not exist
   And no OWNER_UID, getOwnerUid or SIT_OWNER_UID remains under src
   And the panel page, actions, panel component, sign-in module, handler and access module mention no Firebase
+
+# AC-35
+Scenario Outline: The mechanical gate accepts this feature's server pieces and still refuses the rest
+  Given a working tree whose only change is <change>
+  When the gate's static-export and forbidden-import checks run
+  Then <result>
+
+  Examples:
+    | change                                                                    | result                                   |
+    | a new src/app/bright-warm-greenhouse/actions.ts that starts with "use server" | the STATIC check passes                  |
+    | a new src/app/bright-warm-greenhouse/other.ts that starts with "use server"   | the STATIC check fails and names the file |
+    | a new src/app/api/auth/[...nextauth]/route.ts                             | the STATIC check passes                  |
+    | a new src/app/api/other/route.ts                                          | the STATIC check fails and names the file |
+    | a new middleware.ts, src/middleware.ts, proxy.ts or src/proxy.ts          | the STATIC check fails and names the file |
+    | a new src/lib/auth.ts that imports next-auth                              | the IMPORTS check passes                 |
+    | a new src/lib/x.ts that imports jest or @supabase/supabase-js             | the IMPORTS check fails and names the file |
 ```
 
 ## 4. Verification mapping — SA
@@ -578,12 +603,13 @@ All rows are in `e2e/owner-google-sign-in.spec.ts` and run against `npx next sta
 - Stand-in for Google: `context.route("https://accounts.google.com/**", handler)` (the context is fresh for each test). The handler counts its calls. **Approve as ACCOUNT**: add that account's session cookie, then `route.fulfill({ status: 302, headers: { location: baseURL + PANEL } })`. **Leave**: `route.fulfill({ status: 302, headers: { location: baseURL + "/api/auth/callback/google?error=access_denied&iss=" + encodeURIComponent("https://accounts.google.com") } })`. **Hold**: `route.fulfill({ status: 200, contentType: "text/html", body: "stand-in" })`.
 - `region` = `page.getByRole("region", { name: "Admin" })`. Whole-screen text is asserted with `expect(region).toHaveText(<string>, { useInnerText: true })`, which normalises whitespace. Screen texts: `T_OUT` = "Admin Sign in with Google"; `T_FAIL` = "Admin Sign in with Google Sign-in was not completed."; `T_DENY` = "Admin This account is not allowed to use the admin panel. Sign out"; `T_OWNER` = "Admin Profile Experience Projects Certifications Tech stack Blog posts Images Sign out".
 - `LABELS` = `["Profile", "Experience", "Projects", "Certifications", "Tech stack", "Blog posts", "Images"]`. The menu is `page.getByRole("navigation", { name: "Admin sections" }).getByRole("button")`.
+- In this document a literal pipe inside a table cell is written `\|`. In a test it is a plain `|`: regular-expression alternation in E2E-25 and E2E-34, a character of the title in E2E-20.
 - Raw page requests that need a cookie use the `request` fixture: `request.get(PANEL, { headers: { cookie: "authjs.session-token=" + value } })`.
 - Tests that touch the public pages need no cookie. Every test starts from a fresh context.
 - `DOCS_ABSENT` and `DOCS_PRESENT` for E2E-31 (each string is exact, case sensitive; the ones in double backticks contain a single backtick):
-  - `CLAUDE.md` absent: ``**statically exported** to `out/` ``, `Production build **and static export**`, `**1. Static export. No server exists at runtime.**`, `Every route is prerendered at build time. There is no server at runtime.`, `is required by static export`, `**Never write or read a secret.** The site has none.`, `REPLACE_WITH_OWNER_UID`. Present: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `ADMIN_EMAIL`, `/api/auth/`.
+  - `CLAUDE.md` absent: ``**statically exported** to `out/` ``, `Production build **and static export**`, `**1. Static export. No server exists at runtime.**`, `Every route is prerendered at build time. There is no server at runtime.`, `is required by static export`, `**Never write or read a secret.** The site has none.`, `REPLACE_WITH_OWNER_UID`. Present: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `ADMIN_EMAIL`, `/api/auth/callback/google` (no committed doc contains this string before Step 5).
   - `docs/features/OVERVIEW.md` absent: `no feature may require a server`, ```firebase.json` and `absoluteUrl()` ``, `The panel stays a static page`, `served by Firebase Hosting`. Present: `Superseded in part by item 6`.
-  - `.claude/repo-profile.md` absent: `The site has no environment variables.`, ``serves `out/` with `http-server` ``, ``Needs a current `out/` ``, `firebase emulators:start`, `It is the static export`. Present: `next start`, `ADMIN_EMAIL`.
+  - `.claude/repo-profile.md` absent: `The site has no environment variables.`, ``serves `out/` with `http-server` ``, ``Needs a current `out/` ``, `firebase emulators:start`, `It is the static export`, `` writes `.next/` and `out/` ``. Present: `next start`, `ADMIN_EMAIL`.
 - A test file must not write a setting name followed by `:` or `=` and a quoted value (E2E-25 scans `e2e/` too); read the values from `process.env`.
 - Rows that read files use `node:fs` and `node:child_process` (`git` with `--untracked`) from the repo root (`process.cwd()`), as the earlier specs did. Rows that import `../src/lib/admin/access` run in Node, with no browser.
 
@@ -613,7 +639,7 @@ All rows are in `e2e/owner-google-sign-in.spec.ts` and run against `npx next sta
 | E2E-22 | AC-22 | e2e | Open `/no-such-page/` and `/blog/no-such-post/` with `page.goto` and read the response status. | Each response has status 404 and the page title is "404: This page could not be found." and the page shows the text "This page could not be found." |
 | E2E-23 | AC-23 | e2e | In a fresh context record every response and every request while opening `/` and then `/blog/hello-world/`. Read the document body and the body of every response whose URL ends in `.js` (and any `<script>` inline text). | None of those bodies, lower-cased, contains `next-auth`, `authjs`, `/api/auth` or `accounts.google.com`; none contains the names `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `ADMIN_EMAIL` or the four run values from `process.env`; no response has a `set-cookie` header; no request URL contains `/api/auth`; `context.cookies()` equals `[]`. |
 | E2E-24 | AC-24 | e2e | `request.get(PANEL)` with no cookie, with the cookie for `OWNER`, with the cookie for `OTHER`, and `PANEL + "?error=Configuration"` with no cookie. | Each response has status 200 and its body contains none of the run values of `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `ADMIN_EMAIL`. |
-| E2E-25 | AC-25 | e2e | From the repo root run `git grep --untracked -n -E "(AUTH_SECRET\|AUTH_GOOGLE_ID\|AUTH_GOOGLE_SECRET\|ADMIN_EMAIL)[\"']?[[:space:]]*[:=][[:space:]]*[\"'][^\"']+[\"']" -- . ":(exclude)docs" ":(exclude)package-lock.json"` (the alternation bars are part of the pattern). | Exit status 1 and empty standard output. |
+| E2E-25 | AC-25 | e2e | From the repo root run `git grep --untracked -n -E "(AUTH_SECRET\|AUTH_GOOGLE_ID\|AUTH_GOOGLE_SECRET\|ADMIN_EMAIL)[\"']?[[:space:]]*[:=][[:space:]]*[\"'][^\"']+[\"']" -- . ":(exclude)docs" ":(exclude)package-lock.json"` (the alternation bars are part of the pattern: plain `|` in the JavaScript string). | Exit status 1 and empty standard output. |
 | E2E-26 | AC-26 | e2e | Read and parse `vercel.json`; read `next.config.ts` as text. | `vercel.json`: `outputDirectory` is `undefined`; `trailingSlash` is `true`; `buildCommand` is `"npm run build"`; `installCommand` is `"npm ci"`; `framework` is `"nextjs"`; every top-level key is one of `$schema`, `framework`, `installCommand`, `buildCommand`, `trailingSlash`, `cleanUrls`, `headers`. `next.config.ts`: no match for the regular expression `/\boutput\s*:/`; a match for `/trailingSlash:\s*true/` and for `/unoptimized:\s*true/`. |
 | E2E-27 | AC-27 | e2e | Read and parse `package.json`. | `dependencies["next-auth"]` equals `"5.0.0-beta.32"`; neither `dependencies` nor `devDependencies` has `http-server`; `dependencies.firebase` and `devDependencies["firebase-tools"]` are both defined. |
 | E2E-28 | AC-28 | e2e | Read `.next/prerender-manifest.json` (the build is current). From the repo root run `git grep --untracked -l -E "@/lib/auth\b" -- src` and sort the lines. | `routes` has the keys `/`, `/blog`, `/blog/hello-world`, `/blog/building-portfolio-nextjs`, `/robots.txt`, `/rss.xml`, `/sitemap.xml`; it has no key `/bright-warm-greenhouse` and no key starting with `/api/auth`; `dynamicRoutes["/blog/[slug]"].fallback` is `false`. The sorted `git grep` output is exactly the three lines `src/app/api/auth/[...nextauth]/route.ts`, `src/app/bright-warm-greenhouse/actions.ts`, `src/app/bright-warm-greenhouse/page.tsx`. |
@@ -622,51 +648,53 @@ All rows are in `e2e/owner-google-sign-in.spec.ts` and run against `npx next sta
 | E2E-31 | AC-31 | e2e | Read `CLAUDE.md`, `docs/features/OVERVIEW.md`, `.claude/repo-profile.md` as text, with `readFileSync(path, "utf8")`. | For each of the three files, none of its `DOCS_ABSENT` strings (fixtures above) is a substring of the text and every one of its `DOCS_PRESENT` strings is. |
 | E2E-32 | AC-32 | manual | The e2e runner cannot reach real Google. After the owner has set the four settings for SIT in Vercel and merged to `develop`: open `https://sit.thegoldenpothos.xyz/bright-warm-greenhouse/`, click "Sign in with Google", sign in with the owner's own Google account; click "Sign out"; then sign in with a second, different Google account. Also confirm the Google sign-in app lists the three return addresses in D3. | First account: the seven-item menu shows. Second account: "This account is not allowed to use the admin panel." with "Sign out", no menu. Neither screen shows an email. The sign-in is never stuck on a Vercel error page. |
 | E2E-33 | AC-33 | manual | The test cannot know the owner's real address. The owner runs `git grep -n -i -F "<their Google email>"` from the repo root and, after `npm run build`, `grep -r -i -F "<their Google email>" .next/server/app .next/static`. | No output from either command (the owner's public contact address, if different, is out of this check). |
-| E2E-34 | AC-34 | e2e | From the repo root: check the existence of the five paths; run `git grep --untracked -n -E "OWNER_UID\|getOwnerUid\|SIT_OWNER_UID" -- src`; run `git grep --untracked -n -i firebase -- src/app/bright-warm-greenhouse src/app/components/admin/AdminPanel.tsx src/lib/auth.ts src/lib/admin/access.ts src/app/api`. | `src/lib/firebase/auth.ts`, `src/lib/admin/owner.ts`, `src/app/components/admin/SavingOffNotice.tsx`, `e2e/admin-sign-in.spec.ts`, `e2e/admin-owner-only-access.spec.ts` do not exist; both `git grep` runs exit with status 1 and empty output. |
+| E2E-34 | AC-34 | e2e | From the repo root: check the existence of the five paths; run `git grep --untracked -n -E "OWNER_UID|getOwnerUid|SIT_OWNER_UID" -- src` (plain `|` alternation); run `git grep --untracked -n -i firebase -- src/app/bright-warm-greenhouse src/app/components/admin/AdminPanel.tsx src/lib/auth.ts src/lib/admin/access.ts src/app/api`. | `src/lib/firebase/auth.ts`, `src/lib/admin/owner.ts`, `src/app/components/admin/SavingOffNotice.tsx`, `e2e/admin-sign-in.spec.ts`, `e2e/admin-owner-only-access.spec.ts` do not exist; both `git grep` runs exit with status 1 and empty output. |
+| E2E-35 | AC-35 | e2e | No browser. `runGate(files)` builds a fresh fixture and runs the gate in it: create a directory with `fs.mkdtempSync(path.join(os.tmpdir(), "gate-"))`; run `git init -q` in it; write `docs/features/fixture/spec.md` holding these lines in order: `## 8. Implementation plan`, an empty line, `## Phase A — Fixture`, an empty line, `### Step 1 — Fixture`, an empty line, `- **Files:**`, then one line `  - add ` plus the path in backticks for each case file, then `- **Risk:** low — fixture`, `- **Verify:**`, `  - ` plus `npm run typecheck` in backticks; copy the repo's `scripts/check-task.sh` to `scripts/check-task.sh` in the fixture; run `git add docs/features/fixture/spec.md scripts/check-task.sh` then `git -c user.email=fixture@example.test -c user.name=fixture -c commit.gpgsign=false commit -q -m init`; write each case file (creating folders; the files stay untracked); run `bash scripts/check-task.sh fixture 1` with `cwd` the fixture and the environment variable `CHECK_SKIP_RUN=1` (its documented use is exactly this kind of fixture); read the standard output as lines. Use `spawnSync` so a failing exit status does not throw. Cases, each its own `runGate` call, file content as two lines (the directive line, then `export const f = 1;`) unless stated: (a) `src/app/bright-warm-greenhouse/actions.ts` whose first line is `"use server";`; (b) `src/app/bright-warm-greenhouse/other.ts`, same content; (c) `src/app/api/auth/[...nextauth]/route.ts`, content `export const f = 1;`; (d) `src/app/api/other/route.ts`, same content; (e) four runs, one each for `middleware.ts`, `src/middleware.ts`, `proxy.ts`, `src/proxy.ts`, same content; (f) `src/lib/auth.ts` whose content is an import of a default `NextAuth` from the module `next-auth`; (g) `src/lib/x.ts` importing a default `x` from the module `jest`; (h) `src/lib/y.ts` importing a default `y` from the module `@supabase/supabase-js`. The spec file is itself scanned by the gate, so build the fixture text from pieces: a constant `Q = String.fromCharCode(34)` and string concatenation, never a source line that starts with a `"use server"` directive or has `from` directly followed by a quoted module name. | (a) a line starts with `PASS STATIC` and no line starts with `FAIL STATIC`. (b) a line starts with `FAIL STATIC` and contains `src/app/bright-warm-greenhouse/other.ts`; no line starts with `PASS STATIC`; exit status 1. (c) a line starts with `PASS STATIC`; no line starts with `FAIL STATIC`. (d) a line starts with `FAIL STATIC` and contains `src/app/api/other/route.ts`; exit status 1. (e) in each of the four runs a line starts with `FAIL STATIC` and contains that run's path; exit status 1. (f) a line starts with `PASS IMPORTS`; no line starts with `FAIL IMPORTS`. (g) a line starts with `FAIL IMPORTS` and contains `src/lib/x.ts`; exit status 1. (h) a line starts with `FAIL IMPORTS` and contains `src/lib/y.ts`; exit status 1. |
 
 ## 5. AC verification matrix — BA
 
 | AC | BR | TS | Step | E2E | Status |
 | -- | -- | -- | ---- | --- | ------ |
-| AC-01 | BR-03a, BR-03b, BR-04a, BR-04b, BR-04c, BR-04d, BR-07a | TS-02, TS-04, TS-05, TS-06 | 2, 3 | E2E-01 | Specified |
-| AC-02 | BR-04a, BR-04b, BR-04d | TS-06 | 3 | E2E-02 | Specified |
-| AC-03 | BR-01, BR-13c | TS-04, TS-06, TS-13 | 3 | E2E-03 | Specified |
-| AC-04 | BR-03b, BR-05a, BR-05b, BR-05c | TS-04, TS-06 | 3 | E2E-04 | Specified |
-| AC-05 | BR-03a, BR-05a, BR-05c | TS-01, TS-02, TS-06 | 2, 3 | E2E-05 | Specified |
-| AC-06 | BR-05d, BR-05e | TS-04, TS-14 | 3 | E2E-06 | Specified |
-| AC-07 | BR-06a, BR-06b | TS-05, TS-06 | 3 | E2E-07 | Specified |
-| AC-08 | BR-06c | TS-05 | 3 | E2E-08 | Specified |
-| AC-09 | BR-09a, BR-09b, BR-09c | TS-04, TS-05, TS-06 | 3 | E2E-09 | Specified |
-| AC-10 | BR-09d | TS-02, TS-03 | 2 | E2E-10 | Specified |
-| AC-11 | BR-10 | TS-05, TS-06 | 3 | E2E-11 | Specified |
-| AC-12 | BR-07b | TS-02 | 2, 3 | E2E-12 | Specified |
-| AC-13 | BR-08 | TS-06 | 3 | E2E-13 | Specified |
-| AC-14 | BR-03a, BR-03b, BR-03c | TS-01 | 2 | E2E-14 | Specified |
-| AC-15 | BR-22 | TS-01 | 2 | E2E-15 | Specified |
-| AC-16 | BR-09e | TS-01, TS-02 | 2 | E2E-16 | Specified |
-| AC-17 | BR-03d, BR-14b | TS-04 | 3 | E2E-17 | Specified |
-| AC-18 | BR-11b | TS-04 | 3 | E2E-18 | Specified |
-| AC-19 | BR-11a | TS-13 | 3 | E2E-19 | Specified |
+| AC-01 | BR-03a, BR-03b, BR-04a, BR-04b, BR-04c, BR-04d, BR-07a | TS-02, TS-04, TS-05, TS-06 | 3, 4 | E2E-01 | Specified |
+| AC-02 | BR-04a, BR-04b, BR-04d | TS-06 | 4 | E2E-02 | Specified |
+| AC-03 | BR-01, BR-13c | TS-04, TS-06, TS-13 | 4 | E2E-03 | Specified |
+| AC-04 | BR-03b, BR-05a, BR-05b, BR-05c | TS-04, TS-06 | 4 | E2E-04 | Specified |
+| AC-05 | BR-03a, BR-05a, BR-05c | TS-01, TS-02, TS-06 | 3, 4 | E2E-05 | Specified |
+| AC-06 | BR-05d, BR-05e | TS-04, TS-14 | 4 | E2E-06 | Specified |
+| AC-07 | BR-06a, BR-06b | TS-05, TS-06 | 4 | E2E-07 | Specified |
+| AC-08 | BR-06c | TS-05 | 4 | E2E-08 | Specified |
+| AC-09 | BR-09a, BR-09b, BR-09c | TS-04, TS-05, TS-06 | 4 | E2E-09 | Specified |
+| AC-10 | BR-09d | TS-02, TS-03 | 3 | E2E-10 | Specified |
+| AC-11 | BR-10 | TS-05, TS-06 | 4 | E2E-11 | Specified |
+| AC-12 | BR-07b | TS-02 | 3, 4 | E2E-12 | Specified |
+| AC-13 | BR-08 | TS-06 | 4 | E2E-13 | Specified |
+| AC-14 | BR-03a, BR-03b, BR-03c | TS-01 | 3 | E2E-14 | Specified |
+| AC-15 | BR-22 | TS-01 | 3 | E2E-15 | Specified |
+| AC-16 | BR-09e | TS-01, TS-02 | 3 | E2E-16 | Specified |
+| AC-17 | BR-03d, BR-14b | TS-04 | 4 | E2E-17 | Specified |
+| AC-18 | BR-11b | TS-04 | 4 | E2E-18 | Specified |
+| AC-19 | BR-11a | TS-13 | 4 | E2E-19 | Specified |
 | AC-20 | BR-12a, BR-12b, BR-12c | TS-07, TS-13 | 1 | E2E-20 | Specified |
 | AC-21 | BR-12d, BR-12e, BR-12f | TS-07, TS-13 | 1 | E2E-21 | Specified |
 | AC-22 | BR-12g, BR-14c | TS-10 | 1 | E2E-22 | Specified |
-| AC-23 | BR-13a, BR-13b, BR-13c | TS-13, TS-14 | 3 | E2E-23 | Specified |
-| AC-24 | BR-18b | TS-14 | 3 | E2E-24 | Specified |
-| AC-25 | BR-18a | TS-09 | 3 | E2E-25 | Specified |
+| AC-23 | BR-13a, BR-13b, BR-13c | TS-13, TS-14 | 4 | E2E-23 | Specified |
+| AC-24 | BR-18b | TS-14 | 4 | E2E-24 | Specified |
+| AC-25 | BR-18a | TS-09 | 4 | E2E-25 | Specified |
 | AC-26 | BR-15a, BR-15b, BR-15c | TS-07 | 1 | E2E-26 | Specified |
 | AC-27 | BR-16 | TS-08 | 1 | E2E-27 | Specified |
-| AC-28 | BR-14a | TS-07, TS-13 | 3 | E2E-28 | Specified |
-| AC-29 | BR-02a, BR-02b | TS-02, TS-03, TS-05 | 3 | E2E-29 | Specified |
-| AC-30 | BR-17 | TS-06 | 3 | E2E-30 | Specified |
-| AC-31 | BR-20a, BR-20b, BR-20c | TS-12 | 4 | E2E-31 | Specified |
-| AC-32 | BR-21 | TS-02, TS-03 | 4 | E2E-32 | Specified |
-| AC-33 | BR-18c | TS-14 | 4 | E2E-33 | Specified |
-| AC-34 | BR-19a, BR-19b | TS-11 | 3 | E2E-34 | Specified |
+| AC-28 | BR-14a | TS-07, TS-13 | 4 | E2E-28 | Specified |
+| AC-29 | BR-02a, BR-02b | TS-02, TS-03, TS-05 | 4 | E2E-29 | Specified |
+| AC-30 | BR-17 | TS-06 | 4 | E2E-30 | Specified |
+| AC-31 | BR-20a, BR-20b, BR-20c | TS-12 | 5 | E2E-31 | Specified |
+| AC-32 | BR-21 | TS-02, TS-03 | 5 | E2E-32 | Specified |
+| AC-33 | BR-18c | TS-14 | 5 | E2E-33 | Specified |
+| AC-34 | BR-19a, BR-19b | TS-11 | 4 | E2E-34 | Specified |
+| AC-35 | BR-23 | TS-15 | 2 | E2E-35 | Specified |
 
-- Orphan BR clauses (no AC): none. Obligations counted by clause: BR-01, 02a, 02b, 03a-d, 04a-d, 05a-e, 06a-c, 07a-b, 08, 09a-e, 10, 11a-b, 12a-g, 13a-c, 14a-c, 15a-c, 16, 17, 18a-c, 19a-b, 20a-c, 21, 22 are each named in at least one AC row above.
-- Orphan TS (no AC): none (TS-01..TS-14 each appear).
-- Uncovered scenarios: none (Scenario 1 AC-01, AC-02; 2 AC-03; 3 AC-04, AC-05; 4 AC-07; 5 AC-09; 6 AC-18, AC-19; 7 AC-20, AC-21, AC-22; 8 AC-23).
-- Uncovered `[derived]` edge cases: none (empty vs empty AC-14; near-miss emails AC-14; cache AC-17; public pages dynamic AC-28; unknown post AC-22; old specs D13).
+- Orphan BR clauses (no AC): none. Obligations counted by clause: BR-01, 02a, 02b, 03a-d, 04a-d, 05a-e, 06a-c, 07a-b, 08, 09a-e, 10, 11a-b, 12a-g, 13a-c, 14a-c, 15a-c, 16, 17, 18a-c, 19a-b, 20a-c, 21, 22, 23 are each named in at least one AC row above.
+- Orphan TS (no AC): none (TS-01..TS-15 each appear).
+- Uncovered scenarios: none (AC-35 comes from the ruling D22, not from a story scenario; Scenario 1 AC-01, AC-02; 2 AC-03; 3 AC-04, AC-05; 4 AC-07; 5 AC-09; 6 AC-18, AC-19; 7 AC-20, AC-21, AC-22; 8 AC-23).
+- Uncovered `[derived]` edge cases: none (empty vs empty AC-14; near-miss emails AC-14; cache AC-17; public pages dynamic AC-28; unknown post AC-22; old specs D13; the gate refusing this feature's own server pieces AC-35).
 - Unverifiable ACs: none (AC-32 and AC-33 are `manual` because the runner cannot reach real Google or know the owner's address).
 - TS in no Step: none (see Section 8). E2E in no Step: none.
 
@@ -677,13 +705,38 @@ All rows are in `e2e/owner-google-sign-in.spec.ts` and run against `npx next sta
 | 1 | SA | "Signs in with the owner's Google account" cannot run against real Google in automation, so the AC would be unverifiable or silently mocked. | The ACs observe the browser boundary (stand-in for Google plus minted cookies, D11) and a separate manual AC-32 names the real check on SIT. What automation cannot see (token exchange, ID-token check, `email_verified` from Google) is listed in Section 7. | Accepted: AC-32 added; D11 written. |
 | 2 | SA | Assumption 6's "Checking sign-in…" is untestable and meaningless once the server decides the state before sending markup; keeping it would add a loading file nobody can assert. | Dropped with the reason (the purpose, "no control before the state is known", holds structurally). | Accepted: D9. |
 | 3 | BA | TS-01's `authLogLine` and the custom logger in TS-02 look like scope creep. | Assumptions 9 and 17 and intent §5 say no account detail or token may be logged; the Library logger prints a cause object. A pure function can be tested with a hostile error (E2E-16). Kept. | Rejected. |
-| 4 | BA | Step 3 hides decisions: where the error flag comes from, what the menu notice looks like, whether the user ID line stays. | All settled in D8, D18 and Step 3's Change (exact strings, roles, `failed` semantics, no ID line). | Accepted: wording added to Step 3. |
+| 4 | BA | Step 3 hides decisions: where the error flag comes from, what the menu notice looks like, whether the user ID line stays. | All settled in D8, D18 and Step 4's Change (exact strings, roles, `failed` semantics, no ID line). | Accepted: wording added to Step 4. |
 | 5 | BA | A per-run secret in `playwright.config.ts` breaks silently if a stale server is reused or a worker re-evaluates the config. | `reuseExistingServer: false`; values assigned only when `TEST_WORKER_INDEX` is undefined; proved on a scratch copy with two workers (SF-7). | Accepted: D12, Step 1. |
 | 6 | SA | Scenario 5's "Google unreachable or offline" cannot show the site's message: the browser itself shows its own error page. | The ACs cover every failure that returns to the site (Google error return, the callback address with and without a trailing slash, a start failure redirect). Offline is the browser's page, not ours. | Accepted: AC-09, AC-10 worded to returns; Section 7 note. |
 | 7 | BA | The public-address rows pin literals (post titles, four sitemap locations) that change when the owner adds a post. | Pin only `hello-world` and the two present posts for the "contains" checks, never the whole sitemap or feed. | Accepted: E2E-21 uses `contains`. |
-| 8 | SA | (Section 8) Step 1 switches the whole test server and removes the emulators, so every other earlier spec breaks the moment it merges. | They were already unable to pass after Step 3 (the editors are unplugged). No gate runs them; D13 and Section 7 list them; each is deleted by the slice that replaces its screen. | Rejected: documented risk. |
+| 8 | SA | (Section 8) Step 1 switches the whole test server and removes the emulators, so every other earlier spec breaks the moment it merges. | They were already unable to pass after Step 4 (the editors are unplugged). No gate runs them; D13 and Section 7 list them; each is deleted by the slice that replaces its screen. | Rejected: documented risk. |
 | 9 | SA | (Section 8) E2E-20 and E2E-22 will pass before Step 1 ships, so they cannot show the lift worked. | They are regression guards for BR-12; the rows that fail before are E2E-21 (feed content type under the old static server), E2E-26 and E2E-27. | Rejected: guards are intended; Step 1 Verify still includes the failing rows. |
-| 10 | BA | (Section 8) Step 2 `Verify` "cannot fail" if `pages.error` is missing because the default redirect would also be a 302. | E2E-10 asserts the redirect's `pathname` is `/bright-warm-greenhouse/`; the default would be `/api/auth/error`, so it fails. | Rejected: the check can fail. |
+| 10 | BA | (Section 8) Step 3 `Verify` "cannot fail" if `pages.error` is missing because the default redirect would also be a 302. | E2E-10 asserts the redirect's `pathname` is `/bright-warm-greenhouse/`; the default would be `/api/auth/error`, so it fails. | Rejected: the check can fail. |
+
+### Independent review, round 1 (dispositions)
+
+Reports: `.run-logs/owner-google-sign-in/review-spec-codebase-verifier.md` (V) and `.run-logs/owner-google-sign-in/review-spec-cold-reader.md` (C). Version 0.1.0 became 0.2.0. Severity as the reviewer wrote it; every Critical or Major one is applied.
+
+| # | Finding | Severity | Disposition | Evidence or change |
+| - | ------- | -------- | ----------- | ------------------ |
+| R-1 | V: the STATIC check fails the new API route and the `"use server"` line; no Step edits the gate | Major | Applied [human: intent §4] | `scripts/check-task.sh:404-415` read. New Step 2, TS-15, BR-23, D22, AC-35, E2E-35; `scripts/**` exception in Do not touch; impact.md rows and SF-14. |
+| R-2 | V: the IMPORTS check lists `next-auth` as forbidden | Major | Applied [human: intent §4] | `scripts/check-task.sh:355-361` read. `next-auth` leaves the pattern in Step 2; the other alternatives stay and E2E-35 (g, h) proves it. |
+| R-3 | C: Step 1's `playwright.config.ts` assignments could match the E2E-25 scan | high | Applied | Step 1 says to use a template literal or a precomputed value and to keep comments clean. |
+| R-4 | C: the word "firebase" in comments would fail E2E-34 in Step 4 | medium | Applied | Text rules added to Steps 3 and 4. |
+| R-5 | C: `@/lib/auth` import form and stray mentions change E2E-28's list | medium | Applied | Step 4 fixes the alias form for `page.tsx` and `AdminPanel.tsx`'s import of the actions. |
+| R-6 | C: the `next-auth` module augmentation was under-specified | medium | Applied | Step 3 gives the contract and an example; any form that typechecks is accepted (the installed types are not readable before Step 1). |
+| R-7 | C: `authLogLine` for `null` and non-string `type` | low | Applied | Step 3 and E2E-16 unchanged (the six listed inputs stay). |
+| R-8 | C: `signIn` returning normally; a flaky double click | low | Applied | Step 4 states both; the test is never edited. |
+| R-9 | C: Step 4 has six non-test files and `delete` is not in the template | low | Documented, split rejected | Six is the limit; the three deletions are one-line removals with no design, so a separate Step would cost a test author and a gate run for nothing. `scripts/check-task.sh` `files_of` reads `add\|change\|delete\|remove`; Step 4 says so. |
+| R-10 | C: what OVERVIEW item 5 becomes | low | Applied | Step 5 gives the exact replacement text. |
+| R-11 | C and V: the profile sentence "`npm run build` writes `.next/` and `out/`" becomes false | Minor | Applied | Step 5 edit; added to the E2E-31 absent list for the profile. |
+| R-12 | V: E2E-31's `/api/auth/` is already in `CLAUDE.md` (cannot fail) | Minor | Applied | The present string is `/api/auth/callback/google`; `git grep` finds it in none of the three files today. |
+| R-13 | V: E2E-34 (and E2E-25) pattern bars written `\|` in a table | Minor | Applied | Section 4 fixture note; E2E-25 and E2E-34 say the bar in the test is a plain pipe (alternation). |
+| R-14 | V: impact.md SF-12 and the Cleared list overstate who reads `owner.ts` as text | Minor | Applied | impact.md reworded: one spec that stays reads it (`e2e/manage-image-library.spec.ts:408,1052`). |
+| R-15 | V: "route handlers stay `force-static`" contradicts the new handler | Minor | Applied | Step 5 Invariant 1 wording. |
+| R-16 | V: the cookie also holds `picture`, `iat`, `exp`, `jti` | Minor | Applied | Section 2.3 note. |
+| R-17 | V: the `console.error(...(e))` logger matches the gate's LOG-ERROR warning | Info | Applied | Step 3 names the parameter outside `e`, `err`, `error`, `ex`. |
+| R-18 | C: the blog page comment wording | low | No change needed | The reviewer found it acceptable. |
 
 ## 7. Open questions & risks
 
@@ -691,17 +744,18 @@ All rows are in `e2e/owner-google-sign-in.spec.ts` and run against `npx next sta
 | -- | ---------------- | -------------- | ----------- |
 | OQ-1 | Vercel-side behaviour is not provable here: (a) whether Vercel's `trailingSlash: true` plus the Next redirect still lets the return address `/api/auth/callback/google` reach the handler, (b) whether the request URL host Auth.js sees on Vercel is the real domain, (c) whether Google's ID token carries `email_verified` as a boolean. All three held under `next start` and in the Library source (impact.md SF-4, SF-5, SF-11). | Nothing in the build. It decides whether E2E-32 passes. | Owner, at the SIT check (intent §7). |
 | OQ-2 | The earlier admin specs (`e2e/manage-*.spec.ts`, `preview-blog-post`, `manage-image-library`, `admin-content-panel-acceptance`) cannot pass after this feature: they need the emulators and the Firebase editors. `npm run test:e2e` (full suite, on request only) is red until their slices delete them. | Nothing: no gate runs them. | Pipeline: each later slice deletes its own. |
-| OQ-3 | The pull request must flag the reworded secret rule ("no secret values in the repo, pages or logs") and list the four setting names (Production and SIT) and the three Google return addresses in D3. | The pull request description. | `/run-this` when it opens the pull request. |
+| OQ-3 | The pull request must flag the reworded secret rule ("no secret values in the repo, pages or logs"), list the four setting names (Production and SIT) and the three Google return addresses in D3, and **flag the change to the mechanical gate (`scripts/check-task.sh`, D22) for a human reviewer**: it loosens two checks for this feature only, by the ruling of intent §4. | The pull request description. | `/run-this` when it opens the pull request. |
 | OQ-4 | Real Google behaviours automation cannot see: ID-token validation, token exchange, Google's consent screen, preview-address refusal (Assumption 12: on an unregistered address Google shows its own error page, not ours). | Nothing. | Owner (E2E-32). |
 | R-1 | `next-auth` v5 is a beta; a later version can change behaviour. Pinned; upgrades are deliberate (intent §4). | — | Owner. |
 | R-2 | A public page that reads `auth()`, cookies or headers silently stops being static. E2E-28 limits importers of `@/lib/auth` and checks the prerender manifest. | — | Reviewers. |
 | R-3 | Intent §8 says only the panel route may be dynamic; the sign-in handler is an additional dynamic route (decomposition Decision 8, Open finding 2). Treated as part of the panel. | — | Owner at the pull request. |
+| R-4 | Step 2 edits the gate that judges every later Step. A slip would loosen a check. E2E-35 pins the three allowed cases and five refused ones; the diff is small and flagged (OQ-3). | — | Human reviewer. |
 
 ## 8. Implementation plan — SA
 
-## Phase A — Hosting lift, test harness and sign-in server
+## Phase A — Hosting lift, gate allowance, test harness and sign-in server
 
-**Delivers:** TS-01, TS-02, TS-03, TS-07, TS-08, TS-09, TS-10; E2E-10, E2E-14, E2E-15, E2E-16, E2E-20, E2E-21, E2E-22, E2E-26, E2E-27
+**Delivers:** TS-01, TS-02, TS-03, TS-07, TS-08, TS-09, TS-10, TS-15; E2E-10, E2E-14, E2E-15, E2E-16, E2E-20, E2E-21, E2E-22, E2E-26, E2E-27, E2E-35
 
 ### Step 1 — Lift the static export, pin the dependency, serve tests with `next start`
 
@@ -720,7 +774,7 @@ All rows are in `e2e/owner-google-sign-in.spec.ts` and run against `npx next sta
   - `next.config.ts`: remove the `output` entry. Keep `trailingSlash: true` and `images: { unoptimized: true }`. Reword the two comments: the trailing-slash comment says each route is emitted as a directory and the host redirects to the slashed form, and must still say it agrees with `vercel.json` and `absoluteUrl()` in `src/lib/site.ts`; the `unoptimized` comment says Vercel's free image optimisation has a monthly allowance and unoptimized images keep the bill at $0. No comment or code in the file may contain the word `output` directly followed by a colon.
   - `vercel.json`: delete the `outputDirectory` key and nothing else (`$schema`, `framework`, `installCommand`, `buildCommand`, `trailingSlash`, `cleanUrls`, the `/rss.xml` header all stay). Must not add `redirects`, `rewrites`, `functions`, `regions`, `crons` or any other key.
   - `package.json` and `package-lock.json`: run `npm install --save-exact next-auth@5.0.0-beta.32` so `dependencies["next-auth"]` is exactly `"5.0.0-beta.32"`; run `npm uninstall http-server`. Must not change any other dependency; `firebase` and `firebase-tools` stay.
-  - `playwright.config.ts`: keep `PORT` 3100, the `reporter` wiring, `testDir`, `fullyParallel`, `forbidOnly`, `retries`, the single `chromium` project. Set `use.baseURL` to `http://localhost:3100`. Replace the whole `webServer` array with one entry `{ command: "npx next start -p 3100", url: "http://localhost:3100/", reuseExistingServer: false, timeout: 120000 }`: no `http-server`, no Firebase emulator. Above `defineConfig`, only when `process.env.TEST_WORKER_INDEX === undefined`, assign fresh values from `node:crypto` `randomBytes`: `AUTH_SECRET` = 32 random bytes as base64; `AUTH_GOOGLE_ID` = 8 random bytes as hex followed by `.apps.example.test`; `AUTH_GOOGLE_SECRET` = 12 random bytes as hex; `ADMIN_EMAIL` = `owner-` + 4 random bytes as hex + `@example.test`. Must not contain any literal value for a setting and must not read `.env*`. Update the file's header comment: the tests run against `next start` on `.next/`, not `out/`.
+  - `playwright.config.ts`: keep `PORT` 3100, the `reporter` wiring, `testDir`, `fullyParallel`, `forbidOnly`, `retries`, the single `chromium` project. Set `use.baseURL` to `http://localhost:3100`. Replace the whole `webServer` array with one entry `{ command: "npx next start -p 3100", url: "http://localhost:3100/", reuseExistingServer: false, timeout: 120000 }`: no `http-server`, no Firebase emulator. Above `defineConfig`, only when `process.env.TEST_WORKER_INDEX === undefined`, assign fresh values from `node:crypto` `randomBytes`: `AUTH_SECRET` = 32 random bytes as base64; `AUTH_GOOGLE_ID` = 8 random bytes as hex followed by `.apps.example.test`; `AUTH_GOOGLE_SECRET` = 12 random bytes as hex; `ADMIN_EMAIL` = `owner-` + 4 random bytes as hex + `@example.test`. Must not contain any literal value for a setting and must not read `.env*`. E2E-25 (run in Step 4) scans this file for a setting name followed by `=` or `:` and a quoted value, so write each assignment with a template literal or a value computed beforehand, for example ``process.env.ADMIN_EMAIL = `owner-${randomBytes(4).toString("hex")}@example.test` `` (a backtick, not a quote, follows the `=`); and no comment in the file may show a setting name next to `=` or `:` and a quoted value. Update the file's header comment: the tests run against `next start` on `.next/`, not `out/`.
   - `src/app/blog/[slug]/page.tsx`: add `export const dynamicParams = false;` beside `generateStaticParams` and update the "Static paths for export" comment to say unknown slugs answer the 404 page without running the page. No other change.
   - `e2e/owner-google-sign-in.spec.ts` (new): imports `{ expect, test }` from `@playwright/test`, `node:fs`; gains `E2E-20`, `E2E-21`, `E2E-22`, `E2E-26`, `E2E-27` as written in Section 4, titles starting `E2E-NN:`.
 - **Risk:** high — implements the safety fact that public pages stay prerendered after the export is lifted (impact.md SF-1) and changes build and deploy configuration.
@@ -728,10 +782,31 @@ All rows are in `e2e/owner-google-sign-in.spec.ts` and run against `npx next sta
   - `npx playwright test e2e/owner-google-sign-in.spec.ts -g "E2E-20|E2E-21|E2E-22|E2E-26|E2E-27"` → 5 passed
 - **Stop-if:** `npm install --save-exact next-auth@5.0.0-beta.32` cannot resolve that version (report; do not substitute another); `package.json` already lists `next-auth` or lacks `http-server` (the spec's premise is wrong); after the change `npm run build` does not list `/`, `/blog`, `/blog/[slug]`, `/robots.txt`, `/rss.xml` and `/sitemap.xml` as prerendered (static or SSG), so the lift made a public page dynamic; `.next/prerender-manifest.json` has `fallback: true` or `"blocking"` for `/blog/[slug]`.
 
-### Step 2 — Owner decision, Auth.js configuration and handler
+### Step 2 — Let the mechanical gate accept this feature's server pieces
+
+- **Satisfies:** TS-15
+- **Depends on:** Step 1
+- **Files:**
+  - change `scripts/check-task.sh`
+  - change `e2e/owner-google-sign-in.spec.ts`
+- **Reuse:** none (the script's own `fail`, `pass`, `added_in` and `new_files` helpers stay as they are).
+- **Change:**
+  - `scripts/check-task.sh` (human-approved, [human: intent §4]; the smallest allowance, nothing else):
+    - Forbidden imports (the `forbidden=` pattern): remove the alternative `next-auth`. Every other alternative stays: `@supabase/…`, `clsx`, `tailwind-merge`, `class-variance-authority`, `date-fns`, `dayjs`, `moment`, `luxon`, `prisma`, `@prisma/client`, `kysely`, `typeorm`, `jest`, `vitest`, `cypress`.
+    - STATIC, `"use server"`: the existing match of an added `"use server"` line stays; it now fails (`FAIL STATIC`, naming the path) unless the line's path is exactly `src/app/bright-warm-greenhouse/actions.ts`. The failure text says Server Actions are allowed only in that file.
+    - STATIC, new files: a new file whose path starts with `src/app/api/auth/` is accepted. A new file under any other `src/app/api/` path, and a new `src/middleware.ts`, `src/proxy.ts`, `middleware.ts` or `proxy.ts`, still fails (`FAIL STATIC`, naming the path). The failure text says API routes are allowed only under `src/app/api/auth/` and middleware and proxy files are not allowed.
+    - Wording: the `PASS STATIC` line, the header-comment line that ends "(static export)" and the section comment above these checks stop saying the site is a static export and describe the rule above. The pass line still starts with `PASS STATIC`.
+    - Must not change any other check, any `added_in` filter, the manifest, tier or E2E logic, or any other file under `scripts/`.
+  - `e2e/owner-google-sign-in.spec.ts` gains `E2E-35` as written in Section 4. The test file is itself scanned by the gate: build the quote characters and the module names in the fixture text from pieces (for example a constant `Q = String.fromCharCode(34)` and string concatenation) so that no added line of the spec file starts with a `"use server"` directive or contains `from` followed directly by a quoted `next-auth`, `jest` or `@supabase/supabase-js`.
+- **Risk:** high — this edits the gate every later Step is judged by (impact.md SF-14); a loosened check would let a forbidden server file or import through, so it is reviewed independently and the pull request flags it for a human.
+- **Verify:**
+  - `npx playwright test e2e/owner-google-sign-in.spec.ts -g "E2E-35"` → 1 passed
+- **Stop-if:** `scripts/check-task.sh` has no STATIC check that fails an added `"use server"` line or no `forbidden=` pattern listing `next-auth` (the spec's premise is wrong; the gate was already changed); the fixture run (`CHECK_SKIP_RUN=1 bash scripts/check-task.sh fixture 1` in a temporary git repository, E2E-35) stops before it prints the `STATIC` and `IMPORTS` lines for a reason other than the three edits above; satisfying E2E-35 needs any change to the script beyond the three edits above.
+
+### Step 3 — Owner decision, Auth.js configuration and handler
 
 - **Satisfies:** TS-01, TS-02, TS-03
-- **Depends on:** Step 1
+- **Depends on:** Step 2
 - **Files:**
   - add `src/lib/admin/access.ts`
   - add `src/lib/auth.ts`
@@ -743,23 +818,25 @@ All rows are in `e2e/owner-google-sign-in.spec.ts` and run against `npx next sta
     - `type PanelState = "signed-out" | "owner" | "not-allowed"`
     - `accessFor(email: string | null | undefined, emailVerified: boolean | undefined, adminEmail: string | undefined): "owner" | "not-allowed"`: returns `"owner"` only when `emailVerified === true`, `adminEmail` is a string whose trimmed value is not empty, `email` is a string, and `email.trim().toLowerCase() === adminEmail.trim().toLowerCase()`; every other input (including `email` empty, `null`, `undefined`) returns `"not-allowed"`. An empty email never equals an empty setting.
     - `verifiedClaim(profile: { email_verified?: unknown } | null | undefined): boolean`: `true` only when `profile?.email_verified === true`.
-    - `authLogLine(error: unknown): string`: returns `"[auth] " + type`, where `type` is `error.type` when `error` is an object with a non-empty string `type`, else `error.name` when it is a non-empty string, else `"Error"`. Must not include `message`, `cause`, `stack` or any other field.
-  - `src/lib/auth.ts` begins with `import "server-only"`. It calls `NextAuth(...)` once and exports `handlers`, `auth`, `signIn`, `signOut` from the result, and `getPanelState(): Promise<PanelState>`. The configuration: `providers: [Google]` (the Google provider reads `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` from the environment by name; no argument carries a value); `trustHost: true`; `session: { strategy: "jwt" }`; no adapter; `pages: { signIn: "/bright-warm-greenhouse/", error: "/bright-warm-greenhouse/" }`; `callbacks.jwt` sets `token.emailVerified = verifiedClaim(profile)` only when `profile` is present (first sign-in) and returns `token` unchanged otherwise; `callbacks.session` copies `token.emailVerified === true` to `session.user.emailVerified` (declare the field with a module augmentation of `next-auth`); no `signIn` callback (every Google account may sign in); `logger: { error: (e) => console.error(authLogLine(e)), warn: () => {}, debug: () => {} }`. Must not set `cookies`, `basePath`, `secret`, `redirectProxyUrl` or read `AUTH_URL`. `getPanelState()` runs `auth()` inside a `try`; a throw or a missing `session?.user` returns `"signed-out"`; otherwise it returns `accessFor(session.user.email, session.user.emailVerified, process.env.ADMIN_EMAIL)` with `process.env.ADMIN_EMAIL` read inside the function at call time. It must not log, return or store the email.
+    - `authLogLine(error: unknown): string`: returns `"[auth] " + type`, where `type` is `error.type` when `error` is an object with a non-empty string `type`, else `error.name` when it is a non-empty string, else `"Error"`. `null`, any non-object, and an object with neither a non-empty string `type` nor a non-empty string `name` return `"[auth] Error"`. Must not include `message`, `cause`, `stack` or any other field.
+  - `src/lib/auth.ts` begins with `import "server-only"`. It calls `NextAuth(...)` once and exports `handlers`, `auth`, `signIn`, `signOut` from the result, and `getPanelState(): Promise<PanelState>`. The configuration: `providers: [Google]` (the Google provider reads `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` from the environment by name; no argument carries a value); `trustHost: true`; `session: { strategy: "jwt" }`; no adapter; `pages: { signIn: "/bright-warm-greenhouse/", error: "/bright-warm-greenhouse/" }`; `callbacks.jwt` sets `token.emailVerified = verifiedClaim(profile)` only when `profile` is present (first sign-in) and returns `token` unchanged otherwise; `callbacks.session` copies `token.emailVerified === true` to `session.user.emailVerified`; no `signIn` callback (every Google account may sign in); `logger: { error: <function that prints authLogLine(its argument) with console.error>, warn: () => {}, debug: () => {} }`, where the error function's parameter is not named `e`, `err`, `error` or `ex` (the gate's LOG-ERROR warning matches those names). Types: the contract is `session.user.emailVerified?: boolean` and `token.emailVerified?: boolean`; declare them in this file with a module augmentation, for example `declare module "next-auth" { interface Session { user: { emailVerified?: boolean } & DefaultSession["user"] } }` and `declare module "next-auth/jwt" { interface JWT { emailVerified?: boolean } }`, or any equivalent form that passes `npm run typecheck`. Must not set `cookies`, `basePath`, `secret`, `redirectProxyUrl` or read `AUTH_URL`. `getPanelState()` runs `auth()` inside a `try`; a throw or a missing `session?.user` returns `"signed-out"`; otherwise it returns `accessFor(session.user.email, session.user.emailVerified, process.env.ADMIN_EMAIL)` with `process.env.ADMIN_EMAIL` read inside the function at call time. It must not log, return or store the email.
   - `src/app/api/auth/[...nextauth]/route.ts`: `export const { GET, POST } = handlers;` imported from `@/lib/auth`. Nothing else.
+  - Text rules checked later by E2E-28 and E2E-34, so they bind these three files now: the word `firebase` (any case) must not appear in any of them, comments included; no `OWNER_UID`, `getOwnerUid` or `SIT_OWNER_UID` anywhere under `src/`; the text `@/lib/auth` must not appear in `src/lib/auth.ts` or `src/lib/admin/access.ts`, comments included.
   - `e2e/owner-google-sign-in.spec.ts` gains `E2E-10`, `E2E-14`, `E2E-15`, `E2E-16` as written in Section 4; it imports `encode` from `next-auth/jwt` only if a row needs it (these four do not).
+  - Expect one gate warning, DOC-CLAUDE, for the new route file with no `CLAUDE.md` change: `CLAUDE.md` is amended in Step 5. Answer it in the log; do not edit `CLAUDE.md` here.
 - **Risk:** high — implements who is the owner (impact.md SF-3) and the sign-in return route (SF-4).
 - **Verify:**
   - `npx playwright test e2e/owner-google-sign-in.spec.ts -g "E2E-10|E2E-14|E2E-15|E2E-16"` → 4 passed
-- **Stop-if:** `node_modules/@auth/core/lib/actions/callback/index.js` does not pass the raw provider `profile` to `callbacks.jwt` (the premise of `emailVerified`, SF-11); `GET /api/auth/callback/google/?error=access_denied` after the build returns anything other than a 302 to the panel with an `error` query (the premise of SF-4: a trailing slash reaches the handler); `vercel.json` holds a key beyond the allowed list (the premise that Vercel adds only the trailing-slash redirect); `typecheck` shows `next-auth` types do not accept `trustHost`, `pages` or `logger` in the pinned version.
+- **Stop-if:** `node_modules/@auth/core/lib/actions/callback/index.js` does not pass the raw provider `profile` to `callbacks.jwt` (the premise of `emailVerified`, SF-11); `GET /api/auth/callback/google/?error=access_denied` after the build returns anything other than a 302 to the panel with an `error` query (the premise of SF-4: a trailing slash reaches the handler); `vercel.json` holds a key beyond the allowed list (the premise that Vercel adds only the trailing-slash redirect); `typecheck` shows `next-auth` types do not accept `trustHost`, `pages` or `logger` in the pinned version; `npm run check:task` still prints `FAIL IMPORTS` for the `next-auth` import or `FAIL STATIC` for the route file (Step 2 was not applied; do not work around it).
 
 ## Phase B — The panel
 
 **Delivers:** TS-04, TS-05, TS-06, TS-11, TS-13, TS-14; E2E-01, E2E-02, E2E-03, E2E-04, E2E-05, E2E-06, E2E-07, E2E-08, E2E-09, E2E-11, E2E-12, E2E-13, E2E-17, E2E-18, E2E-19, E2E-23, E2E-24, E2E-25, E2E-28, E2E-29, E2E-30, E2E-34
 
-### Step 3 — Dynamic panel page, sign-in and sign-out actions, the three screens
+### Step 4 — Dynamic panel page, sign-in and sign-out actions, the three screens
 
 - **Satisfies:** TS-04, TS-05, TS-06, TS-11, TS-13, TS-14
-- **Depends on:** Step 2
+- **Depends on:** Step 3
 - **Files:**
   - add `src/app/bright-warm-greenhouse/actions.ts`
   - change `src/app/bright-warm-greenhouse/page.tsx`
@@ -772,24 +849,25 @@ All rows are in `e2e/owner-google-sign-in.spec.ts` and run against `npx next sta
   - delete `e2e/admin-owner-only-access.spec.ts`
 - **Reuse:** `src/lib/auth.ts` → `getPanelState(): Promise<PanelState>`, `signIn`, `signOut`; `src/lib/admin/access.ts` → `type PanelState`; `src/lib/admin/sections.ts` → `ADMIN_SECTIONS: readonly { id: string; label: string }[]` (the seven labels in order); `unstable_rethrow`, `redirect` from `next/navigation`; the inline styles of the current `AdminPanel.tsx` (token variables, `buttonStyle`, `messageStyle`).
 - **Change:**
-  - `src/app/bright-warm-greenhouse/actions.ts` begins with `"use server"` and exports `signInAction(): Promise<void>` and `signOutAction(): Promise<void>`. `signInAction` calls `signIn("google", { redirectTo: "/bright-warm-greenhouse/" })`; if that throws, call `unstable_rethrow(error)` first (Next's own redirect must pass through), then `redirect("/bright-warm-greenhouse/?error=SignIn")`. `signOutAction` calls `signOut({ redirectTo: "/bright-warm-greenhouse/" })` with the same `unstable_rethrow`, then `redirect("/bright-warm-greenhouse/")`. Neither reads, returns or logs account data. They import `@/lib/auth` and `next/navigation` only.
-  - `src/app/bright-warm-greenhouse/page.tsx`: keep the exported `metadata` exactly (title "Admin"; `robots` with `index: false`, `follow: false` and the same `googleBot`). Add `export const dynamic = "force-dynamic"`. The default export is `async function AdminPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> })`: it awaits `getPanelState()` and `searchParams`, sets `failed` to `state === "signed-out" && params.error !== undefined`, and returns `<AdminPanel state={state} failed={failed} />`. It passes no other prop and imports nothing from Firebase.
-  - `src/app/components/admin/AdminPanel.tsx` stays a client component and becomes `export default function AdminPanel(props: { state: PanelState; failed: boolean }): React.JSX.Element`. Keep the outer `main` and `section aria-label="Admin"` card, the `h1` "Admin" and the token-based styles. Body per `state`: `signed-out` renders one `<form action={signInAction}>` holding one submit button "Sign in with Google", disabled while the form is pending (`useFormStatus` in a small component in the same file), followed, only when `failed` is true, by `<p role="alert">Sign-in was not completed.</p>`; `not-allowed` renders `<p role="alert">This account is not allowed to use the admin panel.</p>` then a `<form action={signOutAction}>` with a submit button "Sign out", and nothing else; `owner` renders `<nav aria-label="Admin sections">` with one button per `ADMIN_SECTIONS` entry in order showing its label, the selected id kept in client state, then, when one is selected, `<p role="status">{label} editor is not available yet.</p>` under the nav, then the "Sign out" form. No user ID line, no `SavingOffNotice`, no "Checking sign-in…", no import of the seven editors, `ImageLibrary` or any Firebase module, no `accessFor`/`getOwnerUid`. Buttons keep the full-width style and a 44 px minimum height so every menu item fits a 375 px screen.
-  - delete `src/lib/admin/owner.ts`, `src/app/components/admin/SavingOffNotice.tsx`, `src/lib/firebase/auth.ts`; delete `e2e/admin-sign-in.spec.ts` and `e2e/admin-owner-only-access.spec.ts`.
+  - `src/app/bright-warm-greenhouse/actions.ts` begins with `"use server"` and exports `signInAction(): Promise<void>` and `signOutAction(): Promise<void>`. `signInAction` calls `signIn("google", { redirectTo: "/bright-warm-greenhouse/" })`; if that throws, call `unstable_rethrow(error)` first (Next's own redirect must pass through), then `redirect("/bright-warm-greenhouse/?error=SignIn")`; if `signIn` returns without throwing, `signInAction` returns normally and adds no redirect. `signOutAction` calls `signOut({ redirectTo: "/bright-warm-greenhouse/" })` with the same `unstable_rethrow`, then `redirect("/bright-warm-greenhouse/")`. Neither reads, returns or logs account data. They import `@/lib/auth` and `next/navigation` only.
+  - `src/app/bright-warm-greenhouse/page.tsx`: keep the exported `metadata` exactly (title "Admin"; `robots` with `index: false`, `follow: false` and the same `googleBot`). Add `export const dynamic = "force-dynamic"`. The default export is `async function AdminPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> })`: it awaits `getPanelState()` and `searchParams`, sets `failed` to `state === "signed-out" && params.error !== undefined`, and returns `<AdminPanel state={state} failed={failed} />`. It passes no other prop and imports nothing from Firebase. It imports `getPanelState` from exactly `@/lib/auth` (the alias form, not a relative path), because E2E-28 lists the files that contain that text.
+  - `src/app/components/admin/AdminPanel.tsx` stays a client component and becomes `export default function AdminPanel(props: { state: PanelState; failed: boolean }): React.JSX.Element`. It imports `signInAction` and `signOutAction` from `@/app/bright-warm-greenhouse/actions`. Keep the outer `main` and `section aria-label="Admin"` card, the `h1` "Admin" and the token-based styles. Body per `state`: `signed-out` renders one `<form action={signInAction}>` holding one submit button "Sign in with Google", disabled while the form is pending (`useFormStatus` in a small component in the same file; if E2E-11 still shows two submissions, also ignore a submit while pending, for example with a ref flag in the same component; never edit the test), followed, only when `failed` is true, by `<p role="alert">Sign-in was not completed.</p>`; `not-allowed` renders `<p role="alert">This account is not allowed to use the admin panel.</p>` then a `<form action={signOutAction}>` with a submit button "Sign out", and nothing else; `owner` renders `<nav aria-label="Admin sections">` with one button per `ADMIN_SECTIONS` entry in order showing its label, the selected id kept in client state, then, when one is selected, `<p role="status">{label} editor is not available yet.</p>` under the nav, then the "Sign out" form. No user ID line, no `SavingOffNotice`, no "Checking sign-in…", no import of the seven editors, `ImageLibrary` or any Firebase module, no `accessFor`/`getOwnerUid`. Buttons keep the full-width style and a 44 px minimum height so every menu item fits a 375 px screen.
+  - Text rules checked by E2E-28 and E2E-34: the word `firebase` (any case) must not appear in `actions.ts`, `page.tsx` or `AdminPanel.tsx`, comments included; the text `@/lib/auth` must appear under `src/` only in `src/app/api/auth/[...nextauth]/route.ts`, `actions.ts` and `page.tsx`, so no other file, `AdminPanel.tsx` included, and no comment may contain it.
+  - delete `src/lib/admin/owner.ts`, `src/app/components/admin/SavingOffNotice.tsx`, `src/lib/firebase/auth.ts`; delete `e2e/admin-sign-in.spec.ts` and `e2e/admin-owner-only-access.spec.ts`. (The mechanical gate reads `delete` lines in Files: `scripts/check-task.sh` `files_of` accepts `add|change|delete|remove`.)
   - `e2e/owner-google-sign-in.spec.ts` gains `E2E-01`, `E2E-02`, `E2E-03`, `E2E-04`, `E2E-05`, `E2E-06`, `E2E-07`, `E2E-08`, `E2E-09`, `E2E-11`, `E2E-12`, `E2E-13`, `E2E-17`, `E2E-18`, `E2E-19`, `E2E-23`, `E2E-24`, `E2E-25`, `E2E-28`, `E2E-29`, `E2E-30`, `E2E-34` as written in Section 4. It imports `encode` from `next-auth/jwt` for the minted cookies.
 - **Risk:** high — implements who sees the menu and who is told "not allowed" (impact.md SF-2, SF-3, SF-6) and the server/client boundary of the sign-in code.
 - **Verify:**
   - `npx playwright test e2e/owner-google-sign-in.spec.ts -g "E2E-01|E2E-02|E2E-03|E2E-04|E2E-05|E2E-06|E2E-07|E2E-08|E2E-09|E2E-11|E2E-12|E2E-13|E2E-17|E2E-18|E2E-19|E2E-23|E2E-24|E2E-25|E2E-28|E2E-29|E2E-30|E2E-34"` → 22 passed
-- **Stop-if:** `getPanelState` or `signIn` is not exported by `src/lib/auth.ts`; `src/lib/admin/sections.ts` does not list the seven labels in the order of E2E-01; any file other than `src/app/bright-warm-greenhouse/**` and `src/app/api/auth/**` needs to import `@/lib/auth` (the premise of SF-6 is wrong; report); a server-action redirect to `https://accounts.google.com` is blocked by the browser or does not leave the page (SF-8 premise); `npm run build` lists `/bright-warm-greenhouse` as prerendered.
+- **Stop-if:** `getPanelState` or `signIn` is not exported by `src/lib/auth.ts`; `src/lib/admin/sections.ts` does not list the seven labels in the order of E2E-01; any file other than `src/app/bright-warm-greenhouse/**` and `src/app/api/auth/**` needs to import `@/lib/auth` (the premise of SF-6 is wrong; report); a server-action redirect to `https://accounts.google.com` is blocked by the browser or does not leave the page (SF-8 premise); `npm run build` lists `/bright-warm-greenhouse` as prerendered; `npm run check:task` prints `FAIL STATIC` for `actions.ts` (Step 2 was not applied; do not work around it).
 
 ## Phase C — Standing docs
 
 **Delivers:** TS-12; E2E-31, E2E-32, E2E-33
 
-### Step 4 — Amend the standing docs the lift makes false
+### Step 5 — Amend the standing docs the lift makes false
 
 - **Satisfies:** TS-12
-- **Depends on:** Step 3
+- **Depends on:** Step 4
 - **Files:**
   - change `CLAUDE.md`
   - change `docs/features/OVERVIEW.md`
@@ -801,25 +879,26 @@ All rows are in `e2e/owner-google-sign-in.spec.ts` and run against `npx next sta
     - Header line 6: the public site is prerendered; only sign-in (Auth.js, `next-auth` v5) and the panel run on the server; served by Vercel; the Firebase JS SDK remains only in the leftover admin stores until retire-firebase.
     - Commands table, `npm run build` row: production build; public pages prerendered, the panel and sign-in routes dynamic. The paragraph "`npm run build` is the real verification gate": say it catches server/client boundary violations, `generateStaticParams` gaps and a public page that became dynamic; drop the word "export" as the thing it runs.
     - Routes: replace "Every route is prerendered at build time. There is no server at runtime." by a sentence that every public route is prerendered and only the panel and `/api/auth/*` run on the server; the panel row says dynamic; add a row for `/api/auth/*` (`src/app/api/auth/[...nextauth]/route.ts`; Auth.js handlers, including the Google return address `/api/auth/callback/google`, registered without a trailing slash).
-    - Invariant 1 becomes "Public pages are prerendered; only sign-in and the panel run on a server." The body: `next.config.ts` has no `output`; the panel page is dynamic; `/api/auth/[...nextauth]` is the only API route; no middleware or ISR; a public page, layout or metadata route never calls `auth()` or reads cookies or headers (it would silently stop being static); only `src/app/bright-warm-greenhouse/**` and `src/app/api/auth/**` import `@/lib/auth`; every dynamic public route keeps `generateStaticParams` and `dynamicParams = false`; route handlers stay `force-static`.
+    - Invariant 1 becomes "Public pages are prerendered; only sign-in and the panel run on a server." The body: `next.config.ts` has no `output`; the panel page is dynamic; `/api/auth/[...nextauth]` is the only API route; no middleware or ISR; a public page, layout or metadata route never calls `auth()` or reads cookies or headers (it would silently stop being static); only `src/app/bright-warm-greenhouse/**` and `src/app/api/auth/**` import `@/lib/auth`; every dynamic public route keeps `generateStaticParams` and `dynamicParams = false`; public route handlers stay `force-static`, and the Auth.js handler at `/api/auth/[...nextauth]` is the one dynamic handler.
     - Invariant 2: keep the rule and the three files; reword the reason (each route is emitted as a directory; the host redirects to the slashed form; `/api/auth/callback/google` receives a redirect to its slashed form and Auth.js accepts it).
     - Invariant 6: the reason becomes Vercel's monthly image-optimisation allowance (unoptimized images keep the bill at $0), not static export.
     - "Admin modules" and "Database rules" paragraphs: remove what is now false (Firebase Auth, `OWNER_UID`, `SIT_OWNER_UID`, `ownerUidFor`, `REPLACE_WITH_OWNER_UID`, the Firestore-emulator remark about sign-in). State that the owner is the verified Google email in `ADMIN_EMAIL`, decided on the server by `src/lib/admin/access.ts` and `src/lib/auth.ts`; that the remaining Firebase stores and the two rules files stay until the slice that replaces them; that the panel's access no longer depends on the rules.
     - Add a short "Settings" paragraph: the four names `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `ADMIN_EMAIL`, set by the owner in Vercel for Production and SIT, never in the repo; the three Google return addresses of D3.
     - The "Never violate" first bullet ("The six Invariants above — static export, …") names the new Invariant 1. Replace `**Never write or read a secret.** The site has none.` by a rule: no secret values in the repo, pages or logs; settings by name only; never read, print or edit `.env*`; tests generate their own per-run values. Must not write any setting name followed by `=` or `:` and a quoted value.
-  - `docs/features/OVERVIEW.md`: §1 says the public site is prerendered and served by Vercel, with sign-in and the panel the only server parts. §2 item 1 states that public pages are prerendered and the server runs only sign-in and the panel (see item 6). Item 4 lists `next.config.ts`, `vercel.json` and `absoluteUrl()`. Item 5 begins with the exact words "Superseded in part by item 6 (hosting, sign-in and storage)" and no longer says the panel stays a static page or that security is Firestore rules. Items 6 and 7 are not changed.
-  - `.claude/repo-profile.md`: the `npm run build` row no longer says it is the static export (it builds the site and is the only step that catches boundary violations and a public page that became dynamic); the single-test row needs a current `.next/` build; the "no unit-test framework" paragraph drops the emulator sentence; the `.env` paragraph says the site reads four settings by name, never to read, print or edit `.env*`, and that the test run sets its own per-run values; the Behavioral gate paragraph says Playwright runs against `next start` on `http://localhost:3100` with a per-run `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` and `ADMIN_EMAIL` generated by `playwright.config.ts`, a stand-in for Google, no emulator and no Java, and that the earlier admin specs for the Firebase editors still in `e2e/` cannot pass and are deleted by the slice that replaces each screen.
+  - `docs/features/OVERVIEW.md`: §1 says the public site is prerendered and served by Vercel, with sign-in and the panel the only server parts. §2 item 1 states that public pages are prerendered and the server runs only sign-in and the panel (see item 6). Item 4 lists `next.config.ts`, `vercel.json` and `absoluteUrl()`. Item 5 becomes exactly: "Superseded in part by item 6 (hosting, sign-in and storage). Owner ruling, 2026-11-26 (`docs/requirements/admin-content-panel-intent.md`): item 2 is superseded in stages. A private owner-only admin panel at `/bright-warm-greenhouse/` edits all content (blog posts as markdown); until the phase-2 migration ships, the public site still renders from the repo (`content/blog/*.md` and component data)." Items 6 and 7 are not changed.
+  - `.claude/repo-profile.md`: the `npm run build` row no longer says it is the static export (it builds the site and is the only step that catches boundary violations and a public page that became dynamic); the single-test row needs a current `.next/` build; the sentence "`npm run build` writes `.next/` and `out/`, and `npm run dev` shares `.next/`" becomes "`npm run build` writes `.next/`, and `npm run dev` shares `.next/`" (there is no `out/` any more); the "no unit-test framework" paragraph drops the emulator sentence; the `.env` paragraph says the site reads four settings by name, never to read, print or edit `.env*`, and that the test run sets its own per-run values; the Behavioral gate paragraph says Playwright runs against `next start` on `http://localhost:3100` with a per-run `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` and `ADMIN_EMAIL` generated by `playwright.config.ts`, a stand-in for Google, no emulator and no Java, and that the earlier admin specs for the Firebase editors still in `e2e/` cannot pass and are deleted by the slice that replaces each screen.
   - `e2e/owner-google-sign-in.spec.ts` gains `E2E-31` as written in Section 4.
 - **Risk:** low — documentation only; the mechanical gate and the feature review cover it.
 - **Verify:**
   - `npx playwright test e2e/owner-google-sign-in.spec.ts -g "E2E-31"` → 1 passed
-  - `npx playwright test e2e/owner-google-sign-in.spec.ts` → 32 passed (every `e2e` row of this feature)
+  - `npx playwright test e2e/owner-google-sign-in.spec.ts` → 33 passed (every `e2e` row of this feature)
   - manual E2E-32: owner opens the SIT panel, signs in with the real Google account, then with a second account, per Section 4; reported as pending until the owner runs it
   - manual E2E-33: owner runs the two searches of Section 4 for their real email; reported as pending until the owner runs it
-- **Stop-if:** `CLAUDE.md`, `docs/features/OVERVIEW.md` or `.claude/repo-profile.md` no longer contain the substrings Section 4 E2E-31 says must go (another change already edited them; re-read and amend what remains); the Steps 1 to 3 are not committed.
+- **Stop-if:** `CLAUDE.md`, `docs/features/OVERVIEW.md` or `.claude/repo-profile.md` no longer contain the substrings Section 4 E2E-31 says must go (another change already edited them; re-read and amend what remains); the Steps 1 to 4 are not committed.
 
 ## Version history
 
 | Version | Date | Change |
 | ------- | ---- | ------ |
 | 0.1.0 | 2026-11-27 | First full specification. |
+| 0.2.0 | 2026-11-27 | Review round 1 and the intent §4 ruling on the mechanical gate: new Step 2 (gate allowance; TS-15, BR-23, D22, AC-35, E2E-35); later Steps renumbered 3, 4, 5 (nothing was built, so no commit refers to the old numbers); Step 1 E2E-25 guard; text rules for E2E-28 and E2E-34; augmentation contract; OVERVIEW item 5 text; profile line 51; E2E-31 present string; Section 6 dispositions. |

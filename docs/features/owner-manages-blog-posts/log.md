@@ -1,0 +1,19 @@
+=====================================================================
+Task 1 — The post shape check, the blog_posts store, the owner-only route and the public published read
+Completed: 2026-11-27      Commit: 67a7597
+
+Summary: Blog posts get their own store (the slug is the identity and must be unique). The owner route at /api/admin/blog-posts/ has GET, POST, PUT and DELETE: the owner check runs before any body read and the slug pattern before any database call; one atomic insert answers a taken slug with 409; PUT or DELETE of an absent slug answers 404 and never inserts; a missing draft flag stores a draft. A public read of published posts at /api/admin/blog-posts/published/ (GET only) filters to published in the SQL itself, answers a draft and a missing slug identically, and reads no session, cookie or header. The table has row level security on, no policy, and a status check of draft or published. It sits under api/admin only because the mechanical gate allows no other new route path and no gate change is approved. No public page calls it: public pages reading from the database stays a later goal.
+Decisions: The five stand-in post functions share one module-level promise chain so two concurrent POSTs store one post (the chain's tail is caught so a failed write does not block the next). blogPostFromData's id is now optional and the slug comes from data.slug first, so the Firebase store still compiles unchanged. A stand-in element is skipped on read when its slug is not text or its status is neither value; writes keep every other element untouched. blogPostShape joins tags with a comma and space. The routes copy HEADERS, reply, refusal, readBody and idOf from the tech-stack route; the published route has no auth or header imports.
+Deviations: The test author narrowed one grep in E2E-01 (it matches a quoted @supabase/<name> module, the shape an import has) because the row's literal wording also matches two pieced-together test strings in earlier specs and would fail on the unchanged repository; the risk reviewer confirmed the package.json dependency equality in the same row still fails on any added client library, so no coverage is lost.
+Files changed: src/lib/admin/blogposts.ts (modified), src/lib/server/postSql.ts (created), src/lib/server/database.ts (modified), src/lib/server/postStore.ts (created), src/app/api/admin/blog-posts/route.ts (created), src/app/api/admin/blog-posts/published/route.ts (created), e2e/owner-manages-blog-posts.spec.ts (created)
+E2E tests written: E2E-01 to E2E-14      Passed before the change: E2E-01 (the guard row the spec names)
+Manual checks pending: E2E-36 (the owner's SIT check of the real database, the pooler and row level security).
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: two DOC-CLAUDE warnings for the two new routes, answered: this spec's D-19 has Task 2 add the CLAUDE.md Routes rows, so the orchestrator did not edit CLAUDE.md here)
+Tier: high (spec Risk: high; large-diff 504 non-test lines; test-passed-before-change)
+Review: risk reviewer PASS (review 1). The reviewer copied the repo to a scratch directory, removed the stand-in's published filter and the draft guard, rebuilt, and confirmed three tests (E2E-10, E2E-13, E2E-14) then fail, so the draft-exposure tests are not vacuous.
+Findings: edge-case | note | logged | a body or excerpt containing U+0000 or a lone surrogate passes validation but PostgreSQL jsonb rejects it, so on the real database the owner gets 503 instead of 400 (owner-only, fail-closed; for the SIT check E2E-36)
+ nit | note | logged | the narrowed E2E-01 grep would miss a quoted subpath such as @supabase/x/y or a backtick string; the dependency equality in the same row would still fail on any added client library
+=====================================================================

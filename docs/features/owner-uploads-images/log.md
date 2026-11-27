@@ -93,3 +93,22 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+
+=====================================================================
+Task 6 — Amend the standing docs the storage makes false
+Completed: 2026-11-27      Commit: 1277c19
+
+Summary: CLAUDE.md and the repo profile now say the site reads seven settings by name (including SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY), describe the image store, the one-file upload address and the storage stand-in used by tests, and no longer carry statements about image storage that stopped holding.
+Decisions: The two Routes rows for /api/admin/images/ and /api/admin/images/upload/ already existed (added during Task 3), so they were left as they were.
+Deviations: None.
+Files changed: CLAUDE.md (modified), .claude/repo-profile.md (modified), e2e/owner-uploads-images.spec.ts (modified)
+E2E tests written: E2E-35      Passed before the change: None.
+Manual checks pending: E2E-36 (the owner's SIT check: needs the pull request merged into develop and SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY set for SIT).
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

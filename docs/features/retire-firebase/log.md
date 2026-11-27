@@ -36,3 +36,22 @@ Tier: high (the Step's own Risk line)
 Review: risk reviewer PASS (review 1). It compared the lock package by package (nothing added, no version changed; ten surviving entries differ only in dev/optional flag keys), parsed both workflows, and confirmed CI needs no secret.
 Findings: None.
 =====================================================================
+=====================================================================
+Task 3 — Rewrite the standing documents for the new stack
+Completed: 2026-11-27      Commit: 782f2c4
+
+Summary: README.md is now a real description of the site, the stack (Vercel, Auth.js, Supabase), how to run it, the checks and the branches, replacing a four-line draft note. Reference.md is rewritten for the new stack: the route table gains the /api/auth/* and /api/admin/* rows, the Backend section lists the server pieces, the panel tree drops the notice and user-ID states, and the deployment notes say sign-in does not work on preview addresses. CLAUDE.md loses its leftover-rules paragraph and the Firebase wording; the repo profile loses the rules-job and service-account wording; OVERVIEW.md's index lists the feature. Every string earlier specs still read from these documents is kept.
+Decisions: README paragraphs are the implementer's own wording within the Step's keyword list; Reference.md's /api/auth/* row points at the nextauth route file and /api/admin/* at src/app/api/admin/**; the earlier-admin-specs sentence in the profile was removed with its line break.
+Deviations: None.
+Files changed: README.md, Reference.md, CLAUDE.md, .claude/repo-profile.md, docs/features/OVERVIEW.md (modified); e2e/retire-firebase.spec.ts (E2E-63 added)
+E2E tests written: E2E-63      Passed before the change: None.
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: low
+Review: none (low tier)
+Findings: None.
+Cross-spec check (extra, not required by the gate): every earlier owner-* spec was run whole, one at a time, after the edit, and all passed (sign-in 33, profile 30, uploads 35, experience 29, projects 30, certifications 34, tech-stack 34, blog posts 34, preview 17). Running several spec files in one command makes them interfere through the shared stand-in database (empty-list expectations fail), so they must be run one file per command.
+=====================================================================

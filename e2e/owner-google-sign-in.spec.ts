@@ -1,4 +1,7 @@
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { expect, test } from "@playwright/test";
 
 // Public-site checks that must still hold once the static export is lifted and the
@@ -112,4 +115,121 @@ test("E2E-27: next-auth is pinned exactly, http-server is gone and the Firebase 
   expect(pkg.devDependencies?.["http-server"]).toBeUndefined();
   expect(pkg.dependencies?.firebase).toBeDefined();
   expect(pkg.devDependencies?.["firebase-tools"]).toBeDefined();
+});
+
+// E2E-35 builds a throw-away git repository and runs the mechanical gate in it. This file is itself scanned by the
+// gate, so the quote characters and the module names are put together from pieces.
+const Q = String.fromCharCode(34);
+const DIRECTIVE = Q + "use " + "server" + Q + ";";
+const BODY = "export const f = 1;";
+const importLine = (name: string, mod: string) => "import " + name + " fr" + "om " + Q + mod + Q + ";";
+
+type GateRun = { lines: string[]; status: number | null };
+
+function runGate(files: { file: string; content: string }[]): GateRun {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-"));
+  try {
+    const sh = (cmd: string, args: string[], env: Record<string, string> = {}) =>
+      spawnSync(cmd, args, { cwd: dir, encoding: "utf8", env: { ...process.env, ...env } });
+
+    sh("git", ["init", "-q"]);
+    fs.mkdirSync(path.join(dir, "docs/features/fixture"), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "docs/features/fixture/spec.md"),
+      [
+        "## 8. Implementation plan",
+        "",
+        "## Phase A " + String.fromCharCode(8212) + " Fixture",
+        "",
+        "### Step 1 " + String.fromCharCode(8212) + " Fixture",
+        "",
+        "- **Files:**",
+        ...files.map((f) => "  - add `" + f.file + "`"),
+        "- **Risk:** low " + String.fromCharCode(8212) + " fixture",
+        "- **Verify:**",
+        "  - `npm run typecheck`",
+        "",
+      ].join("\n"),
+    );
+    fs.mkdirSync(path.join(dir, "scripts"), { recursive: true });
+    fs.copyFileSync(path.join(process.cwd(), "scripts/check-task.sh"), path.join(dir, "scripts/check-task.sh"));
+    sh("git", ["add", "docs/features/fixture/spec.md", "scripts/check-task.sh"]);
+    sh("git", [
+      "-c",
+      "user.email=fixture@example.test",
+      "-c",
+      "user.name=fixture",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "-q",
+      "-m",
+      "init",
+    ]);
+
+    for (const f of files) {
+      fs.mkdirSync(path.dirname(path.join(dir, f.file)), { recursive: true });
+      fs.writeFileSync(path.join(dir, f.file), f.content);
+    }
+
+    const result = sh("bash", ["scripts/check-task.sh", "fixture", "1"], { CHECK_SKIP_RUN: "1" });
+    return { lines: (result.stdout ?? "").split("\n"), status: result.status };
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+const starts = (run: GateRun, prefix: string) => run.lines.filter((l) => l.startsWith(prefix));
+const startsWithPath = (run: GateRun, prefix: string, p: string) =>
+  run.lines.filter((l) => l.startsWith(prefix) && l.includes(p));
+
+test("E2E-35: the mechanical gate accepts this feature's server pieces and still rejects the neighbouring cases", async () => {
+  test.setTimeout(120000);
+  const withDirective = [DIRECTIVE, BODY].join("\n");
+
+  // (a) a Server Action file at the one allowed path
+  const a = runGate([{ file: "src/app/bright-warm-greenhouse/actions.ts", content: withDirective }]);
+  expect(starts(a, "PASS STATIC"), "(a) PASS STATIC").not.toEqual([]);
+  expect(starts(a, "FAIL STATIC"), "(a) FAIL STATIC").toEqual([]);
+
+  // (b) the same directive in any other file
+  const bPath = "src/app/bright-warm-greenhouse/other.ts";
+  const b = runGate([{ file: bPath, content: withDirective }]);
+  expect(startsWithPath(b, "FAIL STATIC", bPath), "(b) FAIL STATIC names the path").not.toEqual([]);
+  expect(starts(b, "PASS STATIC"), "(b) PASS STATIC").toEqual([]);
+  expect(b.status, "(b) exit status").toBe(1);
+
+  // (c) the Auth.js handler path
+  const c = runGate([{ file: "src/app/api/auth/[...nextauth]/route.ts", content: BODY }]);
+  expect(starts(c, "PASS STATIC"), "(c) PASS STATIC").not.toEqual([]);
+  expect(starts(c, "FAIL STATIC"), "(c) FAIL STATIC").toEqual([]);
+
+  // (d) any other API route
+  const dPath = "src/app/api/other/route.ts";
+  const d = runGate([{ file: dPath, content: BODY }]);
+  expect(startsWithPath(d, "FAIL STATIC", dPath), "(d) FAIL STATIC names the path").not.toEqual([]);
+  expect(d.status, "(d) exit status").toBe(1);
+
+  // (e) middleware and proxy files
+  for (const p of ["middleware.ts", "src/middleware.ts", "proxy.ts", "src/proxy.ts"]) {
+    const e = runGate([{ file: p, content: BODY }]);
+    expect(startsWithPath(e, "FAIL STATIC", p), "(e) FAIL STATIC names " + p).not.toEqual([]);
+    expect(e.status, "(e) exit status for " + p).toBe(1);
+  }
+
+  // (f) next-auth is no longer a forbidden import
+  const f = runGate([{ file: "src/lib/auth.ts", content: importLine("NextAuth", ["next", "auth"].join("-")) + "\n" }]);
+  expect(starts(f, "PASS IMPORTS"), "(f) PASS IMPORTS").not.toEqual([]);
+  expect(starts(f, "FAIL IMPORTS"), "(f) FAIL IMPORTS").toEqual([]);
+
+  // (g) and (h) other forbidden imports still fail
+  const gPath = "src/lib/x.ts";
+  const g = runGate([{ file: gPath, content: importLine("x", "je" + "st") + "\n" }]);
+  expect(startsWithPath(g, "FAIL IMPORTS", gPath), "(g) FAIL IMPORTS names the path").not.toEqual([]);
+  expect(g.status, "(g) exit status").toBe(1);
+
+  const hPath = "src/lib/y.ts";
+  const h = runGate([{ file: hPath, content: importLine("y", "@supabase/" + "supabase-js") + "\n" }]);
+  expect(startsWithPath(h, "FAIL IMPORTS", hPath), "(h) FAIL IMPORTS names the path").not.toEqual([]);
+  expect(h.status, "(h) exit status").toBe(1);
 });

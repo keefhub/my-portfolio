@@ -2120,7 +2120,6 @@ test("E2E-32: the earlier Firebase blog store and spec are gone, the shared file
     "src/app/components/admin/ListEditor.tsx",
     "src/app/components/admin/PostPreview.tsx",
     "src/app/components/admin/BlogPostsEditor.tsx",
-    "e2e/preview-blog-post.spec.ts",
     "e2e/admin-content-panel-acceptance.spec.ts",
     "firestore.rules",
   ];

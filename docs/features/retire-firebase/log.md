@@ -18,3 +18,21 @@ Findings: vacuous-test | note | logged | E2E-41 counts a listed path only if it 
  vacuous-test | note | logged | E2E-54 catches a signed-out write only if it creates a visible published post; the stand-in list is empty, so a write that only empties it would pass
  doc | note | logged | the first Stop-if was not run on the unchanged tree; covered by E2E-51 on the post-deletion build
 =====================================================================
+=====================================================================
+Task 2 — Remove the packages, the deploy jobs and the Firebase ignore lines, and finish the earlier-spec edits
+Completed: 2026-11-27      Commit: 1fc62e2
+
+Summary: The firebase and firebase-tools packages and the two rules deploy scripts are removed with npm uninstall, so the lock file was rewritten by npm (588 entries from 1232; no version moved, and next, next-auth and postgres keep their pins). The pipeline workflow now holds only master-source and verify, with no secret, environment or hosting command. The Firebase ignore lines and the code scanning comment are updated. Four new rows (E2E-58 to E2E-61) prove it, and eight earlier specs finish their dependency-list and title edits. The build lists the public routes static and the panel and every /api route dynamic.
+Decisions: Removed the two deploy scripts by a text replace after the uninstall; wrote the workflow and ignore edits exactly as the Step gave them; trimmed the workflow after the verify job's last step.
+Deviations: None.
+Files changed: package.json, package-lock.json, .github/workflows/pipeline.yml, .github/workflows/codeql.yml, .gitignore (modified); e2e/retire-firebase.spec.ts and eight earlier specs (modified)
+E2E tests written: E2E-58 to E2E-61 (E2E-62 is the build's route list, checked by the Verify)      Passed before the change: None.
+Manual checks pending: E2E-69 (the Build and lint job on GitHub after the pull request is opened).
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (first run FAIL MANIFEST on a stray untracked firestore-debug.log, an emulator log that belonged to no task; deleted, rerun passed with no warnings)
+Tier: high (the Step's own Risk line)
+Review: risk reviewer PASS (review 1). It compared the lock package by package (nothing added, no version changed; ten surviving entries differ only in dev/optional flag keys), parsed both workflows, and confirmed CI needs no secret.
+Findings: None.
+=====================================================================

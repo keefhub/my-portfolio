@@ -1,7 +1,14 @@
 "use client";
 
-import { emptyExperience, checkExperience, experienceLabel, type ExperienceContent } from "@/lib/admin/experience";
-import { experienceStore } from "@/lib/firebase/experience";
+import {
+  emptyExperience,
+  checkExperience,
+  experienceFromData,
+  experienceLabel,
+  experienceToData,
+  type ExperienceContent,
+} from "@/lib/admin/experience";
+import { createHttpListStore } from "@/lib/admin/listClient";
 import ListEditor, { type ListFieldsProps } from "./ListEditor";
 import {
   FieldError,
@@ -14,6 +21,12 @@ import {
   listStyle,
   textareaStyle,
 } from "./formParts";
+
+const store = createHttpListStore<ExperienceContent>(
+  "/api/admin/experience/",
+  experienceFromData,
+  experienceToData,
+);
 
 type TextKey = "year" | "title" | "company" | "duration";
 
@@ -109,12 +122,11 @@ function renderFields(props: ListFieldsProps<ExperienceContent>): React.ReactNod
   );
 }
 
-export default function ExperienceEditor(props: { savingOn: boolean }): React.JSX.Element {
+export default function ExperienceEditor(): React.JSX.Element {
   return (
     <ListEditor<ExperienceContent>
       heading="Experience"
-      savingOn={props.savingOn}
-      store={experienceStore}
+      store={store}
       label={experienceLabel}
       emptyContent={emptyExperience}
       check={checkExperience}

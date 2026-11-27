@@ -138,9 +138,9 @@ depends on database rules.
 `src/lib/server/` holds the server-only modules (the SQL text, the database connection, the stand-in, the
 profile store, the storage module and the image store); `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are read
 in one file there (`src/lib/server/storage.ts`). It is imported only by `src/app/api/admin/**`, never by a
-client component, a public page or a layout. The owner decision stays in `src/lib/admin/access.ts` and `src/lib/auth.ts`.
+client component, a public page or a layout. The owner decision stays in `src/lib/admin/access.ts` and `src/lib/auth.ts`. The shared list pattern is `ListEditor.tsx` with the browser store `createHttpListStore` (`src/lib/admin/listClient.ts`), the server `createListService` (`src/lib/server/listStore.ts`) and the list SQL (`src/lib/server/listSql.ts`); each later list slice adds its table name, a route file and an editor.
 
-**Leftover rules.** The profile and the images are now stored in Supabase and their Firebase stores are gone. The other Firebase
+**Leftover rules.** The profile, the images and the experience entries are now stored in Supabase and their Firebase stores are gone. The other Firebase
 stores and the two rules files ([firestore.rules](firestore.rules), [storage.rules](storage.rules)) stay until
 the slice that replaces each one; retire-firebase removes what is left.
 

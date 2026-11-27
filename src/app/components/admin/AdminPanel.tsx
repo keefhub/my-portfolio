@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { signInAction, signOutAction } from "@/app/bright-warm-greenhouse/actions";
 import type { PanelState } from "@/lib/admin/access";
 import { ADMIN_SECTIONS } from "@/lib/admin/sections";
+import ExperienceEditor from "./ExperienceEditor";
 import ImageLibrary from "./ImageLibrary";
 import ProfileEditor from "./ProfileEditor";
 
@@ -106,7 +107,11 @@ export default function AdminPanel(props: {
         </nav>
         {section && section.id === "profile" && <ProfileEditor />}
         {section && section.id === "images" && <ImageLibrary />}
-        {section && section.id !== "profile" && section.id !== "images" && (
+        {section && section.id === "experience" && <ExperienceEditor />}
+        {section &&
+          section.id !== "profile" &&
+          section.id !== "images" &&
+          section.id !== "experience" && (
           <p role="status" style={{ margin: 0, color: "var(--muted)" }}>
             {section.label} editor is not available yet.
           </p>

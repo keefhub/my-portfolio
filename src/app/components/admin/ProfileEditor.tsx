@@ -5,133 +5,58 @@ import {
   PROFILE_MESSAGES,
   checkProfile,
   emptyProfile,
-  photoSelection,
+  profileFromData,
   type ProfileContent,
   type ProfileErrors,
-  type SocialLink,
 } from "@/lib/admin/profile";
-import type { ImageRecord } from "@/lib/admin/images";
-import { listImages } from "@/lib/firebase/images";
-import { loadProfile, saveProfile } from "@/lib/firebase/profile";
+import {
+  FieldError,
+  buttonStyle,
+  errorStyle,
+  fieldProps,
+  groupStyle,
+  inputStyle,
+  labelStyle,
+  legendStyle,
+  listStyle,
+  statusStyle,
+  textareaStyle,
+} from "./formParts";
 
-type FormState = {
-  name: string;
-  headline: string;
-  about: string[];
-  imageId: string;
-  path: string;
-  email: string;
-  resumeLink: string;
-  socialLinks: SocialLink[];
-};
+const PROFILE_URL = "/api/admin/profile/";
+const REQUEST_TIMEOUT_MS = 15000;
 
-type Loaded = {
-  kind: "ready";
-  exists: boolean;
-  images: ImageRecord[];
-  imagesFailed: boolean;
-  form: FormState;
-};
-
-type LoadState = { kind: "loading" } | { kind: "failed" } | Loaded;
+type LoadState =
+  | { kind: "loading" }
+  | { kind: "failed" }
+  | { kind: "ready"; exists: boolean; form: ProfileContent };
 
 type Message = { kind: "status" | "alert"; text: string } | null;
 
-const buttonStyle: React.CSSProperties = {
-  minHeight: 44,
-  background: "var(--surface-alt)",
-  border: "1px solid var(--border-strong)",
-  color: "var(--foreground)",
-  borderRadius: "var(--radius-md)",
-  padding: "0 16px",
-  cursor: "pointer",
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  boxSizing: "border-box",
-  minHeight: 44,
-  background: "var(--surface-alt)",
-  color: "var(--foreground)",
-  border: "1px solid var(--border-strong)",
-  borderRadius: "var(--radius-md)",
-  padding: "8px 12px",
-  font: "inherit",
-  overflowWrap: "anywhere",
-};
-
-const textareaStyle: React.CSSProperties = { ...inputStyle, minHeight: 88 };
-
-const labelStyle: React.CSSProperties = {
-  color: "var(--foreground)",
-  display: "flex",
-  flexDirection: "column",
-  gap: 4,
-  overflowWrap: "anywhere",
-};
-
-const errorStyle: React.CSSProperties = {
-  color: "var(--accent-rose)",
-  margin: 0,
-  overflowWrap: "anywhere",
-};
-
-const statusStyle: React.CSSProperties = {
-  color: "var(--muted)",
-  margin: 0,
-  overflowWrap: "anywhere",
-};
-
-const groupStyle: React.CSSProperties = {
-  border: "none",
-  margin: 0,
-  padding: 0,
-  minWidth: 0,
+const rowStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 8,
+  minWidth: 0,
 };
 
-const legendStyle: React.CSSProperties = {
-  color: "var(--foreground)",
-  padding: 0,
-  marginBottom: 8,
-};
+const actionStyle: React.CSSProperties = { ...buttonStyle, alignSelf: "flex-start" };
 
-const listStyle: React.CSSProperties = {
-  listStyle: "none",
-  margin: 0,
-  padding: 0,
-  display: "flex",
-  flexDirection: "column",
-  gap: 12,
-};
-
-function toForm(content: ProfileContent, images: readonly ImageRecord[]): FormState {
-  const sel = photoSelection(content.photo, images);
-  return {
-    name: content.name,
-    headline: content.headline,
-    about: content.about,
-    imageId: sel.imageId,
-    path: sel.path,
-    email: content.email,
-    resumeLink: content.resumeLink,
-    socialLinks: content.socialLinks,
-  };
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
-function FieldError({ id, text }: { id: string; text: string | undefined }): React.JSX.Element | null {
-  if (!text) return null;
-  return (
-    <p role="alert" id={id} style={errorStyle}>
-      {text}
-    </p>
-  );
+async function readBody(response: Response): Promise<Record<string, unknown> | null> {
+  if (!response.ok) return null;
+  try {
+    const body: unknown = await response.json();
+    return isObject(body) ? body : null;
+  } catch {
+    return null;
+  }
 }
 
-export default function ProfileEditor(props: { savingOn: boolean }): React.JSX.Element {
-  const { savingOn } = props;
+export default function ProfileEditor(): React.JSX.Element {
   const [load, setLoad] = useState<LoadState>({ kind: "loading" });
   const [errors, setErrors] = useState<ProfileErrors | null>(null);
   const [message, setMessage] = useState<Message>(null);
@@ -142,20 +67,23 @@ export default function ProfileEditor(props: { savingOn: boolean }): React.JSX.E
   useEffect(() => {
     mounted.current = true;
     async function initialLoad(): Promise<void> {
-      let next: LoadState;
-      const [profileResult, imagesResult] = await Promise.allSettled([loadProfile(), listImages()]);
-      if (profileResult.status === "rejected") {
+      let next: LoadState = { kind: "failed" };
+      try {
+        const response = await fetch(PROFILE_URL, {
+          cache: "no-store",
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        });
+        const body = await readBody(response);
+        if (body !== null && "profile" in body) {
+          const stored = body.profile;
+          if (stored === null) {
+            next = { kind: "ready", exists: false, form: emptyProfile() };
+          } else if (isObject(stored)) {
+            next = { kind: "ready", exists: true, form: profileFromData(stored) };
+          }
+        }
+      } catch {
         next = { kind: "failed" };
-      } else {
-        const images = imagesResult.status === "fulfilled" ? imagesResult.value : [];
-        const stored = profileResult.value;
-        next = {
-          kind: "ready",
-          exists: stored !== null,
-          images,
-          imagesFailed: imagesResult.status === "rejected",
-          form: toForm(stored ?? emptyProfile(), images),
-        };
       }
       if (!mounted.current) return;
       setLoad(next);
@@ -166,27 +94,17 @@ export default function ProfileEditor(props: { savingOn: boolean }): React.JSX.E
     };
   }, []);
 
-  function update(patch: Partial<FormState>): void {
+  function update(patch: Partial<ProfileContent>): void {
     setLoad((cur) => (cur.kind === "ready" ? { ...cur, form: { ...cur.form, ...patch } } : cur));
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (savingRef.current || load.kind !== "ready") return;
-    const { form, images } = load;
+    const { form } = load;
     setErrors(null);
     setMessage(null);
-    const picked = images.find((i) => i.id === form.imageId);
-    const photo = picked ? picked.url : form.path;
-    const result = checkProfile({
-      name: form.name,
-      headline: form.headline,
-      about: form.about,
-      photo,
-      email: form.email,
-      resumeLink: form.resumeLink,
-      socialLinks: form.socialLinks,
-    });
+    const result = checkProfile(form);
     if (!result.ok) {
       setErrors(result.errors);
       return;
@@ -195,20 +113,22 @@ export default function ProfileEditor(props: { savingOn: boolean }): React.JSX.E
     setSaving(true);
     setMessage({ kind: "status", text: PROFILE_MESSAGES.saving });
     try {
-      await saveProfile(result.content);
+      const response = await fetch(PROFILE_URL, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(result.content),
+        cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      const body = await readBody(response);
+      if (body === null || !isObject(body.profile)) throw new Error("save failed");
+      const saved = profileFromData(body.profile);
       if (!mounted.current) return;
-      setLoad((cur) =>
-        cur.kind === "ready"
-          ? { ...cur, exists: true, form: toForm(result.content, cur.images) }
-          : cur,
-      );
+      setLoad({ kind: "ready", exists: true, form: saved });
       setMessage({ kind: "status", text: PROFILE_MESSAGES.saved });
     } catch {
       if (!mounted.current) return;
-      setMessage({
-        kind: "alert",
-        text: savingOn ? PROFILE_MESSAGES.notSaved : PROFILE_MESSAGES.notSavedOff,
-      });
+      setMessage({ kind: "alert", text: PROFILE_MESSAGES.notSaved });
     } finally {
       savingRef.current = false;
       if (mounted.current) setSaving(false);
@@ -229,11 +149,10 @@ export default function ProfileEditor(props: { savingOn: boolean }): React.JSX.E
       </p>
     );
   } else {
-    const { form, images } = load;
+    const { form } = load;
     const linkErrors = errors?.socialLinks ?? [];
-    const describe = (id: string, text: string | undefined): React.HTMLAttributes<HTMLElement> & {
-      "aria-invalid"?: true;
-    } => (text ? { "aria-describedby": id, "aria-invalid": true } : {});
+    const fieldStyle: React.CSSProperties = { ...inputStyle, minWidth: 0 };
+    const labelBox: React.CSSProperties = { ...labelStyle, minWidth: 0 };
     content = (
       <>
         {!load.exists && (
@@ -241,43 +160,41 @@ export default function ProfileEditor(props: { savingOn: boolean }): React.JSX.E
             {PROFILE_MESSAGES.noProfile}
           </p>
         )}
-        {load.imagesFailed && (
-          <p role="alert" style={errorStyle}>
-            {PROFILE_MESSAGES.imagesFailed}
-          </p>
-        )}
         {message && (
-          <p role={message.kind === "alert" ? "alert" : "status"} style={message.kind === "alert" ? errorStyle : statusStyle}>
+          <p
+            role={message.kind === "alert" ? "alert" : "status"}
+            style={message.kind === "alert" ? errorStyle : statusStyle}
+          >
             {message.text}
           </p>
         )}
         <form
           noValidate
           onSubmit={(e) => void handleSubmit(e)}
-          style={{ display: "flex", flexDirection: "column", gap: 16 }}
+          style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}
         >
-          <label style={labelStyle}>
+          <label style={labelBox}>
             Name
             <input
               type="text"
-              style={inputStyle}
+              style={fieldStyle}
               value={form.name}
               disabled={saving}
               onChange={(e) => update({ name: e.target.value })}
-              {...describe("profile-name-error", errors?.name)}
+              {...fieldProps("profile-name-error", errors?.name)}
             />
           </label>
           <FieldError id="profile-name-error" text={errors?.name} />
 
-          <label style={labelStyle}>
+          <label style={labelBox}>
             Headline
             <input
               type="text"
-              style={inputStyle}
+              style={fieldStyle}
               value={form.headline}
               disabled={saving}
               onChange={(e) => update({ headline: e.target.value })}
-              {...describe("profile-headline-error", errors?.headline)}
+              {...fieldProps("profile-headline-error", errors?.headline)}
             />
           </label>
           <FieldError id="profile-headline-error" text={errors?.headline} />
@@ -286,10 +203,10 @@ export default function ProfileEditor(props: { savingOn: boolean }): React.JSX.E
             <legend style={legendStyle}>About</legend>
             <ul aria-label="About paragraphs" style={listStyle}>
               {form.about.map((paragraph, i) => (
-                <li key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <li key={i} style={rowStyle}>
                   <textarea
                     aria-label={`About paragraph ${i + 1}`}
-                    style={textareaStyle}
+                    style={{ ...textareaStyle, minWidth: 0 }}
                     value={paragraph}
                     disabled={saving}
                     onChange={(e) =>
@@ -299,7 +216,7 @@ export default function ProfileEditor(props: { savingOn: boolean }): React.JSX.E
                   <button
                     type="button"
                     aria-label={`Remove paragraph ${i + 1}`}
-                    style={{ ...buttonStyle, alignSelf: "flex-start" }}
+                    style={actionStyle}
                     disabled={saving}
                     onClick={() => update({ about: form.about.filter((_, j) => j !== i) })}
                   >
@@ -310,7 +227,7 @@ export default function ProfileEditor(props: { savingOn: boolean }): React.JSX.E
             </ul>
             <button
               type="button"
-              style={{ ...buttonStyle, alignSelf: "flex-start" }}
+              style={actionStyle}
               disabled={saving}
               onClick={() => update({ about: [...form.about, ""] })}
             >
@@ -320,57 +237,40 @@ export default function ProfileEditor(props: { savingOn: boolean }): React.JSX.E
 
           <fieldset style={groupStyle}>
             <legend style={legendStyle}>Photo</legend>
-            <div style={labelStyle}>
-              <label htmlFor="profile-uploaded-image">Uploaded image</label>
-              <select
-                id="profile-uploaded-image"
-                style={inputStyle}
-                value={form.imageId}
-                disabled={saving}
-                onChange={(e) => update({ imageId: e.target.value, path: "" })}
-              >
-                <option value="">None</option>
-                {images.map((image) => (
-                  <option key={image.id} value={image.id}>
-                    {image.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <label style={labelStyle}>
+            <label style={labelBox}>
               Photo path
               <input
                 type="text"
-                style={inputStyle}
-                value={form.path}
+                style={fieldStyle}
+                value={form.photo}
                 disabled={saving}
-                onChange={(e) => update({ path: e.target.value, imageId: "" })}
+                onChange={(e) => update({ photo: e.target.value })}
               />
             </label>
           </fieldset>
 
-          <label style={labelStyle}>
+          <label style={labelBox}>
             Email
             <input
               type="text"
-              style={inputStyle}
+              style={fieldStyle}
               value={form.email}
               disabled={saving}
               onChange={(e) => update({ email: e.target.value })}
-              {...describe("profile-email-error", errors?.email)}
+              {...fieldProps("profile-email-error", errors?.email)}
             />
           </label>
           <FieldError id="profile-email-error" text={errors?.email} />
 
-          <label style={labelStyle}>
+          <label style={labelBox}>
             Resume link
             <input
               type="text"
-              style={inputStyle}
+              style={fieldStyle}
               value={form.resumeLink}
               disabled={saving}
               onChange={(e) => update({ resumeLink: e.target.value })}
-              {...describe("profile-resume-error", errors?.resumeLink)}
+              {...fieldProps("profile-resume-error", errors?.resumeLink)}
             />
           </label>
           <FieldError id="profile-resume-error" text={errors?.resumeLink} />
@@ -379,11 +279,11 @@ export default function ProfileEditor(props: { savingOn: boolean }): React.JSX.E
             <legend style={legendStyle}>Social links</legend>
             <ul aria-label="Social links" style={listStyle}>
               {form.socialLinks.map((link, i) => (
-                <li key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <li key={i} style={rowStyle}>
                   <input
                     type="text"
                     aria-label={`Social link ${i + 1} label`}
-                    style={inputStyle}
+                    style={fieldStyle}
                     value={link.label}
                     disabled={saving}
                     onChange={(e) =>
@@ -397,7 +297,7 @@ export default function ProfileEditor(props: { savingOn: boolean }): React.JSX.E
                   <input
                     type="text"
                     aria-label={`Social link ${i + 1} address`}
-                    style={inputStyle}
+                    style={fieldStyle}
                     value={link.url}
                     disabled={saving}
                     onChange={(e) =>
@@ -407,13 +307,13 @@ export default function ProfileEditor(props: { savingOn: boolean }): React.JSX.E
                         ),
                       })
                     }
-                    {...describe(`profile-link-${i}-error`, linkErrors[i])}
+                    {...fieldProps(`profile-link-${i}-error`, linkErrors[i])}
                   />
                   <FieldError id={`profile-link-${i}-error`} text={linkErrors[i]} />
                   <button
                     type="button"
                     aria-label={`Remove social link ${i + 1}`}
-                    style={{ ...buttonStyle, alignSelf: "flex-start" }}
+                    style={actionStyle}
                     disabled={saving}
                     onClick={() =>
                       update({ socialLinks: form.socialLinks.filter((_, j) => j !== i) })
@@ -426,7 +326,7 @@ export default function ProfileEditor(props: { savingOn: boolean }): React.JSX.E
             </ul>
             <button
               type="button"
-              style={{ ...buttonStyle, alignSelf: "flex-start" }}
+              style={actionStyle}
               disabled={saving}
               onClick={() => update({ socialLinks: [...form.socialLinks, { label: "", url: "" }] })}
             >
@@ -434,11 +334,7 @@ export default function ProfileEditor(props: { savingOn: boolean }): React.JSX.E
             </button>
           </fieldset>
 
-          <button
-            type="submit"
-            style={{ ...buttonStyle, alignSelf: "flex-start" }}
-            disabled={saving}
-          >
+          <button type="submit" style={actionStyle} disabled={saving}>
             Save
           </button>
         </form>

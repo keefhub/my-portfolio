@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { expect, test } from "@playwright/test";
+import { encode } from "next-auth/jwt";
 import {
   ALLOWED_IMAGE_TYPES,
   IMAGE_ID_PATTERN,
@@ -32,6 +33,50 @@ function dbReset(): void {
 function storeReset(): void {
   if (STORE_DIR !== "") fs.rmSync(STORE_DIR, { recursive: true, force: true });
 }
+
+function readDbFile(): Record<string, unknown> {
+  if (DB_FILE === "" || !fs.existsSync(DB_FILE)) return {};
+  return JSON.parse(fs.readFileSync(DB_FILE, "utf8")) as Record<string, unknown>;
+}
+
+// The `images` array of the database stand-in file, or [].
+function dbImages(): unknown[] {
+  const images = readDbFile().images;
+  return Array.isArray(images) ? images : [];
+}
+
+// The `profile` value of the database stand-in file, or null.
+function dbStored(): unknown {
+  const content = readDbFile();
+  return "profile" in content ? content.profile : null;
+}
+
+const PANEL_API = "/api/admin/profile/";
+
+// Session helpers, copied from the profile spec: sessions are minted with the Auth.js encoder.
+const SESSION_COOKIE = "authjs.session-token";
+type Claims = { sub: string; email: string; name: string; emailVerified: boolean };
+const setting = (name: string): string => process.env[name] ?? "";
+const OWNER = (): Claims => ({ sub: "owner-1", email: setting("ADMIN_EMAIL"), name: "Owner Test", emailVerified: true });
+
+async function mint(claims: Claims, options: { secret?: string; maxAge?: number } = {}): Promise<string> {
+  return encode({
+    token: { ...claims },
+    secret: options.secret ?? setting("AUTH_SECRET"),
+    salt: SESSION_COOKIE,
+    maxAge: options.maxAge ?? 3600,
+  });
+}
+
+const cookieOf = async (claims: Claims, options: { secret?: string; maxAge?: number } = {}): Promise<string> =>
+  SESSION_COOKIE + "=" + (await mint(claims, options));
+
+const HEADSHOT = {
+  id: "11111111-1111-4111-8111-111111111111.png",
+  name: "headshot.png",
+  contentType: "image/png",
+  size: 307200,
+};
 
 // This file is scanned by the mechanical gate and by E2E-01's repository search, so the key name and the two
 // search patterns are put together from pieces and no quoted module name follows an import keyword.
@@ -228,4 +273,127 @@ test("E2E-03: the storage log line carries the operation and a safe code and nev
   for (const line of [...Object.values(results), ...others]) {
     for (const leak of ["secret", "10.1.2.3", "443"]) expect(line.includes(leak), line + " / " + leak).toBe(false);
   }
+});
+
+function gitGrep(args: string[]): { stdout: string; status: number | null } {
+  const result = spawnSync("git", ["grep", "--untracked", ...args], { cwd: process.cwd(), encoding: "utf8" });
+  return { stdout: result.stdout ?? "", status: result.status };
+}
+
+const gitPaths = (stdout: string): string[] => stdout.split("\n").filter((line) => line !== "");
+
+test("E2E-04: the image SQL is exactly the proven text, every server file is server-only, and the database library, the storage settings and the word for the old backend stay in their files", async () => {
+  dbReset();
+  storeReset();
+
+  // (1) the image SQL module
+  const sql = fs.readFileSync("src/lib/server/imageSql.ts", "utf8");
+  const statements = [
+    "create table if not exists images (seq bigint generated always as identity, id text primary key, name text not null, content_type text not null, size integer not null, created_at timestamptz not null default now())",
+    "alter table images enable row level security",
+    "select id, name, content_type, size from images order by seq desc",
+    "select id from images where id = $1",
+    "insert into images (id, name, content_type, size) values ($1, $2, $3, $4) on conflict (id) do nothing",
+    "delete from images where id = $1 returning id",
+  ];
+  for (const statement of statements) expect(sql.includes(statement), statement).toBe(true);
+  for (const word of ["drop ", "truncate ", "update "]) expect(sql.includes(word), word).toBe(false);
+
+  // (2) the first non-empty line of every file in src/lib/server/
+  const files = fs.readdirSync("src/lib/server").filter((name) => fs.statSync("src/lib/server/" + name).isFile());
+  expect(files).toEqual(expect.arrayContaining(["imageSql.ts", "storage.ts", "storageStandin.ts"]));
+  for (const name of files) {
+    const first = fs
+      .readFileSync("src/lib/server/" + name, "utf8")
+      .split("\n")
+      .find((line) => line.trim() !== "");
+    expect(first?.trim(), name).toBe('import "server-only";');
+  }
+
+  // (3) who imports from lib/server
+  const importers = gitPaths(gitGrep(["-l", "-E", "lib/server", "--", "src"]).stdout);
+  expect(importers.length).toBeGreaterThan(0);
+  for (const path of importers) {
+    expect(path.startsWith("src/app/api/admin/") || path.startsWith("src/lib/server/"), path).toBe(true);
+  }
+
+  // (4) who names the database library
+  const dbLibrary = ["post", "gres"].join("");
+  const libraryHits = gitGrep(["-l", "-E", "[\"']" + dbLibrary + "[\"']", "--", "src"]);
+  expect(gitPaths(libraryHits.stdout)).toEqual(["src/lib/server/database.ts"]);
+
+  // (5) who reads the two storage settings
+  const urlName = ["SUPABASE", "URL"].join("_");
+  const settingHits = gitGrep(["-l", "-E", "-e", KEY_NAME, "-e", urlName, "--", "src"]);
+  expect(gitPaths(settingHits.stdout)).toEqual(["src/lib/server/storage.ts"]);
+
+  // (6) the old backend's name appears nowhere in the new server surface
+  const oldBackend = ["fire", "base"].join("");
+  const oldHits = gitGrep([
+    "-n",
+    "-i",
+    oldBackend,
+    "--",
+    "src/lib/server",
+    "src/lib/admin/storagelog.ts",
+    "src/lib/admin/imagesClient.ts",
+    "src/app/api/admin",
+  ]);
+  expect(oldHits.stdout).toBe("");
+  expect(oldHits.status).toBe(1);
+});
+
+test("E2E-05: saving the profile keeps the stored image list and reading an image-only file answers an empty profile", async ({
+  request,
+}) => {
+  dbReset();
+  storeReset();
+
+  const owner = await cookieOf(OWNER());
+  const put = (body: string) =>
+    request.put(PANEL_API, {
+      headers: { "content-type": "application/json", cookie: owner },
+      data: body,
+      maxRedirects: 0,
+    });
+
+  // (a) a file holding both keys
+  fs.writeFileSync(
+    DB_FILE,
+    '{"profile":{"name":"Keith Lim","headline":"Software Engineer"},"images":[{"id":"11111111-1111-4111-8111-111111111111.png","name":"headshot.png","contentType":"image/png","size":307200}]}',
+  );
+  const first = await put('{"name":"Second","headline":"H"}');
+  expect(first.status()).toBe(200);
+  expect(dbImages()).toEqual([HEADSHOT]);
+  expect(dbStored()).toEqual({
+    name: "Second",
+    headline: "H",
+    about: [],
+    photo: "",
+    email: "",
+    resumeLink: "",
+    socialLinks: [],
+  });
+
+  // (b) a file holding only images
+  fs.writeFileSync(
+    DB_FILE,
+    '{"images":[{"id":"11111111-1111-4111-8111-111111111111.png","name":"headshot.png","contentType":"image/png","size":307200}]}',
+  );
+  const read = await request.get(PANEL_API, { headers: { cookie: owner }, maxRedirects: 0 });
+  expect(read.status()).toBe(200);
+  expect(await read.json()).toEqual({ profile: null });
+
+  const second = await put('{"name":"Second","headline":"H"}');
+  expect(second.status()).toBe(200);
+  expect(dbStored()).toEqual({
+    name: "Second",
+    headline: "H",
+    about: [],
+    photo: "",
+    email: "",
+    resumeLink: "",
+    socialLinks: [],
+  });
+  expect(dbImages()).toEqual([HEADSHOT]);
 });

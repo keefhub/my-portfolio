@@ -42,13 +42,28 @@ export async function readStandIn(filePath: string): Promise<unknown | null> {
   return profile === undefined ? null : profile;
 }
 
-export async function writeStandIn(filePath: string, content: unknown): Promise<void> {
-  await readFileObject(filePath);
+async function writeFileObject(filePath: string, next: Record<string, unknown>): Promise<void> {
   const temporary = filePath + ".tmp";
   try {
-    await writeFile(temporary, JSON.stringify({ profile: content }), "utf8");
+    await writeFile(temporary, JSON.stringify(next), "utf8");
     await rename(temporary, filePath);
   } catch {
     throw unreachable();
   }
+}
+
+export async function writeStandIn(filePath: string, content: unknown): Promise<void> {
+  const existing = await readFileObject(filePath);
+  await writeFileObject(filePath, { ...(existing ?? {}), profile: content });
+}
+
+export async function readStandInImages(filePath: string): Promise<unknown[]> {
+  const file = await readFileObject(filePath);
+  if (file === null) return [];
+  return Array.isArray(file.images) ? file.images : [];
+}
+
+export async function writeStandInImages(filePath: string, images: unknown[]): Promise<void> {
+  const existing = await readFileObject(filePath);
+  await writeFileObject(filePath, { ...(existing ?? {}), images });
 }

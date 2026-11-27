@@ -25,6 +25,8 @@ sweep confirms a decision that later features would otherwise reopen.
 3. Theming uses CSS custom properties with a `[data-theme="dark"]` override, not Tailwind dark variants.
 4. `trailingSlash: true` stays consistent across `next.config.ts`, `firebase.json` and `absoluteUrl()`.
 5. Owner ruling, 2026-11-26 (`docs/requirements/admin-content-panel-intent.md`): item 2 is superseded in stages. A private owner-only admin panel at `/bright-warm-greenhouse/` edits all content (blog posts as markdown) in Firebase Firestore; until the phase-2 migration ships, the public site still renders from the repo (`content/blog/*.md` and component data). The panel stays a static page (item 1 holds); security is enforced by Firestore rules allowing writes only from the owner's Google account.
+6. Owner ruling, 2026-11-27 (`docs/requirements/hosting-and-backend-migration-intent.md`): hosting is Vercel (free plan), the owner signs in with Auth.js using their own Google account, and editable content and uploaded images move to Supabase (free plan); Firebase is removed. The static-export ruling is lifted for sign-in and the panel only, and public pages stay prebuilt; `trailingSlash: true` stays consistent across `next.config.ts`, `vercel.json` and `absoluteUrl()`. This supersedes the panel parts of items 1, 4 and 5. Only the owner's verified Google email (held in a setting, never committed) is allowed, and no secret value or owner email is committed. [human: intent §2.4, §4, §5]
+7. Owner ruling, 2026-11-27 (`docs/requirements/hosting-and-backend-migration-intent.md`): uploaded images are PNG, JPEG, WebP or SVG, at most 5 MB each, and live in Supabase Storage. Anyone may open an uploaded image by its address. Only the owner may upload or delete one, and the server refuses any other request, including one sent without the panel. A delete asks for confirmation and is permanent. [human: intent §2.4, §5]
 
 ## 3. Assumptions to Confirm
 
@@ -49,3 +51,6 @@ One row per feature, appended by `/help-discover-this` Mode B and `/agentic-disc
 | Manage blog posts | [manage-blog-posts](manage-blog-posts/story.md) |
 | Preview blog post | [preview-blog-post](preview-blog-post/story.md) |
 | Manage image library | [manage-image-library](manage-image-library/story.md) |
+| Owner signs in with Google | [owner-google-sign-in](owner-google-sign-in/story.md) |
+| Owner edits profile | [owner-edits-profile](owner-edits-profile/story.md) |
+| Owner uploads images | [owner-uploads-images](owner-uploads-images/story.md) |

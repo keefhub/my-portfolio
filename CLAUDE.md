@@ -287,6 +287,9 @@ Populated by `/help-discover-this` and `/agentic-discover` as features are added
 | 8 | [manage-blog-posts](docs/features/manage-blog-posts/story.md) | Most rules (unique slug, dates, draft, status list), so after the pattern is settled |
 | 9 | [preview-blog-post](docs/features/preview-blog-post/story.md) | Needs the post editor to preview from |
 | 10 | [manage-image-library](docs/features/manage-image-library/story.md) | Builds right after admin-owner-only-access (decomposition Run order 3): storage rules and uploads must exist before any editor can pick an uploaded image; needs the owner-only rules pattern from that slice |
+| 11 | [owner-google-sign-in](docs/features/owner-google-sign-in/story.md) | The gate everything else sits behind; lifts the static export for the panel, adds Auth.js, proves the `/api/auth/*` callback under `trailingSlash: true` early, and amends the standing docs the lift makes false |
+| 12 | [owner-edits-profile](docs/features/owner-edits-profile/story.md) | Simplest editor (one record); first use of the database, so it fixes the server entry point, the owner-only check, the empty and unreachable states |
+| 13 | [owner-uploads-images](docs/features/owner-uploads-images/story.md) | Storage and the owner-only upload pattern must exist before any editor can pick an uploaded image; adds the picker to the profile photo |
 
 Do not reorder or skip features without an explicit user request. Do not implement scenarios beyond what's written.
 

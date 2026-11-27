@@ -8,7 +8,7 @@ fact here when it changes.
 ## Branches
 
 - Main branch: `develop` — the base that `/thermos` and the thermo-nuclear reviews diff against.
-  Flow is feature branch → `develop` (Vercel serves it at sit.thegoldenpothos.xyz; CI publishes the SIT Firebase rules, project `thegoldenpothos-sit`) → `master` (Vercel production, thegoldenpothos.xyz; CI publishes the production rules, `thegoldenpothos-5b3a1`). The site is deployed by Vercel's Git integration, not by the workflow. Each rules job reads `FIREBASE_SERVICE_ACCOUNT` from its GitHub environment (`sit`, `production`). Only `develop` may open a pull request into `master` (the `master-source` job in `pipeline.yml`).
+  Flow is feature branch → `develop` (Vercel serves it at sit.thegoldenpothos.xyz) → `master` (Vercel production, thegoldenpothos.xyz). The site is deployed by Vercel's Git integration, not by the workflow. Only `develop` may open a pull request into `master` (the `master-source` job in `pipeline.yml`).
 - Protected branches: `develop`, `main`, `master`. No agent commits, pushes or writes to them; work on
   a feature branch and open a pull request (the guard in `scripts/guard-bash.sh` enforces it).
 - Pull requests always target `develop`. The guard refuses a `gh pr create` without `--base develop`
@@ -64,8 +64,7 @@ against the built site served by `next start` on `http://localhost:3100`, with a
 replaced by a stand-in at the browser boundary; there is no emulator and no Java. The database is replaced by a stand-in file whose path `playwright.config.ts` generates per run. File storage is replaced by a stand-in directory whose path `playwright.config.ts` generates per run; the browser's calls to the stand-in storage host are answered by the tests, and a fake storage server in the test process exercises the real `fetch` code. **`.next/` must be
 current**: run `npm run build` first. It covers what the compiler and linter cannot: hydration and
 console errors, rendered content, routing and trailing-slash URLs, sign-in and the panel screens, theme
-toggle and FOUC, scroll-spy, the mobile drawer, layout at set viewports. The earlier admin specs for the
-Firebase editors still in `e2e/` cannot pass and are deleted by the slice that replaces each screen.
+toggle and FOUC, scroll-spy, the mobile drawer, layout at set viewports.
 
 **Test file conventions:**
 
@@ -131,7 +130,7 @@ tiers, not from the layer).
 | --- | --- |
 | `data` | `content/blog/*.md`, `src/lib/blog/posts.ts`, `src/lib/blog/types.ts`, experience, project and certification data held in the components |
 | `domain` | `src/lib/site.ts`, `src/lib/blog/markdown.ts`, `src/lib/blog/rss.ts`, `src/lib/blog/index.ts`, `formatDate()` |
-| `route` | `src/app/**/page.tsx`, `layout.tsx`, `src/app/rss.xml/route.ts`, `sitemap.ts`, `robots.ts`, `next.config.ts`, `firebase.json`, `vercel.json`, `.github/workflows/` |
+| `route` | `src/app/**/page.tsx`, `layout.tsx`, `src/app/rss.xml/route.ts`, `sitemap.ts`, `robots.ts`, `next.config.ts`, `vercel.json`, `.github/workflows/` |
 | `ui` | `src/app/components/**`, `src/app/globals.css` (tokens), `ThemeProvider.tsx` |
 | `e2e` | `e2e/**`, `playwright.config.ts` |
 | `tooling` | `scripts/**`, `.claude/**` |
@@ -210,7 +209,7 @@ changes under `e2e/`. Nothing reviews the task on its own: the mechanical gate p
 feature review reads its diff.
 
 A diff that touches a sensitive path (`src/lib/**`, `src/app/layout.tsx`, `src/app/blog/**`, the
-metadata and RSS routes, `scripts/**`, `package.json`, `next.config.ts`, `firebase.json`, `vercel.json`,
+metadata and RSS routes, `scripts/**`, `package.json`, `next.config.ts`, `vercel.json`,
 `playwright.config.ts`, `.github/**`, `.claude/settings.json`) is named on the script's
 `TIER-REASONS` line as a note. It does not raise the tier by itself: the spec's `Risk:` line does.
 

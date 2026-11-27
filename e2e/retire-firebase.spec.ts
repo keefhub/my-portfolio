@@ -628,3 +628,97 @@ test("E2E-61: the site stays free of provider code, hosting commands and functio
     expect(text.includes("secrets."), `${file} holds secrets.`).toBe(false);
   }
 });
+
+test("E2E-63: the standing documents describe the new stack and keep the strings other specs need", async () => {
+  const read = (file: string): string => fs.readFileSync(file, "utf8");
+  const readme = read("README.md");
+  const reference = read("Reference.md");
+  const claude = read("CLAUDE.md");
+  const profile = read(".claude/repo-profile.md");
+  const overview = read("docs/features/OVERVIEW.md");
+
+  const mustHave = (name: string, text: string, strings: string[]): string[] =>
+    strings.filter((needle) => !text.includes(needle)).map((needle) => `${name} lacks ${needle}`);
+  const mustLack = (name: string, text: string, strings: string[]): string[] =>
+    strings.filter((needle) => text.includes(needle)).map((needle) => `${name} still holds ${needle}`);
+
+  const claudeStrings = [
+    "The blog posts are stored in Supabase",
+    "the experience entries and the projects",
+    "The certifications are stored in Supabase",
+    "The tech stack is stored in Supabase",
+    "The site reads seven settings by name",
+    "/api/auth/callback/google",
+    "stand-in:",
+    "src/lib/server/",
+    "src/app/api/admin/**",
+    ...SETTINGS,
+    "createListService",
+    "createHttpListStore",
+    "/api/admin/images/",
+    "/api/admin/images/upload/",
+    "/api/admin/profile/",
+  ];
+  const claudeRoutes = ["experience", "projects", "certifications", "tech-stack", "blog-posts", "blog-posts/published"];
+  const routeRowProblems = claudeRoutes
+    .filter(
+      (route) =>
+        !claude
+          .split("\n")
+          .some((line) => line.includes(`/api/admin/${route}/`) && line.includes(`src/app/api/admin/${route}/route.ts`)),
+    )
+    .map((route) => `CLAUDE.md has no route-table row for /api/admin/${route}/ with its route file`);
+
+  const claudeLines = claude.split("\n");
+  const orderRowProblems: string[] = [];
+  if (!claudeLines.some((line) => line.startsWith("| 1 | [admin-sign-in](docs/features/admin-sign-in/story.md)"))) {
+    orderRowProblems.push("CLAUDE.md lacks order-table row 1");
+  }
+  if (!claudeLines.some((line) => line.startsWith(`| 20 | [retire-${OLD}]`))) {
+    orderRowProblems.push("CLAUDE.md lacks order-table row 20");
+  }
+
+  const problems = [
+    ...mustHave("README.md", readme, [
+      "Vercel",
+      "Supabase",
+      "Auth.js",
+      "npm run dev",
+      "npm run build",
+      "npm run typecheck",
+      "npm run lint:new",
+      "CLAUDE.md",
+      "Reference.md",
+      ...SETTINGS,
+    ]),
+    ...mustLack("README.md", readme, ["umm"]),
+    ...mustHave("Reference.md", reference, ["Vercel", "Auth.js", "Supabase", "/api/auth/", "/api/admin/", "trailingSlash: true"]),
+    ...mustLack("Reference.md", reference, [
+      'output: "export"',
+      "tatic export",
+      "./out/",
+      "`out/`",
+      "out/blog",
+      "no server at runtime",
+      "No runtime backend",
+      "SavingOffNotice",
+      "own user ID",
+    ]),
+    ...mustHave("CLAUDE.md", claude, claudeStrings),
+    ...routeRowProblems,
+    ...mustLack("CLAUDE.md", claude, ["Leftover rules"]),
+    ...orderRowProblems,
+    ...mustHave(".claude/repo-profile.md", profile, [
+      "SUPABASE_URL",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_DB_URL",
+      "stand-in:",
+      "next start",
+      "ADMIN_EMAIL",
+      "The site reads seven settings by name",
+    ]),
+    ...mustLack(".claude/repo-profile.md", profile, ["CI publishes", "rules job", "cannot pass and are deleted by the slice"]),
+    ...mustHave("docs/features/OVERVIEW.md", overview, ["Superseded in part by item 6", "hosting is Vercel (free plan)"]),
+  ];
+  expect(problems, "document strings that are missing or still present").toEqual([]);
+});

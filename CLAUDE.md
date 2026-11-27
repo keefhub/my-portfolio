@@ -3,7 +3,7 @@
 Personal portfolio + blog for Keith Lim — `https://thegoldenpothos.xyz`.
 
 Next.js 16.2.6 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS v4 ·
-Framer Motion · public site prerendered; only sign-in (Auth.js, `next-auth` v5) and the admin panel run on the server · served by Vercel · the panel's content lives in Supabase PostgreSQL, reached with `postgres` · uploaded images live in Supabase Storage, reached with `fetch` · Firebase JS SDK remains only in the leftover admin stores until retire-firebase.
+Framer Motion · public site prerendered; only sign-in (Auth.js, `next-auth` v5) and the admin panel run on the server · served by Vercel · the panel's content lives in Supabase PostgreSQL, reached with `postgres` · uploaded images live in Supabase Storage, reached with `fetch`.
 
 Import alias: `@/*` → `./src/*`.
 
@@ -134,10 +134,8 @@ against these tokens. An inline script in
 [src/app/layout.tsx](src/app/layout.tsx) sets `data-theme` before paint to
 prevent FOUC; `<html>` carries `suppressHydrationWarning` for that reason.
 
-**Admin modules.** [src/lib/firebase/](src/lib/firebase/) (leftover Firebase app and committed public web
-config) and [src/lib/admin/](src/lib/admin/) (owner decision, section list) serve only the admin panel
-at `/bright-warm-greenhouse/`. Never import either from a public page, layout or server component:
-the public site must load no Firebase code. The owner is the verified Google email in `ADMIN_EMAIL`,
+**Admin modules.** [src/lib/admin/](src/lib/admin/) (owner decision, section list, the editors' rules and browser stores) serves only the admin panel
+at `/bright-warm-greenhouse/`. Never import it from a public page, layout or server component: the public site loads no sign-in or database code. The owner is the verified Google email in `ADMIN_EMAIL`,
 decided on the server by `src/lib/admin/access.ts` and `src/lib/auth.ts`; the panel's access no longer
 depends on database rules.
 `src/lib/server/` holds the server-only modules (the SQL text, the database connection, the stand-in, the
@@ -145,7 +143,7 @@ profile store, the storage module and the image store); `SUPABASE_URL` and `SUPA
 in one file there (`src/lib/server/storage.ts`). It is imported only by `src/app/api/admin/**`, never by a
 client component, a public page or a layout. The owner decision stays in `src/lib/admin/access.ts` and `src/lib/auth.ts`. The shared list pattern is `ListEditor.tsx` with the browser store `createHttpListStore` (`src/lib/admin/listClient.ts`), the server `createListService` (`src/lib/server/listStore.ts`) and the list SQL (`src/lib/server/listSql.ts`); each later list slice adds its table name, a route file and an editor.
 
-**Leftover rules.** The profile, the images, the experience entries and the projects are now stored in Supabase and their Firebase stores are gone. The certifications are stored in Supabase the same way and their Firebase store is gone. The tech stack is stored in Supabase the same way and its Firebase store is gone. The blog posts are stored in Supabase the same way and their Firebase store is gone; a post is keyed by its slug. The two rules files ([firestore.rules](firestore.rules), [storage.rules](storage.rules)) and the leftover Firebase helpers stay until retire-firebase removes them.
+**Content storage.** The profile, the images, the experience entries and the projects are stored in Supabase. The certifications are stored in Supabase the same way. The tech stack is stored in Supabase the same way. The blog posts are stored in Supabase the same way; a post is keyed by its slug. Nothing else holds the panel's content and no second backend exists.
 
 **Settings.** The site reads seven settings by name: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
 `ADMIN_EMAIL`, `SUPABASE_DB_URL`, `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The owner sets them in Vercel for Production and SIT; they are never in the repo.

@@ -67,3 +67,15 @@ export async function writeStandInImages(filePath: string, images: unknown[]): P
   const existing = await readFileObject(filePath);
   await writeFileObject(filePath, { ...(existing ?? {}), images });
 }
+
+export async function readStandInList(filePath: string, key: string): Promise<unknown[]> {
+  const file = await readFileObject(filePath);
+  if (file === null) return [];
+  const value = file[key];
+  return Array.isArray(value) ? value : [];
+}
+
+export async function writeStandInList(filePath: string, key: string, list: unknown[]): Promise<void> {
+  const existing = await readFileObject(filePath);
+  await writeFileObject(filePath, { ...(existing ?? {}), [key]: list });
+}

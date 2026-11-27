@@ -10,7 +10,25 @@ import {
   INSERT_IMAGE_SQL,
   LIST_IMAGES_SQL,
 } from "@/lib/server/imageSql";
-import { readStandIn, readStandInImages, standInPath, writeStandIn, writeStandInImages } from "@/lib/server/standin";
+import {
+  LIST_TABLES,
+  listDeleteSql,
+  listInsertSql,
+  listReadSql,
+  listReorderSql,
+  listSchemaStatements,
+  listUpdateSql,
+  type ListTable,
+} from "@/lib/server/listSql";
+import {
+  readStandIn,
+  readStandInImages,
+  readStandInList,
+  standInPath,
+  writeStandIn,
+  writeStandInImages,
+  writeStandInList,
+} from "@/lib/server/standin";
 
 export class DatabaseUnavailableError extends Error {
   constructor() {
@@ -51,6 +69,11 @@ async function ensureSchema(setting: string, sql: Client): Promise<void> {
       }
       for (const statement of IMAGE_SCHEMA_STATEMENTS) {
         await sql.unsafe(statement);
+      }
+      for (const table of LIST_TABLES) {
+        for (const statement of listSchemaStatements(table)) {
+          await sql.unsafe(statement);
+        }
       }
     })();
     schemaReady = attempt;
@@ -172,6 +195,117 @@ export async function deleteImageRecord(id: string): Promise<boolean> {
       return true;
     }
     const rows = await clientFor(setting).unsafe(DELETE_IMAGE_SQL, [id]);
+    return rows.length > 0;
+  });
+}
+
+export type StoredListRecord = { id: string; position: number; data: unknown };
+
+function asStoredListRecord(value: unknown): StoredListRecord | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const item = value as Record<string, unknown>;
+  if (typeof item.id !== "string" || typeof item.position !== "number" || !Number.isFinite(item.position)) {
+    return null;
+  }
+  return { id: item.id, position: item.position, data: item.data === undefined ? null : item.data };
+}
+
+function validListElements(stored: unknown[]): StoredListRecord[] {
+  const records: StoredListRecord[] = [];
+  for (const element of stored) {
+    const record = asStoredListRecord(element);
+    if (record !== null) records.push(record);
+  }
+  return records;
+}
+
+export async function readListRecords(table: ListTable): Promise<StoredListRecord[]> {
+  return run("read", async (setting, path) => {
+    if (path !== null) {
+      const records = validListElements(await readStandInList(path, table));
+      return records
+        .map((record, index) => ({ record, index }))
+        .sort((a, b) => a.record.position - b.record.position || a.index - b.index)
+        .map((item) => item.record);
+    }
+    const rows = await clientFor(setting).unsafe(listReadSql(table));
+    return rows.map((row) => {
+      const item = row as unknown as { id: string; position: number | string; data: unknown };
+      return { id: item.id, position: Number(item.position), data: item.data };
+    });
+  });
+}
+
+export async function insertListRecord(table: ListTable, record: StoredListRecord): Promise<void> {
+  await run("write", async (setting, path) => {
+    if (path !== null) {
+      const stored = await readStandInList(path, table);
+      await writeStandInList(path, table, [...stored, { id: record.id, position: record.position, data: record.data }]);
+      return;
+    }
+    await clientFor(setting).unsafe(listInsertSql(table), [record.id, record.position, JSON.stringify(record.data)]);
+  });
+}
+
+export async function updateListRecord(table: ListTable, id: string, data: unknown): Promise<boolean> {
+  return run("write", async (setting, path) => {
+    if (path !== null) {
+      const stored = await readStandInList(path, table);
+      let found = false;
+      const next = stored.map((element) => {
+        const record = asStoredListRecord(element);
+        if (record === null || record.id !== id) return element;
+        found = true;
+        return { ...(element as Record<string, unknown>), data };
+      });
+      if (!found) return false;
+      await writeStandInList(path, table, next);
+      return true;
+    }
+    const rows = await clientFor(setting).unsafe(listUpdateSql(table), [id, JSON.stringify(data)]);
+    return rows.length > 0;
+  });
+}
+
+export async function reorderListRecords(
+  table: ListTable,
+  changes: { id: string; position: number }[],
+): Promise<boolean> {
+  return run("write", async (setting, path) => {
+    if (path !== null) {
+      const stored = await readStandInList(path, table);
+      const wanted = new Map(changes.map((change) => [change.id, change.position]));
+      const present = new Set<string>();
+      for (const element of stored) {
+        const record = asStoredListRecord(element);
+        if (record !== null && wanted.has(record.id)) present.add(record.id);
+      }
+      for (const id of wanted.keys()) {
+        if (!present.has(id)) return false;
+      }
+      const next = stored.map((element) => {
+        const record = asStoredListRecord(element);
+        if (record === null || !wanted.has(record.id)) return element;
+        return { ...(element as Record<string, unknown>), position: wanted.get(record.id) };
+      });
+      await writeStandInList(path, table, next);
+      return true;
+    }
+    const rows = await clientFor(setting).unsafe(listReorderSql(table), [JSON.stringify(changes)]);
+    return rows.length === changes.length;
+  });
+}
+
+export async function deleteListRecord(table: ListTable, id: string): Promise<boolean> {
+  return run("write", async (setting, path) => {
+    if (path !== null) {
+      const stored = await readStandInList(path, table);
+      const kept = stored.filter((element) => asStoredListRecord(element)?.id !== id);
+      if (kept.length === stored.length) return false;
+      await writeStandInList(path, table, kept);
+      return true;
+    }
+    const rows = await clientFor(setting).unsafe(listDeleteSql(table), [id]);
     return rows.length > 0;
   });
 }

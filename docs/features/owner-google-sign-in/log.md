@@ -94,3 +94,16 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+
+=====================================================================
+Completion — owner-google-sign-in
+Completed: 2026-11-27
+
+Built: The site no longer needs to be a pure static export. The private panel at /bright-warm-greenhouse/ is dynamic and signs the owner in with their Google account through Auth.js (JWT session, no database); only a verified Google email equal to the owner's setting reaches the menu, any other account sees "not allowed". Sign-in and sign-out are server actions; a failed sign-in shows a message and the button stays usable. Public pages stay prerendered. The Firebase sign-in, the owner-ID code and the saving-off notice are removed, the mechanical gate accepts the approved server pieces, and the standing docs are amended.
+Deviations from the spec: Task 3 omitted the optional next-auth/jwt type augmentation (the spec allows any form that typechecks). Task 2's locked test needed one type-annotation correction by the test author (diff checked: that single line).
+[auto] decisions: 20 lines tagged [auto] in the spec. Added by an auto-revision: D24 (keep the framework's built-in 404 page, add no custom not-found page, assert its headings; a 404 page's browser-tab title is now the site title, to be mentioned in the pull request).
+Feature review: PASS. Findings: documentation | note | logged | scripts/check-task.sh:273 still mentions http-server in a comment (the spec limits that file to the three approved edits; leave it for retire-firebase). test-coverage | note | logged | E2E-22 checks only status and headings for an unknown post; E2E-28 asserts the prerender manifest fallback is false, closing the gap.
+Final verification: npm run build ok; npx playwright test e2e/owner-google-sign-in.spec.ts 33 passed, 0 failed (the very first Completion run had one failure, E2E-09, which did not reproduce in 8 repeats or two later full runs; treat it as a timing flake).
+Manual checks still pending (never run): E2E-32 (the owner's real Google sign-in on SIT, which also covers the callback under Vercel and Google's email_verified claim) and E2E-33 (the owner searches the built pages for their own email).
+Follow-ups not in scope: the earlier admin specs (manage-*, preview-blog-post, manage-image-library, admin-content-panel-acceptance) are red by design (D13) until the later slices replace them and retire-firebase deletes what is left. The pull request must flag the reworded secret rule, list the four setting names (AUTH_SECRET, AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, ADMIN_EMAIL) for Production and SIT with the three Google return addresses, and flag the check-task.sh gate change for a human reviewer.
+=====================================================================

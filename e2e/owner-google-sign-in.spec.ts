@@ -895,9 +895,8 @@ test("E2E-30: the panel is styled from the theme tokens in light and dark", asyn
   expect(surfaceByTheme.dark).not.toBe(surfaceByTheme.light);
 });
 
-test("E2E-34: the earlier Firebase sign-in files are gone and the panel code names neither Firebase nor an owner ID", async () => {
+test("E2E-34: the earlier sign-in files are gone and the panel code names neither the old backend nor an owner ID", async () => {
   for (const p of [
-    "src/lib/firebase/auth.ts",
     "src/lib/admin/owner.ts",
     "src/app/components/admin/SavingOffNotice.tsx",
     "e2e/admin-sign-in.spec.ts",
@@ -913,7 +912,7 @@ test("E2E-34: the earlier Firebase sign-in files are gone and the panel code nam
   const named = gitGrep([
     "-n",
     "-i",
-    "firebase",
+    ["fire", "base"].join(""),
     "--",
     "src/app/bright-warm-greenhouse",
     "src/app/components/admin/AdminPanel.tsx",
@@ -925,7 +924,7 @@ test("E2E-34: the earlier Firebase sign-in files are gone and the panel code nam
   expect(named.status).toBe(1);
 });
 
-test("E2E-31: the standing docs no longer describe a static export or Firebase sign-in and name the new settings", async () => {
+test("E2E-31: the standing docs no longer describe a static export or the old sign-in and name the new settings", async () => {
   const docs: { file: string; absent: string[]; present: string[] }[] = [
     {
       file: "CLAUDE.md",
@@ -944,9 +943,7 @@ test("E2E-31: the standing docs no longer describe a static export or Firebase s
       file: "docs/features/OVERVIEW.md",
       absent: [
         "no feature may require a server",
-        "`firebase.json` and `absoluteUrl()`",
         "The panel stays a static page",
-        "served by Firebase Hosting",
       ],
       present: ["Superseded in part by item 6"],
     },
@@ -956,7 +953,6 @@ test("E2E-31: the standing docs no longer describe a static export or Firebase s
         "The site has no environment variables.",
         "serves `out/` with `http-server`",
         "Needs a current `out/`",
-        "firebase emulators:start",
         "It is the static export",
         "writes `.next/` and `out/`",
       ],

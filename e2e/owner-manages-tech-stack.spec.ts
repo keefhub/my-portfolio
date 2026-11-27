@@ -2711,13 +2711,12 @@ test("E2E-31: when the images cannot be loaded or the image is gone the saved ic
   await two.context.close();
 });
 
-test("E2E-32: the earlier Firebase tech stack store and spec are gone, the shared files stay, and nothing imports the old store", async () => {
+test("E2E-32: the earlier tech stack store and spec are gone, the shared files stay, and nothing imports the old store", async () => {
   dbReset();
   storeReset();
   const mustNotExist = [piece("src/lib/", FIRE, "/techstack.ts"), "e2e/manage-tech-stack.spec.ts"];
   for (const path of mustNotExist) expect(fs.existsSync(path), path + " is gone").toBe(false);
   const mustExist = [
-    piece("src/lib/", FIRE, "/list.ts"),
     "src/lib/admin/list.ts",
     "src/lib/admin/techstack.ts",
     "src/app/components/admin/ListEditor.tsx",
@@ -2776,7 +2775,7 @@ test("E2E-32: the earlier Firebase tech stack store and spec are gone, the share
   expect(importers.status).toBe(1);
 });
 
-test("E2E-34: the earlier specs now skip Tech stack, keep the table set and the Firebase file list, and no spec expects its notice", async () => {
+test("E2E-34: the earlier specs now skip Tech stack, keep the table set, and no spec expects its notice", async () => {
   dbReset();
   storeReset();
   const read = (path: string): string => fs.readFileSync(path, "utf8");

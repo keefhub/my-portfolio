@@ -2336,13 +2336,12 @@ test("E2E-31: when the images cannot be loaded or the image is gone the saved ba
   await two.context.close();
 });
 
-test("E2E-32: the earlier Firebase certifications store and spec are gone, the shared files stay, and nothing imports the old store", async () => {
+test("E2E-32: the earlier certifications store and spec are gone, the shared files stay, and nothing imports the old store", async () => {
   dbReset();
   storeReset();
   const mustNotExist = [piece("src/lib/", FIRE, "/certifications.ts"), "e2e/manage-certifications.spec.ts"];
   for (const path of mustNotExist) expect(fs.existsSync(path), path + " is gone").toBe(false);
   const mustExist = [
-    piece("src/lib/", FIRE, "/list.ts"),
     "src/lib/admin/list.ts",
     "src/lib/admin/certifications.ts",
     "src/app/components/admin/ListEditor.tsx",
@@ -2401,7 +2400,7 @@ test("E2E-32: the earlier Firebase certifications store and spec are gone, the s
   expect(importers.status).toBe(1);
 });
 
-test("E2E-34: the earlier specs now skip Certifications, keep the table set and the Firebase file list, and no spec expects its notice", async () => {
+test("E2E-34: the earlier specs now skip Certifications, keep the table set, and no spec expects its notice", async () => {
   dbReset();
   storeReset();
   const read = (path: string): string => fs.readFileSync(path, "utf8");

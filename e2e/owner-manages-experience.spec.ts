@@ -1820,7 +1820,6 @@ test("E2E-27: the earlier Experience store and spec are gone, the shared files s
   const mustNotExist = [piece("src/lib/", FIRE, "/experience.ts"), "e2e/manage-experience.spec.ts"];
   for (const path of mustNotExist) expect(fs.existsSync(path), path + " is gone").toBe(false);
   const mustExist = [
-    piece("src/lib/", FIRE, "/list.ts"),
     "src/lib/admin/list.ts",
     "src/lib/admin/experience.ts",
     "src/app/components/admin/ListEditor.tsx",
@@ -1848,11 +1847,6 @@ test("E2E-27: the earlier Experience store and spec are gone, the shared files s
   for (const path of ["src/lib/admin/list.ts", "src/lib/admin/listClient.ts"]) {
     expect(read(path).toLowerCase(), path).not.toContain(FIRE);
   }
-
-  const oldList = read(piece("src/lib/", FIRE, "/list.ts"));
-  expect(oldList).toContain("export type { ListStore }");
-  expect(oldList).toContain("createListStore");
-  expect(oldList).toContain("withTimeout");
 
   const importers = gitGrep(["-n", "-E", piece(FIRE, "/experience"), "--", "src", "e2e"]);
   expect(importers.stdout).toBe("");

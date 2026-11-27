@@ -2106,22 +2106,17 @@ test("E2E-31: every menu item shows its own screen and none shows a not-availabl
   await context.close();
 });
 
-test("E2E-32: the earlier Firebase blog store and spec are gone, the shared files stay, and nothing imports the old store", async () => {
+test("E2E-32: the earlier blog store and spec are gone, the shared files stay, and nothing imports the old store", async () => {
   dbReset();
   storeReset();
   const mustNotExist = [piece("src/lib/", FIRE, "/blogposts.ts"), "e2e/manage-blog-posts.spec.ts"];
   for (const path of mustNotExist) expect(fs.existsSync(path), path + " is gone").toBe(false);
   const mustExist = [
-    piece("src/lib/", FIRE, "/list.ts"),
-    piece("src/lib/", FIRE, "/client.ts"),
-    piece("src/lib/", FIRE, "/config.ts"),
     "src/lib/admin/list.ts",
     "src/lib/admin/blogposts.ts",
     "src/app/components/admin/ListEditor.tsx",
     "src/app/components/admin/PostPreview.tsx",
     "src/app/components/admin/BlogPostsEditor.tsx",
-    "e2e/admin-content-panel-acceptance.spec.ts",
-    "firestore.rules",
   ];
   for (const path of mustExist) expect(fs.existsSync(path), path + " exists").toBe(true);
 

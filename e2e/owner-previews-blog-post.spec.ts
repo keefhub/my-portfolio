@@ -891,12 +891,10 @@ test("E2E-17: the earlier preview spec is gone and nothing still names it", asyn
   const oldSpec = piece("e2e/", "preview-blog-", "post.spec.ts");
   expect(fs.existsSync(oldSpec), "the earlier preview spec is gone").toBe(false);
   expect(fs.existsSync("e2e/owner-previews-blog-post.spec.ts"), "this spec exists").toBe(true);
-  expect(fs.existsSync("e2e/admin-content-panel-acceptance.spec.ts"), "the acceptance spec exists").toBe(true);
 
   const manage = readRepo("e2e/owner-manages-blog-posts.spec.ts");
   expect(manage.includes(OLD_SPEC), "the blog-posts spec names the earlier spec").toBe(false);
   expect(manage).toContain("src/app/components/admin/PostPreview.tsx");
-  expect(manage).toContain("e2e/admin-content-panel-acceptance.spec.ts");
 
   const found = gitGrep([
     "-n",

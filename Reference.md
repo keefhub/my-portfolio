@@ -15,8 +15,8 @@
 | **Icons**     | lucide-react 0.503                                      |
 | **Fonts**     | Geist (sans), Geist Mono (via `next/font`)              |
 | **Content**   | Markdown blog in `content/blog/`, built by unified/remark/rehype |
-| **Deploy**    | Firebase Hosting (static export via `next build`)       |
-| **Output**    | `output: "export"` + `trailingSlash: true` → `./out/`   |
+| **Deploy**    | Vercel (Git integration; public pages prerendered, sign-in and the panel on the server) |
+| **Output**    | `trailingSlash: true`; public pages prerendered, no separate export folder |
 
 ---
 
@@ -24,7 +24,7 @@
 
 ### Route Map
 
-All routes are prerendered at build time — there is no server at runtime.
+The public routes are prerendered at build time. The admin panel, `/api/auth/*` and `/api/admin/*` run on the server.
 
 | URL             | Source                        | Notes                             |
 | --------------- | ----------------------------- | --------------------------------- |
@@ -35,6 +35,8 @@ All routes are prerendered at build time — there is no server at runtime.
 | `/sitemap.xml`  | `src/app/sitemap.ts`          | Next metadata route               |
 | `/robots.txt`   | `src/app/robots.ts`           | Next metadata route               |
 | `/bright-warm-greenhouse/` | `src/app/bright-warm-greenhouse/page.tsx` | Owner-only admin panel; `noindex`; renders `AdminPanel` |
+| `/api/auth/*`   | `src/app/api/auth/[...nextauth]/route.ts` | The Auth.js handlers; dynamic.    |
+| `/api/admin/*`  | `src/app/api/admin/**`        | The owner-only JSON routes and the one public published-posts read; dynamic. |
 
 ### Landing Page (`/`)
 
@@ -73,8 +75,8 @@ User toggles theme → ThemeContext → localStorage + data-theme attr on <html>
 
 - **Landing page is anchor-scrolled, the blog is routed**: `/` is one page of sections; `/blog` and `/blog/<slug>` are real routes
 - **Mixed server/client components**: 8 of 17 are `"use client"`. The landing-page sections are client (animation + state); the blog tree and metadata routes are server components
-- **Static export**: `output: "export"`. No API routes, no middleware, no ISR, no request-time rendering. Dynamic routes need `generateStaticParams`; route handlers need `dynamic = "force-static"`
-- **`trailingSlash: true`**: Emits `out/blog/<slug>/index.html`. Firebase Hosting serves exact-match files only, so the flat `.html` form left every blog URL unmatched. Coupled to `firebase.json` and `absoluteUrl()` in `src/lib/site.ts` — change all three together
+- **Prerendered public pages**: no middleware, no ISR. Dynamic public routes need `generateStaticParams` and `dynamicParams = false`; public route handlers stay `dynamic = "force-static"`. Only sign-in (`/api/auth/*`) and the panel (`/api/admin/*` and the panel page) are dynamic
+- **`trailingSlash: true`**: Each route is emitted as a directory (`blog/<slug>/`) and the host redirects the unslashed form to the slashed one. Coupled to `vercel.json` and `absoluteUrl()` in `src/lib/site.ts` — change all three together
 - **Build-time content pipeline**: Markdown in `content/blog/` is read, validated, and rendered during `next build` — never at runtime
 - **CSS variables for theming**: Light/dark tokens in `:root` / `[data-theme="dark"]`
 - **Flip cards**: Used in both Experience and Projects for progressive disclosure
@@ -125,11 +127,9 @@ Admin panel (`/bright-warm-greenhouse/`, separate from the landing page):
 ```
 AdminPanel ("use client", src/app/components/admin/AdminPanel.tsx)
 ├── loading screen (first render, avoids hydration mismatch)
-├── signed-out: "Sign in with Google" (Firebase Auth popup) + failure alert
-├── signed-in, not allowed: message, own user ID, Sign out
-└── signed-in, owner (or owner ID still a placeholder): section menu, user ID line, Sign out
-    └── SavingOffNotice (src/app/components/admin/SavingOffNotice.tsx, no hooks): shown only while
-        the owner ID is the placeholder; "Saving is not switched on yet." plus the three switch-on steps
+├── signed-out: "Sign in with Google" form (Auth.js) + failure alert
+├── signed-in, not allowed: message, Sign out
+└── signed-in, owner: section menu, Sign out
     └── ImageLibrary (src/app/components/admin/ImageLibrary.tsx), the "Images" menu item: upload
         (PNG/JPEG/WebP/SVG, at most 5 MB), newest-first list with size, Copy address, inline Confirm delete
     └── ProfileEditor (src/app/components/admin/ProfileEditor.tsx), the "Profile" menu item: one form for
@@ -157,8 +157,8 @@ AdminPanel ("use client", src/app/components/admin/AdminPanel.tsx)
             src/lib/blog/markdown.ts); "Back to form" returns with nothing lost or saved (ListEditor's hideFormActions)
 ```
 
-Styled with inline `var(--token)` values only; imports `src/lib/firebase` and `src/lib/admin`,
-which no public page may import.
+Styled with inline `var(--token)` values only; the panel code imports `src/lib/admin` (the server modules in
+`src/lib/server` are reached only through the API routes), and no public page may import these modules.
 
 ### Navigation Flow
 
@@ -187,9 +187,13 @@ which no public page may import.
 
 ## Backend / API
 
-**No runtime backend.** No database, no authentication, no request-time server
-logic. But there *is* a build-time data layer — see the Blog Subsystem section
-below.
+**The public pages read only the repository** (`content/blog/` and the component constants below); see the
+Blog Subsystem section for the build-time data layer. The server pieces serve the owner's panel only:
+
+- Sign-in is Auth.js; the owner is the verified Google email in `ADMIN_EMAIL`.
+- The owner-only routes under `/api/admin/` check the owner before any database or storage call.
+- Content is stored in Supabase PostgreSQL, reached with `postgres`; uploaded images live in Supabase Storage, reached with `fetch`.
+- The test run uses stand-ins for Google and for Supabase.
 
 Portfolio data is embedded as TypeScript constants in each component file:
 
@@ -467,21 +471,25 @@ Update `[data-theme="dark"]` block in `globals.css` to add new token overrides.
 ## Deployment
 
 ```
-next build          → static export to ./out/
-firebase deploy     → deploys ./out/ to Firebase Hosting
+next build          → public pages prerendered; panel and sign-in routes dynamic
+git push            → Vercel builds (vercel.json: `npm run build`) and deploys
 ```
+
+`master` is Vercel's production branch (thegoldenpothos.xyz); `develop` is served at
+sit.thegoldenpothos.xyz (a domain assigned to that branch). Other branches get preview URLs, which the
+admin panel treats as SIT (any host that is neither production nor local, `environmentFor()`).
+Sign-in does not work on preview addresses, because Google allows fixed return addresses only.
 
 `next.config.ts`:
 
 ```typescript
 const nextConfig: NextConfig = {
-  output: "export",
-  trailingSlash: true, // → out/blog/<slug>/index.html (Firebase needs exact-match files)
+  trailingSlash: true, // each route is emitted as a directory (blog/<slug>/)
   images: { unoptimized: true },
 };
 ```
 
-`firebase.json` mirrors it with `"trailingSlash": true` and `"cleanUrls": false`,
+`vercel.json` mirrors it with `"trailingSlash": true` and `"cleanUrls": false`,
 plus an explicit `application/rss+xml` Content-Type header for `/rss.xml`.
 `absoluteUrl()` in `src/lib/site.ts` appends the same trailing slash to canonical,
 OG, RSS, and sitemap URLs — while deliberately *not* slashing file paths like
@@ -494,7 +502,7 @@ OG, RSS, and sitemap URLs — while deliberately *not* slashing file paths like
 | Issue                                          | Impact                                       |
 | ---------------------------------------------- | -------------------------------------------- |
 | All landing-page sections are `"use client"`   | Larger JS bundle on `/` than the blog routes |
-| Images unoptimized (static export constraint)  | No WebP/AVIF, no responsive srcset           |
+| Images unoptimized (free-plan constraint, CLAUDE.md Invariant 6) | No WebP/AVIF, no responsive srcset           |
 | No loading / error boundaries                  | No fallback UI for failures                  |
 | No analytics                                   | No visitor insights                          |
 | Portfolio data embedded in components          | Harder to maintain as data grows             |

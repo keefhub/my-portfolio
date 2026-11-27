@@ -45,6 +45,20 @@ export function checkCertification(input: CertificationContent): ListCheck<Certi
   return { ok: true, content };
 }
 
+export function certificationShape(input: unknown): CertificationContent | null {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
+  const d = input as Record<string, unknown>;
+  const text = (v: unknown): string | null => {
+    if (v === undefined) return "";
+    return typeof v === "string" ? v : null;
+  };
+  const name = text(d.name);
+  const icon = text(d.icon);
+  const url = text(d.url);
+  if (name === null || icon === null || url === null) return null;
+  return { name, icon, url };
+}
+
 export function certificationFromData(data: unknown): CertificationContent {
   if (typeof data !== "object" || data === null) return emptyCertification();
   const d = data as Record<string, unknown>;

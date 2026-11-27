@@ -1,9 +1,21 @@
+import { randomBytes } from "node:crypto";
+import os from "node:os";
+import path from "node:path";
 import { defineConfig, devices, type ReporterDescription } from "@playwright/test";
 
-// Tests run against the real static export in out/ — run `npm run build` first
-// (or use `npm run test:e2e`, which does). http-server mirrors Firebase Hosting:
-// exact-match files with trailing-slash directory indexes, no SPA fallback.
+// Tests run against the production build in .next/ served by `next start` — run `npm run build` first
+// (or use `npm run test:e2e`, which does). The sign-in settings get fresh random values per run so that no
+// value is ever committed; workers inherit the main process's values.
 const PORT = 3100;
+
+if (process.env.TEST_WORKER_INDEX === undefined) {
+  process.env.AUTH_SECRET = randomBytes(32).toString("base64");
+  process.env.AUTH_GOOGLE_ID = `${randomBytes(8).toString("hex")}.apps.example.test`;
+  process.env.AUTH_GOOGLE_SECRET = randomBytes(12).toString("hex");
+  process.env.ADMIN_EMAIL = `owner-${randomBytes(4).toString("hex")}@example.test`;
+  process.env.SUPABASE_DB_URL = `stand-in:${path.join(os.tmpdir(), "portfolio-standin-" + randomBytes(6).toString("hex") + ".json")}`;
+  process.env.SUPABASE_URL = `stand-in:${path.join(os.tmpdir(), "portfolio-standin-storage-" + randomBytes(6).toString("hex"))}`;
+}
 
 // `npm run verify` sets VERIFY_PLAYWRIGHT_JSON so it can read the result as data; the console report still goes
 // to its log. Every other run keeps the list reporter.
@@ -17,25 +29,14 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter,
   use: {
-    baseURL: `http://127.0.0.1:${PORT}`,
+    baseURL: `http://localhost:${PORT}`,
     trace: "off",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: [
-    {
-      command: `npx http-server out -p ${PORT} -a 127.0.0.1 -c-1 -s`,
-      url: `http://127.0.0.1:${PORT}/`,
-      reuseExistingServer: !process.env.CI,
-    },
-    {
-      command: "npx firebase emulators:start --only auth,firestore,storage --project thegoldenpothos-5b3a1 --non-interactive",
-      url: "http://127.0.0.1:9199/v0/b/thegoldenpothos-5b3a1.firebasestorage.app/o",
-      reuseExistingServer: !process.env.CI,
-      timeout: 120000,
-      stdout: "ignore",
-      // SIGKILL (the default) kills the CLI but orphans the Java Firestore emulator, which then keeps port 8080
-      // answering while Auth (9099) is gone. SIGTERM lets the CLI stop both emulators.
-      gracefulShutdown: { signal: "SIGTERM", timeout: 10000 },
-    },
-  ],
+  webServer: {
+    command: `npx next start -p ${PORT}`,
+    url: `http://localhost:${PORT}/`,
+    reuseExistingServer: false,
+    timeout: 120000,
+  },
 });

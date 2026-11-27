@@ -13,8 +13,8 @@ import {
   type ListCheck,
   type ListEntry,
   type ListMove,
+  type ListStore,
 } from "@/lib/admin/list";
-import type { ListStore } from "@/lib/firebase/list";
 import { buttonStyle, errorStyle, listStyle, statusStyle } from "./formParts";
 
 export type ListFieldsProps<T> = {
@@ -28,7 +28,7 @@ export type ListFieldsProps<T> = {
 
 export type ListEditorProps<T> = {
   heading: string;
-  savingOn: boolean;
+  savingOn?: boolean;
   store: ListStore<T>;
   label: (content: T) => string;
   emptyContent: () => T;
@@ -75,7 +75,8 @@ function FieldsHost<T>(props: {
 }
 
 export default function ListEditor<T>(props: ListEditorProps<T>): React.JSX.Element {
-  const { heading, savingOn, store, label, emptyContent, check, renderFields } = props;
+  const { heading, store, label, emptyContent, check, renderFields } = props;
+  const savingOn = props.savingOn ?? true;
   const emptyText = props.emptyText ?? LIST_MESSAGES.empty;
   const listLabel = props.listLabel ?? `${heading} entries`;
   const addLabel = props.addLabel ?? "Add entry";

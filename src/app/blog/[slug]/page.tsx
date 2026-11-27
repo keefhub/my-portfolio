@@ -9,8 +9,11 @@ interface PageProps {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Static paths for export                                            */
+/*  Static paths; unknown slugs answer the 404 page without running   */
+/*  this page (dynamicParams = false)                                  */
 /* ------------------------------------------------------------------ */
+export const dynamicParams = false;
+
 export async function generateStaticParams() {
   return getPublishedPosts().map((p) => ({ slug: p.slug }));
 }

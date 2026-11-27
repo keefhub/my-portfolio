@@ -5,6 +5,8 @@ import {
   BLOG_MESSAGES,
   blogPostLabel,
   blogPostLines,
+  blogPostFromData,
+  blogPostToData,
   checkBlogPost,
   emptyBlogPost,
   sortBlogPosts,
@@ -12,9 +14,13 @@ import {
   type BlogStatus,
 } from "@/lib/admin/blogposts";
 import { photoSelection } from "@/lib/admin/profile";
-import type { ImageRecord } from "@/lib/admin/images";
-import { SlugTakenError, blogPostsStore } from "@/lib/firebase/blogposts";
-import { listImages } from "@/lib/firebase/images";
+import type { UploadedImage } from "@/lib/admin/images";
+import {
+  ListConflictError,
+  ListNotFoundError,
+  createHttpListStore,
+} from "@/lib/admin/listClient";
+import { listImages } from "@/lib/admin/imagesClient";
 import PostPreview from "./PostPreview";
 import ListEditor, { type ListFieldsProps } from "./ListEditor";
 import {
@@ -29,7 +35,7 @@ import {
   textareaStyle,
 } from "./formParts";
 
-type ImagesState = { images: ImageRecord[]; failed: boolean };
+type ImagesState = { images: UploadedImage[]; failed: boolean };
 
 function rowDetails(content: BlogPostContent): React.ReactNode {
   return (
@@ -50,11 +56,19 @@ function newPosition(): number {
   return 0;
 }
 
+const store = createHttpListStore<BlogPostContent>(
+  "/api/admin/blog-posts/",
+  blogPostFromData,
+  blogPostToData,
+);
+
 function saveFailure(error: unknown): string | null {
-  return error instanceof SlugTakenError ? BLOG_MESSAGES.slugTaken : null;
+  if (error instanceof ListConflictError) return BLOG_MESSAGES.slugTaken;
+  if (error instanceof ListNotFoundError) return BLOG_MESSAGES.postGone;
+  return null;
 }
 
-export default function BlogPostsEditor(props: { savingOn: boolean }): React.JSX.Element {
+export default function BlogPostsEditor(): React.JSX.Element {
   const [loaded, setLoaded] = useState<ImagesState>({ images: [], failed: false });
 
   useEffect(() => {
@@ -260,8 +274,7 @@ export default function BlogPostsEditor(props: { savingOn: boolean }): React.JSX
   return (
     <ListEditor<BlogPostContent>
       heading="Blog posts"
-      savingOn={props.savingOn}
-      store={blogPostsStore}
+      store={store}
       label={blogPostLabel}
       emptyContent={emptyBlogPost}
       check={checkBlogPost}

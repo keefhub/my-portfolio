@@ -1,14 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "export",
-  // Emit each route as a directory + index.html (out/blog/hello-world/index.html)
-  // instead of out/blog/hello-world.html. Firebase Hosting only serves
-  // exact-match files, so the flat .html form left every blog URL unmatched and
-  // falling through to the SPA rewrite.
+  // Every route is emitted as a directory (/blog/hello-world/) and the host
+  // redirects the unslashed form to the slashed one. Must agree with
+  // "trailingSlash" in vercel.json and absoluteUrl() in src/lib/site.ts.
   trailingSlash: true,
   images: {
-    unoptimized: true, // Required for static export
+    unoptimized: true, // Vercel's free image optimisation has a monthly allowance; unoptimized images keep the bill at $0
   },
 };
 

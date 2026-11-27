@@ -3,7 +3,7 @@
 Personal portfolio + blog for Keith Lim — `https://thegoldenpothos.xyz`.
 
 Next.js 16.2.6 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS v4 ·
-Framer Motion · Firebase JS SDK (admin panel only) · **statically exported** to `out/` and served by Firebase Hosting.
+Framer Motion · public site prerendered; only sign-in (Auth.js, `next-auth` v5) and the admin panel run on the server · served by Vercel · the panel's content lives in Supabase PostgreSQL, reached with `postgres` · uploaded images live in Supabase Storage, reached with `fetch`.
 
 Import alias: `@/*` → `./src/*`.
 
@@ -18,21 +18,21 @@ summary; that one is the on-demand detail.
 | Command             | Purpose                                              |
 | ------------------- | ---------------------------------------------------- |
 | `npm run dev`       | Dev server (Turbopack)                               |
-| `npm run build`     | Production build **and static export** → `out/`      |
+| `npm run build`     | Production build; public pages prerendered, the panel and sign-in routes dynamic |
 | `npm run typecheck` | `tsc --noEmit`                                       |
 | `npm run lint`      | `eslint .`                                           |
 | `npm run lint:new`  | ESLint minus the known `ThemeProvider.tsx:25` error; the pipeline's lint gate |
 | `npm run test:e2e`  | Build, then all Playwright specs in `e2e/` — slow, optional, on request only; not a gate, not in CI |
-| `npx playwright test e2e/<slug>.spec.ts` | One feature's own spec against the built `out/` (build first) |
+| `npx playwright test e2e/<slug>.spec.ts` | One feature's own spec against the built site served by `next start` (build first) |
 
 The pipeline's own commands (`check:task`, `step:packet`, `check:spec`, `verify`) are in
 [.claude/repo-profile.md](.claude/repo-profile.md) § Verification commands.
 
 **`npm run build` is the real verification gate.** It is the only step that runs
-the export, so it is the only step that catches server/client boundary
-violations, `generateStaticParams` gaps, and anything else that is legal
-TypeScript but illegal in a static export. `typecheck` passing does not mean the
-site builds.
+the full Next build, so it is the only step that catches server/client boundary
+violations, `generateStaticParams` gaps, a public page that became dynamic, and
+anything else that is legal TypeScript but illegal in the build. `typecheck`
+passing does not mean the site builds.
 
 > **Known pre-existing lint failure:** `ThemeProvider.tsx:25` trips
 > `react-hooks/set-state-in-effect`. It predates this config and is unrelated to
@@ -43,7 +43,7 @@ site builds.
 
 ## Routes
 
-Every route is prerendered at build time. There is no server at runtime.
+Every public route is prerendered at build time. Only the admin panel, `/api/auth/*` and `/api/admin/*` run on the server.
 
 | URL             | Source                                                       |
 | --------------- | ------------------------------------------------------------ |
@@ -53,7 +53,17 @@ Every route is prerendered at build time. There is no server at runtime.
 | `/rss.xml`      | [src/app/rss.xml/route.ts](src/app/rss.xml/route.ts)          |
 | `/sitemap.xml`  | [src/app/sitemap.ts](src/app/sitemap.ts)                      |
 | `/robots.txt`   | [src/app/robots.ts](src/app/robots.ts)                        |
-| `/bright-warm-greenhouse/` | [src/app/bright-warm-greenhouse/page.tsx](src/app/bright-warm-greenhouse/page.tsx) — owner-only admin panel (`AdminPanel`, client component); `noindex`, not in the sitemap or `robots.txt` |
+| `/bright-warm-greenhouse/` | [src/app/bright-warm-greenhouse/page.tsx](src/app/bright-warm-greenhouse/page.tsx) — owner-only admin panel (`AdminPanel`, client component), dynamic; `noindex`, not in the sitemap or `robots.txt` |
+| `/api/auth/*` | [src/app/api/auth/[...nextauth]/route.ts](src/app/api/auth/[...nextauth]/route.ts) — the Auth.js handlers, including the Google return address `/api/auth/callback/google`, registered without a trailing slash; dynamic, with `/api/admin/*` and the admin panel the only other server routes |
+| `/api/admin/profile/` | [src/app/api/admin/profile/route.ts](src/app/api/admin/profile/route.ts) — the owner-only JSON entry point for the profile (`GET`, `PUT`), dynamic; it decides access with `getPanelState()` before any database call and talks to the database only through `src/lib/server/` |
+| `/api/admin/images/` | [src/app/api/admin/images/route.ts](src/app/api/admin/images/route.ts) — the owner-only image list, upload registration and delete (GET, POST, DELETE); the owner check and the image-id pattern run before any storage or database call |
+| `/api/admin/images/upload/` | [src/app/api/admin/images/upload/route.ts](src/app/api/admin/images/upload/route.ts) — the owner-only request for a one-file upload address (POST); the browser then sends the file straight to storage |
+| `/api/admin/experience/` | [src/app/api/admin/experience/route.ts](src/app/api/admin/experience/route.ts) — the owner-only experience list (GET, POST, PUT?id=, PATCH, DELETE?id=); the owner check and the entry-id pattern run before any database call, and the list logic is the generic service in `src/lib/server/listStore.ts` |
+| `/api/admin/projects/` | [src/app/api/admin/projects/route.ts](src/app/api/admin/projects/route.ts) — the owner-only projects list (GET, POST, PUT?id=, PATCH, DELETE?id=); the owner check and the entry-id pattern run before any database call, and the list logic is the generic service in `src/lib/server/listStore.ts` |
+| `/api/admin/certifications/` | [src/app/api/admin/certifications/route.ts](src/app/api/admin/certifications/route.ts) — the owner-only certifications list (GET, POST, PUT?id=, PATCH, DELETE?id=); the owner check and the entry-id pattern run before any database call, and the list logic is the generic service in `src/lib/server/listStore.ts` |
+| `/api/admin/tech-stack/` | [src/app/api/admin/tech-stack/route.ts](src/app/api/admin/tech-stack/route.ts) — the owner-only tech stack list (GET, POST, PUT?id=, PATCH, DELETE?id=); each category is one record that holds its items, the owner check and the entry-id pattern run before any database call, and the list logic is the generic service in `src/lib/server/listStore.ts` |
+| `/api/admin/blog-posts/` | [src/app/api/admin/blog-posts/route.ts](src/app/api/admin/blog-posts/route.ts) — the owner-only blog posts store (GET, GET?slug=, POST, PUT?id=, DELETE?id=); a post is keyed by its unique slug, drafts are returned only here, the owner check runs before any body or database call, and the logic is the post service in `src/lib/server/postStore.ts` |
+| `/api/admin/blog-posts/published/` | [src/app/api/admin/blog-posts/published/route.ts](src/app/api/admin/blog-posts/published/route.ts) — the one public read (GET, GET?slug=): published posts only, no sign-in, no cookie read, dynamic; no public page calls it yet; it sits under `src/app/api/admin/` because the mechanical gate allows no other new route path |
 
 The landing page (`/`) is a multi-section scroll with anchor nav — Hero, About,
 Experience, TechStack, Projects, Certifications. It is not routed; the sections
@@ -63,19 +73,23 @@ are components on one page.
 
 ## Invariants — breaking these breaks the site
 
-**1. Static export. No server exists at runtime.**
-`output: "export"` in [next.config.ts](next.config.ts). No API routes, no
-middleware, no ISR, no `cookies()`/`headers()`, no request-time rendering. Every
-dynamic route needs `generateStaticParams`. Route handlers must be
-`export const dynamic = "force-static"`.
+**1. Public pages are prerendered; only sign-in and the panel run on a server.**
+`next.config.ts` has no `output`. The panel page is dynamic, and the API routes are two families only: `/api/auth/*` and
+`/api/admin/*`. No middleware, no ISR. A public page, layout or metadata route never calls `auth()`
+or reads cookies or headers (it would silently stop being static). Only
+`src/app/bright-warm-greenhouse/**`, `src/app/api/auth/**` and `src/app/api/admin/**` import `@/lib/auth`. Every dynamic
+public route keeps `generateStaticParams` and `dynamicParams = false`. Public route handlers stay
+`export const dynamic = "force-static"`; the Auth.js handler at `/api/auth/[...nextauth]` and the
+`/api/admin/*` entry points are the dynamic handlers. `/api/admin/*` is called at its slashed address.
 
 **2. `trailingSlash: true` is load-bearing in three places.**
-[next.config.ts](next.config.ts), [firebase.json](firebase.json), and
-`absoluteUrl()` in [src/lib/site.ts](src/lib/site.ts) must agree. It makes each
-route emit `out/blog/<slug>/index.html` instead of `out/blog/<slug>.html`.
-Firebase Hosting only serves exact-match files, so flipping this leaves every
-blog URL unmatched and falling through to the SPA rewrite. Do not change it in
-one file alone.
+[next.config.ts](next.config.ts), [vercel.json](vercel.json), and
+`absoluteUrl()` in [src/lib/site.ts](src/lib/site.ts) must agree. Each route is emitted as a
+directory (`blog/<slug>/`), and the host redirects to the slashed form, so flipping this in one
+file leaves URLs unmatched or redirecting to the wrong form. `/api/auth/callback/google` receives a
+redirect to its slashed form and Auth.js accepts it. Do not change it in one file alone.
+`vercel.json` also holds the build command and the `/rss.xml` content type; there is no
+catch-all rewrite, so an unknown URL reaches the framework's 404 page.
 
 **3. Never import the blog barrel from a client component.**
 [src/lib/blog/posts.ts](src/lib/blog/posts.ts) is `import "server-only"` and
@@ -100,7 +114,7 @@ re-render and React reports a hydration mismatch.
 component.
 
 **6. Images are unoptimized.**
-`images.unoptimized: true` is required by static export. No WebP/AVIF
+`images.unoptimized: true` keeps the bill at $0: Vercel's image optimisation has a monthly allowance. No WebP/AVIF
 conversion, no responsive `srcset`. Size and compress assets before committing.
 
 ---
@@ -120,17 +134,31 @@ against these tokens. An inline script in
 [src/app/layout.tsx](src/app/layout.tsx) sets `data-theme` before paint to
 prevent FOUC; `<html>` carries `suppressHydrationWarning` for that reason.
 
-**Admin modules are client-only.** [src/lib/firebase/](src/lib/firebase/) (Firebase app,
-Auth, committed public web config) and [src/lib/admin/](src/lib/admin/) (owner decision, section
-list) serve only the admin panel at `/bright-warm-greenhouse/`. Never import either from a public
-page, layout or server component: the public site must load no Firebase code.
+**Admin modules.** [src/lib/admin/](src/lib/admin/) (owner decision, section list, the editors' rules and browser stores) serves only the admin panel
+at `/bright-warm-greenhouse/`. Never import it from a public page, layout or server component: the public site loads no sign-in or database code. The owner is the verified Google email in `ADMIN_EMAIL`,
+decided on the server by `src/lib/admin/access.ts` and `src/lib/auth.ts`; the panel's access no longer
+depends on database rules.
+`src/lib/server/` holds the server-only modules (the SQL text, the database connection, the stand-in, the
+profile store, the storage module and the image store); `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are read
+in one file there (`src/lib/server/storage.ts`). It is imported only by `src/app/api/admin/**`, never by a
+client component, a public page or a layout. The owner decision stays in `src/lib/admin/access.ts` and `src/lib/auth.ts`. The shared list pattern is `ListEditor.tsx` with the browser store `createHttpListStore` (`src/lib/admin/listClient.ts`), the server `createListService` (`src/lib/server/listStore.ts`) and the list SQL (`src/lib/server/listSql.ts`); each later list slice adds its table name, a route file and an editor.
 
-**Database rules are the security boundary.** [firestore.rules](firestore.rules) allows writes only
-from the owner's user ID (`ownerUid()`, also `OWNER_UID` in `src/lib/admin/owner.ts`; both ship as the
-deny-all placeholder `REPLACE_WITH_OWNER_UID`). The panel being hidden protects nothing. Rules are
-tested against the Firestore emulator (Java) in `e2e/` and deployed only by the live deploy job.
-[storage.rules](storage.rules) does the same for uploaded images under `images/`: public `get`, no
-`list`, owner-only create and delete, at most 5 MB, PNG/JPEG/WebP/SVG only; Storage needs the Blaze plan.
+**Content storage.** The profile, the images, the experience entries and the projects are stored in Supabase. The certifications are stored in Supabase the same way. The tech stack is stored in Supabase the same way. The blog posts are stored in Supabase the same way; a post is keyed by its slug. Nothing else holds the panel's content and no second backend exists.
+
+**Settings.** The site reads seven settings by name: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
+`ADMIN_EMAIL`, `SUPABASE_DB_URL`, `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The owner sets them in Vercel for Production and SIT; they are never in the repo.
+`SUPABASE_DB_URL` is the connection string of Supabase's transaction pooler, a secret with the password inside;
+the app creates its table on first use (from `src/lib/server/sql.ts`), and a free project that has paused shows
+"The profile could not be loaded." until the owner restores it in Supabase. In the test run it is `stand-in:`
+followed by a temporary file (`playwright.config.ts`).
+`SUPABASE_URL` is the Supabase project's address (only its origin is used); `SUPABASE_SERVICE_ROLE_KEY` is the
+project's service key, a secret that bypasses every access rule, read in `src/lib/server/storage.ts` only, never
+sent to the browser or logged. Both are set in Vercel for Production and SIT. The app creates the `images` bucket
+(public read, 5 MB limit, the four image types) and the `images` table on first use; a free project that has
+paused shows "The images could not be loaded.". In the test run `SUPABASE_URL` is `stand-in:` followed by a
+temporary directory and the key is unset (`playwright.config.ts`). The Google
+sign-in app lists three return addresses: `https://thegoldenpothos.xyz/api/auth/callback/google`,
+`https://sit.thegoldenpothos.xyz/api/auth/callback/google` and `http://localhost:3000/api/auth/callback/google`.
 
 **Metadata** is centralized in [src/app/layout.tsx](src/app/layout.tsx) with a
 `%s | thegoldenpothos` title template. Blog posts add their own via
@@ -196,14 +224,14 @@ uses `docs/` instead and never touches them.
 
 ## Never violate (feature pipeline reviewers enforce these)
 
-- The six **Invariants** above — static export, `trailingSlash` in three places, no `@/lib/blog` barrel in client components, UTC date formatting, one `SITE_URL`, unoptimized images.
+- The six **Invariants** above — public pages prerendered with only sign-in and the panel on a server, `trailingSlash` in three places, no `@/lib/blog` barrel in client components, UTC date formatting, one `SITE_URL`, unoptimized images.
 - **Style against the CSS tokens in `globals.css`.** No raw colour values, no Tailwind `dark:` variants.
 - **Never `git add -A`, `git add .`, or `git commit -a`.** Stage explicit paths.
-- **Playwright is the only test runner.** Specs live in `e2e/` and run against the built `out/`. Don't add Vitest, Jest or another runner without asking.
+- **Playwright is the only test runner.** Specs live in `e2e/` and run against the built site (`next start`). Don't add Vitest, Jest or another runner without asking.
 - **Run only the feature's own e2e spec** (`npx playwright test e2e/<slug>.spec.ts`) — at feature completion and before pushing to `develop`. Never the full suite as a gate (too slow), and never e2e in CI.
 - **Models: orchestrator Opus, subagents Sonnet.** Every dispatched subagent passes `model: sonnet`; don't raise a subagent's tier. See the profile's Models section.
-- **Never commit or push to `develop`, `main` or `master`.** `master` deploys the live site. Work on a feature branch and open a pull request into `develop`; a human merges. `scripts/guard-bash.sh`, wired in `.claude/settings.json`, refuses direct pushes, force pushes, `git add -A`, `git commit -a`, `--no-verify`, `.env` access and a pull request to any other base.
-- **Never write or read a secret.** The site has none. Don't read, print or edit `.env*`.
+- **Never commit or push to `develop`, `main` or `master`.** `master` is Vercel's production branch and deploys the live site. Work on a feature branch and open a pull request into `develop`; a human merges. `scripts/guard-bash.sh`, wired in `.claude/settings.json`, refuses direct pushes, force pushes, `git add -A`, `git commit -a`, `--no-verify`, `.env` access and a pull request to any other base.
+- **No secret values in the repo, pages or logs.** Settings are named, never valued. Never read, print or edit `.env*`; tests generate their own per-run values.
 
 ---
 
@@ -267,7 +295,7 @@ audits a branch.
 - **`/do-this`** builds the whole feature in one session, task by task. Per task: `step:packet` writes the packet, the test author writes failing tests, the implementer makes them pass, the orchestrator runs the mechanical gate (`npm run check:task`) and commits. A risk reviewer reviews a task before its commit only when its Step says `Risk: high` or the task escalated. One feature review runs at the end, after the build and **the feature's own e2e spec** (never the full suite). It needs a clean working tree.
 - **Four checks, no more:** locked tests, the mechanical gate, the risk review of a high-risk task, and the feature review (the profile § Gate risk tiers). `/thermos` and `/enhance-this-spec` are deeper reviews you run by hand when you want one.
 - **Decisions are recorded, not asked.** The spec writer tags each question it settled `[auto]` in the spec's Decisions; audit them with `grep -rn '\[auto\]' docs/features/`. A decision never drops or weakens a scenario of the story. A user's ruling is recorded as `[human]`.
-- **E2E is the feature's own spec only.** Behavioural checks are Playwright tests in `e2e/<slug>.spec.ts` (`E2E-NN:` titles) against the built `out/`. Run `npx playwright test e2e/<slug>.spec.ts` at feature completion and before pushing to `develop`. The full suite (`npm run test:e2e`) is optional, on request, and never in CI. `compiler` and `manual` checks cover the rest; `manual` ones are reported as pending.
+- **E2E is the feature's own spec only.** Behavioural checks are Playwright tests in `e2e/<slug>.spec.ts` (`E2E-NN:` titles) against the built site. Run `npx playwright test e2e/<slug>.spec.ts` at feature completion and before pushing to `develop`. The full suite (`npm run test:e2e`) is optional, on request, and never in CI. `compiler` and `manual` checks cover the rest; `manual` ones are reported as pending.
 
 ## Implementation order
 
@@ -285,6 +313,16 @@ Populated by `/help-discover-this` and `/agentic-discover` as features are added
 | 8 | [manage-blog-posts](docs/features/manage-blog-posts/story.md) | Most rules (unique slug, dates, draft, status list), so after the pattern is settled |
 | 9 | [preview-blog-post](docs/features/preview-blog-post/story.md) | Needs the post editor to preview from |
 | 10 | [manage-image-library](docs/features/manage-image-library/story.md) | Builds right after admin-owner-only-access (decomposition Run order 3): storage rules and uploads must exist before any editor can pick an uploaded image; needs the owner-only rules pattern from that slice |
+| 11 | [owner-google-sign-in](docs/features/owner-google-sign-in/story.md) | The gate everything else sits behind; lifts the static export for the panel, adds Auth.js, proves the `/api/auth/*` callback under `trailingSlash: true` early, and amends the standing docs the lift makes false |
+| 12 | [owner-edits-profile](docs/features/owner-edits-profile/story.md) | Simplest editor (one record); first use of the database, so it fixes the server entry point, the owner-only check, the empty and unreachable states |
+| 13 | [owner-uploads-images](docs/features/owner-uploads-images/story.md) | Storage and the owner-only upload pattern must exist before any editor can pick an uploaded image; adds the picker to the profile photo |
+| 14 | [owner-manages-experience](docs/features/owner-manages-experience/story.md) | First list; fixes the reorder and confirm-delete pattern the next three reuse |
+| 15 | [owner-manages-projects](docs/features/owner-manages-projects/story.md) | Reuses the list pattern; no new dependency |
+| 16 | [owner-manages-certifications](docs/features/owner-manages-certifications/story.md) | Reuses the list pattern; badge uses the image picker |
+| 17 | [owner-manages-tech-stack](docs/features/owner-manages-tech-stack/story.md) | Reuses the list pattern, plus nested items; icons use the picker |
+| 18 | [owner-manages-blog-posts](docs/features/owner-manages-blog-posts/story.md) | Most rules (unique slug, draft, status list, public read of published posts); cover uses the picker |
+| 19 | [owner-previews-blog-post](docs/features/owner-previews-blog-post/story.md) | Needs the post editor to preview from |
+| 20 | [retire-firebase](docs/features/retire-firebase/story.md) | Last, because every other slice removes only what it replaces; this one deletes what is left and checks the whole |
 
 Do not reorder or skip features without an explicit user request. Do not implement scenarios beyond what's written.
 

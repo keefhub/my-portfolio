@@ -8,8 +8,6 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "deploy": "npm run build && firebase deploy --only hosting --project thegoldenpothos-5b3a1",
-    "deploy:rules": "firebase deploy --only firestore:rules,storage --project thegoldenpothos-5b3a1",
     "test:e2e": "npm run build && playwright test",
     "lint:new": "node scripts/lint-new.mjs",
     "check:task": "bash scripts/check-task.sh",
@@ -18,11 +16,12 @@
     "verify": "tsx scripts/verify/run.ts"
   },
   "dependencies": {
-    "firebase": "^13.4.0",
     "framer-motion": "^12.7.4",
     "gray-matter": "^4.0.3",
     "lucide-react": "^0.503.0",
     "next": "16.2.6",
+    "next-auth": "5.0.0-beta.32",
+    "postgres": "4.1.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "rehype-autolink-headings": "^7.1.0",
@@ -46,8 +45,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
-    "firebase-tools": "^15.37.0",
-    "http-server": "^14.1.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5.8"

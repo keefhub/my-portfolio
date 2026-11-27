@@ -42,6 +42,35 @@ export function checkExperience(input: ExperienceContent): ListCheck<ExperienceC
   return { ok: true, content };
 }
 
+export function experienceShape(input: unknown): ExperienceContent | null {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
+  const d = input as Record<string, unknown>;
+  const text = (v: unknown): string | null => {
+    if (v === undefined) return "";
+    return typeof v === "string" ? v : null;
+  };
+  const year = text(d.year);
+  const title = text(d.title);
+  const company = text(d.company);
+  const duration = text(d.duration);
+  const description = text(d.description);
+  if (
+    year === null ||
+    title === null ||
+    company === null ||
+    duration === null ||
+    description === null
+  ) {
+    return null;
+  }
+  let details: string[] = [];
+  if (d.details !== undefined) {
+    if (!Array.isArray(d.details) || !d.details.every((x) => typeof x === "string")) return null;
+    details = [...(d.details as string[])];
+  }
+  return { year, title, company, duration, description, details };
+}
+
 export function experienceFromData(data: unknown): ExperienceContent {
   if (typeof data !== "object" || data === null) return emptyExperience();
   const d = data as Record<string, unknown>;

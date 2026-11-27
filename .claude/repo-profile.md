@@ -8,7 +8,7 @@ fact here when it changes.
 ## Branches
 
 - Main branch: `develop` — the base that `/thermos` and the thermo-nuclear reviews diff against.
-  Flow is feature branch → `develop` (deploys the SIT Firebase project `thegoldenpothos-sit`, sit.thegoldenpothos.xyz) → `master` (deploys production, `thegoldenpothos-5b3a1`). Each deploy job reads `FIREBASE_SERVICE_ACCOUNT` from its GitHub environment (`sit`, `production`). Only `develop` may open a pull request into `master` (the `master-source` job in `pipeline.yml`).
+  Flow is feature branch → `develop` (Vercel serves it at sit.thegoldenpothos.xyz) → `master` (Vercel production, thegoldenpothos.xyz). The site is deployed by Vercel's Git integration, not by the workflow. Only `develop` may open a pull request into `master` (the `master-source` job in `pipeline.yml`).
 - Protected branches: `develop`, `main`, `master`. No agent commits, pushes or writes to them; work on
   a feature branch and open a pull request (the guard in `scripts/guard-bash.sh` enforces it).
 - Pull requests always target `develop`. The guard refuses a `gh pr create` without `--base develop`
@@ -30,8 +30,8 @@ fact here when it changes.
 | --- | --- | --- |
 | `npm run typecheck` | Every task | Exits 0, no type errors |
 | `npm run lint:new` | Every task. Runs ESLint and ignores only the known baseline error (`ThemeProvider.tsx:25`, `react-hooks/set-state-in-effect`), so any other error fails it. `npm run lint` itself exits 1 on that baseline and is not used as a gate | Last line `lint:new: 0 error(s)…`; exits 0 |
-| `npm run build` | Every task (the mechanical gate runs it), and before a feature's plan is marked complete. It is the static export and the only check that catches server/client boundary violations, `generateStaticParams` gaps and blog frontmatter validation | Exits 0 |
-| `npx playwright test e2e/<slug>.spec.ts -g "<E2E-id regex>"` | One browser row. No `npm run build &&` in front: the gate builds once before it runs the command, and a worker builds once before its first browser run and again only after changing code. Needs a current `out/` | Exits 0, the matching row passes |
+| `npm run build` | Every task (the mechanical gate runs it), and before a feature's plan is marked complete. It builds the site and is the only check that catches server/client boundary violations, `generateStaticParams` gaps, a public page that became dynamic, and blog frontmatter validation | Exits 0 |
+| `npx playwright test e2e/<slug>.spec.ts -g "<E2E-id regex>"` | One browser row. No `npm run build &&` in front: the gate builds once before it runs the command, and a worker builds once before its first browser run and again only after changing code. Needs a current `.next/` build | Exits 0, the matching row passes |
 | `npx playwright test e2e/<slug>.spec.ts` | **The only whole-spec e2e run the pipeline requires**: at feature completion, and again before pushing to `develop`. After `npm run build` | Exits 0; every test in the feature's spec file passes |
 | `npm run test:e2e` | **Not a gate.** The full suite, optional and on request only. It is slow, so never per task, never at feature completion, never before a push, and **never in CI** | Exits 0, all tests pass |
 | `npm run step:packet -- <slug> <step>` | Every task, first: writes the part of `spec.md` a worker reads to `.run-logs/<slug>/step-<N>.md` (`scripts/step-packet.sh`) | Last line `PACKET: <path> (<lines> lines, E2E rows: <n>)`; exits 0 |
@@ -40,7 +40,7 @@ fact here when it changes.
 | `npm run check:spec -- <slug>` | Once per spec, before the review packet is frozen (`/spec-this` Phase 10, `/enhance-this-spec`) (`scripts/check-spec.sh`) | Last line `SPEC-LINT: PASS`; exits 0 on `PASS` |
 
 **There is no unit-test framework.** Playwright is the only test runner. Don't add Vitest, Jest or
-another runner without asking the user first. There is no database, so no test database. The Firestore and Storage rules are tested against the local emulators through their REST endpoints.
+another runner without asking the user first. The database is Supabase PostgreSQL; no PostgreSQL server or test database exists on this machine, so the suite uses the in-repo stand-in (a `SUPABASE_DB_URL` starting with `stand-in:`); it covers storage too (a `SUPABASE_URL` starting with `stand-in:`) and never runs the SQL or the real Storage. The owner's SIT check is the only test of the real database and the real storage.
 
 **Only the feature's own spec runs, not the full suite.** The full suite takes too long to be a
 gate. Wherever a skill says "the suite" or "the e2e suite" at completion, it means the build plus
@@ -48,20 +48,23 @@ gate. Wherever a skill says "the suite" or "the e2e suite" at completion, it mea
 CI:** `.github/workflows/pipeline.yml` stays typecheck, lint and build only. Do not add a
 Playwright step.
 
-`npm run build` writes `.next/` and `out/`, and `npm run dev` shares `.next/`. Never run them at the
+`npm run build` writes `.next/`, and `npm run dev` shares `.next/`. Never run them at the
 same time, and never run two builds at once.
 
-**.env is off limits.** The site has no environment variables. Do not read, print or edit `.env*`,
-and do not set any variable for a run.
+**.env is off limits.** The site reads seven settings by name (`AUTH_SECRET`, `AUTH_GOOGLE_ID`,
+`AUTH_GOOGLE_SECRET`, `ADMIN_EMAIL`, `SUPABASE_DB_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`), set by the owner in Vercel and never committed. Do not read, print
+or edit `.env*`. The test run sets its own per-run values (`playwright.config.ts` generates them); do not
+set any variable yourself.
 
 ## Behavioral gate
 
 The behavioral gate is **Playwright** (`@playwright/test`, Chromium): end-to-end tests in `e2e/`, run
-against the real static export. `playwright.config.ts` serves `out/` with `http-server` on
-`http://127.0.0.1:3100` (exact-match files and trailing-slash directory indexes, like Firebase
-Hosting; no SPA fallback). **`out/` must be current**: run `npm run build` first. It covers what the
-compiler and linter cannot: hydration and console errors, rendered content, routing and
-trailing-slash URLs, theme toggle and FOUC, scroll-spy, the mobile drawer, layout at set viewports. Playwright also starts the Firebase Auth, Firestore and Storage emulators (`firebase emulators:start --only auth,firestore,storage`, ports 9099, 8080 and 9199; the Firestore and Storage ones need Java) for the admin panel specs.
+against the built site served by `next start` on `http://localhost:3100`, with a per-run `AUTH_SECRET`,
+`AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` and `ADMIN_EMAIL` generated by `playwright.config.ts`. Google is
+replaced by a stand-in at the browser boundary; there is no emulator and no Java. The database is replaced by a stand-in file whose path `playwright.config.ts` generates per run. File storage is replaced by a stand-in directory whose path `playwright.config.ts` generates per run; the browser's calls to the stand-in storage host are answered by the tests, and a fake storage server in the test process exercises the real `fetch` code. **`.next/` must be
+current**: run `npm run build` first. It covers what the compiler and linter cannot: hydration and
+console errors, rendered content, routing and trailing-slash URLs, sign-in and the panel screens, theme
+toggle and FOUC, scroll-spy, the mobile drawer, layout at set viewports.
 
 **Test file conventions:**
 
@@ -127,7 +130,7 @@ tiers, not from the layer).
 | --- | --- |
 | `data` | `content/blog/*.md`, `src/lib/blog/posts.ts`, `src/lib/blog/types.ts`, experience, project and certification data held in the components |
 | `domain` | `src/lib/site.ts`, `src/lib/blog/markdown.ts`, `src/lib/blog/rss.ts`, `src/lib/blog/index.ts`, `formatDate()` |
-| `route` | `src/app/**/page.tsx`, `layout.tsx`, `src/app/rss.xml/route.ts`, `sitemap.ts`, `robots.ts`, `next.config.ts`, `firebase.json`, `.github/workflows/` |
+| `route` | `src/app/**/page.tsx`, `layout.tsx`, `src/app/rss.xml/route.ts`, `sitemap.ts`, `robots.ts`, `next.config.ts`, `vercel.json`, `.github/workflows/` |
 | `ui` | `src/app/components/**`, `src/app/globals.css` (tokens), `ThemeProvider.tsx` |
 | `e2e` | `e2e/**`, `playwright.config.ts` |
 | `tooling` | `scripts/**`, `.claude/**` |
@@ -206,7 +209,7 @@ changes under `e2e/`. Nothing reviews the task on its own: the mechanical gate p
 feature review reads its diff.
 
 A diff that touches a sensitive path (`src/lib/**`, `src/app/layout.tsx`, `src/app/blog/**`, the
-metadata and RSS routes, `scripts/**`, `package.json`, `next.config.ts`, `firebase.json`,
+metadata and RSS routes, `scripts/**`, `package.json`, `next.config.ts`, `vercel.json`,
 `playwright.config.ts`, `.github/**`, `.claude/settings.json`) is named on the script's
 `TIER-REASONS` line as a note. It does not raise the tier by itself: the spec's `Risk:` line does.
 

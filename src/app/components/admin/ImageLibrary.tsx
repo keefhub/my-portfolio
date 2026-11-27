@@ -7,14 +7,14 @@ import {
   IMAGE_MESSAGES,
   formatBytes,
   validateImageFile,
-  type ImageRecord,
+  type UploadedImage,
 } from "@/lib/admin/images";
-import { ImageGoneError, deleteImage, listImages, uploadImage } from "@/lib/firebase/images";
+import { ImageGoneError, deleteImage, listImages, uploadImage } from "@/lib/admin/imagesClient";
 
 type ListState =
   | { kind: "loading" }
   | { kind: "failed" }
-  | { kind: "ready"; images: ImageRecord[] };
+  | { kind: "ready"; images: UploadedImage[] };
 
 type Message = { kind: "error" | "status"; text: string } | null;
 
@@ -106,7 +106,7 @@ export default function ImageLibrary(): React.JSX.Element {
     }
   }
 
-  async function handleCopy(record: ImageRecord): Promise<void> {
+  async function handleCopy(record: UploadedImage): Promise<void> {
     setMessage(null);
     try {
       await navigator.clipboard.writeText(record.url);
@@ -116,14 +116,14 @@ export default function ImageLibrary(): React.JSX.Element {
     }
   }
 
-  async function handleConfirm(record: ImageRecord): Promise<void> {
+  async function handleConfirm(record: UploadedImage): Promise<void> {
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
     show("status", IMAGE_MESSAGES.deleting);
     let reload = false;
     try {
-      await deleteImage(record);
+      await deleteImage(record.id);
       setMessage(null);
       reload = true;
     } catch (err) {

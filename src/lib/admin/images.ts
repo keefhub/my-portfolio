@@ -24,23 +24,6 @@ export const IMAGE_MESSAGES = {
   emptyList: "No images uploaded yet",
 };
 
-export type ImageRecord = {
-  id: string;
-  name: string;
-  storagePath: string;
-  url: string;
-  contentType: string;
-  size: number;
-  createdAt: number;
-};
-
-const EXTENSIONS: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/webp": "webp",
-  "image/svg+xml": "svg",
-};
-
 export function validateImageFile(file: { name: string; size: number; type: string }): string | null {
   if (file.size === 0) return IMAGE_MESSAGES.empty;
   if (!ALLOWED_IMAGE_TYPES.includes(file.type)) return IMAGE_MESSAGES.wrongType;
@@ -58,10 +41,50 @@ export function formatBytes(bytes: number): string {
   return `${trimmed(bytes / 1048576)} MB`;
 }
 
-export function storagePathFor(id: string, contentType: string): string {
-  const ext = Object.prototype.hasOwnProperty.call(EXTENSIONS, contentType)
-    ? EXTENSIONS[contentType]
-    : undefined;
-  if (!ext) throw new Error("Unsupported image type.");
-  return `images/${id}.${ext}`;
+export type UploadedImage = { id: string; name: string; url: string; contentType: string; size: number };
+
+export type ImageInput = { name: string; type: string; size: number };
+
+export type ImageRefusal = "invalid" | "empty" | "wrong-type" | "too-big";
+
+export type ImageInputCheck = { ok: true; value: ImageInput } | { ok: false; reason: ImageRefusal };
+
+export const MAX_IMAGE_NAME_LENGTH: number = 255;
+
+export const IMAGE_ID_PATTERN: RegExp =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|webp|svg)$/;
+
+export function imageExtension(contentType: string): "png" | "jpg" | "webp" | "svg" | null {
+  switch (contentType) {
+    case "image/png":
+      return "png";
+    case "image/jpeg":
+      return "jpg";
+    case "image/webp":
+      return "webp";
+    case "image/svg+xml":
+      return "svg";
+    default:
+      return null;
+  }
+}
+
+export function checkImageInput(input: unknown): ImageInputCheck {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    return { ok: false, reason: "invalid" };
+  }
+  const { name, type, size } = input as { name?: unknown; type?: unknown; size?: unknown };
+  if (typeof name !== "string") return { ok: false, reason: "invalid" };
+  const trimmedName = name.trim();
+  if (trimmedName.length < 1 || trimmedName.length > MAX_IMAGE_NAME_LENGTH) {
+    return { ok: false, reason: "invalid" };
+  }
+  if (typeof type !== "string") return { ok: false, reason: "invalid" };
+  if (typeof size !== "number" || !Number.isSafeInteger(size) || size < 0) {
+    return { ok: false, reason: "invalid" };
+  }
+  if (size === 0) return { ok: false, reason: "empty" };
+  if (!ALLOWED_IMAGE_TYPES.includes(type)) return { ok: false, reason: "wrong-type" };
+  if (size > MAX_IMAGE_BYTES) return { ok: false, reason: "too-big" };
+  return { ok: true, value: { name: trimmedName, type, size } };
 }

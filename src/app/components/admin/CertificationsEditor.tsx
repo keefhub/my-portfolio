@@ -3,16 +3,18 @@
 import { useEffect, useState } from "react";
 import {
   CERT_MESSAGES,
+  certificationFromData,
   certificationLabel,
+  certificationToData,
   checkCertification,
   emptyCertification,
   type CertificationContent,
 } from "@/lib/admin/certifications";
 import { bottomPosition } from "@/lib/admin/list";
+import { createHttpListStore } from "@/lib/admin/listClient";
 import { photoSelection } from "@/lib/admin/profile";
-import type { ImageRecord } from "@/lib/admin/images";
-import { certificationsStore } from "@/lib/firebase/certifications";
-import { listImages } from "@/lib/firebase/images";
+import type { UploadedImage } from "@/lib/admin/images";
+import { listImages } from "@/lib/admin/imagesClient";
 import ListEditor, { type ListFieldsProps } from "./ListEditor";
 import {
   FieldError,
@@ -24,9 +26,15 @@ import {
   legendStyle,
 } from "./formParts";
 
-type ImagesState = { images: ImageRecord[]; failed: boolean };
+type ImagesState = { images: UploadedImage[]; failed: boolean };
 
-export default function CertificationsEditor(props: { savingOn: boolean }): React.JSX.Element {
+const store = createHttpListStore<CertificationContent>(
+  "/api/admin/certifications/",
+  certificationFromData,
+  certificationToData,
+);
+
+export default function CertificationsEditor(): React.JSX.Element {
   const [loaded, setLoaded] = useState<ImagesState>({ images: [], failed: false });
 
   useEffect(() => {
@@ -48,6 +56,23 @@ export default function CertificationsEditor(props: { savingOn: boolean }): Reac
   }, []);
 
   const { images, failed } = loaded;
+
+  function rowDetails(content: CertificationContent): React.ReactNode {
+    const match = images.find((image) => image.url === content.icon);
+    const badge = match ? match.name : content.icon === "" ? "none" : content.icon;
+    const link = content.url === "" ? "none" : content.url;
+    const lineStyle: React.CSSProperties = {
+      margin: 0,
+      color: "var(--muted)",
+      overflowWrap: "anywhere",
+    };
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <p style={lineStyle}>{`Badge image: ${badge}`}</p>
+        <p style={lineStyle}>{`Credential link: ${link}`}</p>
+      </div>
+    );
+  }
 
   function renderFields(fields: ListFieldsProps<CertificationContent>): React.ReactNode {
     const { value, onChange, errors, disabled } = fields;
@@ -128,8 +153,7 @@ export default function CertificationsEditor(props: { savingOn: boolean }): Reac
   return (
     <ListEditor<CertificationContent>
       heading="Certifications"
-      savingOn={props.savingOn}
-      store={certificationsStore}
+      store={store}
       label={certificationLabel}
       emptyContent={emptyCertification}
       check={checkCertification}
@@ -138,6 +162,7 @@ export default function CertificationsEditor(props: { savingOn: boolean }): Reac
       listLabel={CERT_MESSAGES.listLabel}
       addLabel={CERT_MESSAGES.addLabel}
       newPosition={bottomPosition}
+      rowDetails={rowDetails}
     />
   );
 }

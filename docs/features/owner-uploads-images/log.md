@@ -36,3 +36,22 @@ Review: risk reviewer PASS (review 1)
 Findings: nit | note | logged | success-path storage responses are not drained or cancelled, so undici may hold connections until garbage collection on a long-lived server
  edge | note | logged | the storage functions put id into a URL or file path without checking it; Task 3 (the routes) MUST apply IMAGE_ID_PATTERN before every call, including DELETE ?id= and the register body, or the stand-in could read ../x and the real URL could take an arbitrary path (D-9, D-14)
 =====================================================================
+
+=====================================================================
+Task 3 — The image store and the owner-only routes
+Completed: 2026-11-27      Commit: b4a6e18
+
+Summary: Added the image store and the owner-only routes: GET lists, POST registers an upload, DELETE removes (at /api/admin/images/), and POST /api/admin/images/upload/ issues a one-file upload address. The owner check runs before any body read and the image-id pattern runs before every storage or database call. Registering checks the stored file's real size and type and removes a file outside the rules; delete removes the file before the entry.
+Decisions: Each route file copies the profile route's reply() and refusal() helpers instead of importing them. registerUpload applies the id pattern before checkImageInput and before any storage or database call; deleteUploadedImage applies it to ?id= first. A missing ?id= is passed on as undefined and comes back invalid. imageStore.ts imports its helpers by the @/lib/server/ alias, as profile.ts does.
+Deviations: None.
+Files changed: src/lib/server/imageStore.ts (created), src/app/api/admin/images/route.ts (created), src/app/api/admin/images/upload/route.ts (created), CLAUDE.md (modified, two Routes rows, orchestrator), e2e/owner-uploads-images.spec.ts (modified)
+E2E tests written: E2E-06 to E2E-16      Passed before the change: E2E-14, E2E-16 (guard checks)
+Manual checks pending: E2E-36 (the owner's SIT check of the real Storage service).
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: both DOC-CLAUDE warnings cleared by the CLAUDE.md Routes rows; DOCS confirmed as the orchestrator's doc update)
+Tier: high (spec Risk: high; large-diff 190 non-test lines; test-passed-before-change)
+Review: risk reviewer PASS (review 1; checked the id pattern before every storage and database call, the owner check before any body read, and percent-encoded traversal)
+Findings: None.
+=====================================================================

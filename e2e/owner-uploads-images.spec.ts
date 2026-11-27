@@ -2399,3 +2399,45 @@ test("E2E-34: the earlier Firebase-era image code is gone and nothing in src or 
   expect(names.stdout, "old type or helper").toBe("");
   expect(names.status).toBe(1);
 });
+
+// Step 6: the standing docs the storage makes false.
+
+test("E2E-35: the standing docs name the storage settings, the image routes and the stand-in, and no longer say five settings", async () => {
+  dbReset();
+  storeReset();
+
+  const claude = fs.readFileSync("CLAUDE.md", "utf8");
+  for (const text of [
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "/api/admin/images/",
+    "/api/admin/images/upload/",
+    "stand-in:",
+    "SUPABASE_DB_URL",
+    "/api/admin/profile/",
+    "AUTH_SECRET",
+    "/api/auth/callback/google",
+    "The site reads seven settings by name",
+  ]) {
+    expect(claude, "CLAUDE.md contains " + text).toContain(text);
+  }
+  for (const text of ["The site reads five settings by name", "only API route"]) {
+    expect(claude, "CLAUDE.md no longer contains " + text).not.toContain(text);
+  }
+
+  const profile = fs.readFileSync(".claude/repo-profile.md", "utf8");
+  for (const text of [
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_DB_URL",
+    "stand-in:",
+    "next start",
+    "ADMIN_EMAIL",
+    "The site reads seven settings by name",
+  ]) {
+    expect(profile, "repo-profile.md contains " + text).toContain(text);
+  }
+  for (const text of ["The site reads five settings by name", "There is no database, so no test database."]) {
+    expect(profile, "repo-profile.md no longer contains " + text).not.toContain(text);
+  }
+});

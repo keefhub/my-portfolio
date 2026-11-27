@@ -3,7 +3,7 @@
 Personal portfolio + blog for Keith Lim — `https://thegoldenpothos.xyz`.
 
 Next.js 16.2.6 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS v4 ·
-Framer Motion · public site prerendered; only sign-in (Auth.js, `next-auth` v5) and the admin panel run on the server · served by Vercel · the panel's content lives in Supabase PostgreSQL, reached with `postgres` · Firebase JS SDK remains only in the leftover admin stores until retire-firebase.
+Framer Motion · public site prerendered; only sign-in (Auth.js, `next-auth` v5) and the admin panel run on the server · served by Vercel · the panel's content lives in Supabase PostgreSQL, reached with `postgres` · uploaded images live in Supabase Storage, reached with `fetch` · Firebase JS SDK remains only in the leftover admin stores until retire-firebase.
 
 Import alias: `@/*` → `./src/*`.
 
@@ -135,19 +135,26 @@ the public site must load no Firebase code. The owner is the verified Google ema
 decided on the server by `src/lib/admin/access.ts` and `src/lib/auth.ts`; the panel's access no longer
 depends on database rules.
 `src/lib/server/` holds the server-only modules (the SQL text, the database connection, the stand-in, the
-profile store); it is imported only by `src/app/api/admin/**`, never by a client component, a public page
-or a layout. The owner decision stays in `src/lib/admin/access.ts` and `src/lib/auth.ts`.
+profile store, the storage module and the image store); `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are read
+in one file there (`src/lib/server/storage.ts`). It is imported only by `src/app/api/admin/**`, never by a
+client component, a public page or a layout. The owner decision stays in `src/lib/admin/access.ts` and `src/lib/auth.ts`.
 
-**Leftover rules.** The profile is now stored in Supabase and its Firebase store is gone. The other Firebase
+**Leftover rules.** The profile and the images are now stored in Supabase and their Firebase stores are gone. The other Firebase
 stores and the two rules files ([firestore.rules](firestore.rules), [storage.rules](storage.rules)) stay until
 the slice that replaces each one; retire-firebase removes what is left.
 
-**Settings.** The site reads five settings by name: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
-`ADMIN_EMAIL` and `SUPABASE_DB_URL`. The owner sets them in Vercel for Production and SIT; they are never in the repo.
+**Settings.** The site reads seven settings by name: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
+`ADMIN_EMAIL`, `SUPABASE_DB_URL`, `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The owner sets them in Vercel for Production and SIT; they are never in the repo.
 `SUPABASE_DB_URL` is the connection string of Supabase's transaction pooler, a secret with the password inside;
 the app creates its table on first use (from `src/lib/server/sql.ts`), and a free project that has paused shows
 "The profile could not be loaded." until the owner restores it in Supabase. In the test run it is `stand-in:`
-followed by a temporary file (`playwright.config.ts`). The Google
+followed by a temporary file (`playwright.config.ts`).
+`SUPABASE_URL` is the Supabase project's address (only its origin is used); `SUPABASE_SERVICE_ROLE_KEY` is the
+project's service key, a secret that bypasses every access rule, read in `src/lib/server/storage.ts` only, never
+sent to the browser or logged. Both are set in Vercel for Production and SIT. The app creates the `images` bucket
+(public read, 5 MB limit, the four image types) and the `images` table on first use; a free project that has
+paused shows "The images could not be loaded.". In the test run `SUPABASE_URL` is `stand-in:` followed by a
+temporary directory and the key is unset (`playwright.config.ts`). The Google
 sign-in app lists three return addresses: `https://thegoldenpothos.xyz/api/auth/callback/google`,
 `https://sit.thegoldenpothos.xyz/api/auth/callback/google` and `http://localhost:3000/api/auth/callback/google`.
 

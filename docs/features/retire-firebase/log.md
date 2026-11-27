@@ -55,3 +55,21 @@ Review: none (low tier)
 Findings: None.
 Cross-spec check (extra, not required by the gate): every earlier owner-* spec was run whole, one at a time, after the edit, and all passed (sign-in 33, profile 30, uploads 35, experience 29, projects 30, certifications 34, tech-stack 34, blog posts 34, preview 17). Running several spec files in one command makes them interfere through the shared stand-in database (empty-list expectations fail), so they must be run one file per command.
 =====================================================================
+=====================================================================
+Task 4 — Clear the last traces in tooling text, add the settings section to the pull request template, and prove the whole search
+Completed: 2026-11-27      Commit: 766bad3
+
+Summary: The removed backend's hosting file is gone from the gate's sensitive-path list and from the bugfix, user-story-creator and write-bug-report skill files. The pull request template gains a "Settings to set in Vercel" section naming the seven settings and where each is set. Four rows (E2E-64 to E2E-67) prove the whole-repo search finds no trace outside the named records and public content, and that the template section is complete.
+Decisions: None beyond the Step; edits applied by exact-match replacement with each target asserted once.
+Deviations: None. The implementer made the one-line scripts/check-task.sh edit itself (removing the firebase.json alternative from the sensitive-path case); the diff is exactly that one alternative, as D-11 specifies, and is flagged for human review in the pull request with the two earlier gate-script edits.
+Files changed: scripts/check-task.sh, .claude/skills/bugfix/SKILL.md, .claude/skills/user-story-creator/SKILL.md, .claude/skills/write-bug-report/SKILL.md, .github/pull_request_template.md (modified); e2e/retire-firebase.spec.ts (E2E-64 to E2E-67 added)
+E2E tests written: E2E-64 to E2E-67      Passed before the change: None.
+Manual checks pending: E2E-68 (read the pull request description on GitHub after it is opened into develop), E2E-69 (the Build and lint job on GitHub).
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

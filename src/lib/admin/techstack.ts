@@ -21,6 +21,7 @@ export const TECH_MESSAGES = {
 };
 
 const ICON_PATH = /^\/(?!\/)\S+$/;
+const ICON_UPLOADED = /^https?:\/\/[^\s/]+\/storage\/v1\/object\/public\/images\/\S+$/;
 
 export function emptyTechCategory(): TechCategoryContent {
   return { category: "", tools: [{ name: "", icon: "" }] };
@@ -30,10 +31,7 @@ export function itemErrorKey(index: number, field: "name" | "icon"): string {
   return `tools.${index}.${field}`;
 }
 
-export function checkTechCategory(
-  input: TechCategoryContent,
-  uploadedUrls: readonly string[],
-): ListCheck<TechCategoryContent> {
+export function checkTechCategory(input: TechCategoryContent): ListCheck<TechCategoryContent> {
   const errors: Record<string, string> = {};
   const category = input.category.trim();
   if (category === "") errors.category = TECH_MESSAGES.categoryRequired;
@@ -45,7 +43,7 @@ export function checkTechCategory(
     if (name === "") errors[itemErrorKey(i, "name")] = TECH_MESSAGES.itemRequired;
     else if (name.length > TECH_NAME_MAX) errors[itemErrorKey(i, "name")] = TECH_MESSAGES.itemTooLong;
     if (icon === "") errors[itemErrorKey(i, "icon")] = TECH_MESSAGES.iconRequired;
-    else if (!uploadedUrls.includes(icon) && !ICON_PATH.test(icon)) {
+    else if (!ICON_PATH.test(icon) && !ICON_UPLOADED.test(icon)) {
       errors[itemErrorKey(i, "icon")] = TECH_MESSAGES.iconInvalid;
     }
     return { name, icon };
@@ -53,6 +51,25 @@ export function checkTechCategory(
 
   if (Object.keys(errors).length > 0) return { ok: false, errors };
   return { ok: true, content: { category, tools } };
+}
+
+export function techShape(input: unknown): TechCategoryContent | null {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
+  const d = input as Record<string, unknown>;
+  const category = d.category === undefined ? "" : d.category;
+  if (typeof category !== "string") return null;
+  const rawTools = d.tools === undefined ? [] : d.tools;
+  if (!Array.isArray(rawTools)) return null;
+  const tools: TechItem[] = [];
+  for (const entry of rawTools) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) return null;
+    const e = entry as Record<string, unknown>;
+    const name = e.name === undefined ? "" : e.name;
+    const icon = e.icon === undefined ? "" : e.icon;
+    if (typeof name !== "string" || typeof icon !== "string") return null;
+    tools.push({ name, icon });
+  }
+  return { category, tools };
 }
 
 export function techFromData(data: unknown): TechCategoryContent {

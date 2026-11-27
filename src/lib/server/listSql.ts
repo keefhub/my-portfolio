@@ -1,8 +1,8 @@
 import "server-only";
 
-export type ListTable = "experience" | "projects" | "certifications";
+export type ListTable = "experience" | "projects" | "certifications" | "tech_categories";
 
-export const LIST_TABLES: readonly ListTable[] = ["experience", "projects", "certifications"];
+export const LIST_TABLES: readonly ListTable[] = ["experience", "projects", "certifications", "tech_categories"];
 
 function known(table: ListTable): ListTable {
   if (!LIST_TABLES.includes(table)) throw new Error("Unknown list table.");

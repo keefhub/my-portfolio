@@ -391,9 +391,9 @@ test("E2E-03: the list SQL is exactly the proven text for both tables, the serve
   }
 
   const lines = original.split("\n");
-  expect(lines).toContain('export const LIST_TABLES: readonly ListTable[] = ["experience", "projects", "certifications"];');
+  expect(lines).toContain('export const LIST_TABLES: readonly ListTable[] = ["experience", "projects", "certifications", "tech_categories"];');
   expect(lines.filter((l) => /^export type ListTable =/.test(l))).toEqual([
-    'export type ListTable = "experience" | "projects" | "certifications";',
+    'export type ListTable = "experience" | "projects" | "certifications" | "tech_categories";',
   ]);
 
   const serverFiles = fs.readdirSync("src/lib/server").filter((f) => fs.statSync("src/lib/server/" + f).isFile());

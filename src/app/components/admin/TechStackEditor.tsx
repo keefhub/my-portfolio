@@ -261,12 +261,7 @@ export default function TechStackEditor(props: { savingOn: boolean }): React.JSX
       store={techStore}
       label={techLabel}
       emptyContent={emptyTechCategory}
-      check={(draft) =>
-        checkTechCategory(
-          draft,
-          images.map((i) => i.url),
-        )
-      }
+      check={checkTechCategory}
       renderFields={(fields) => <TechFields fields={fields} images={images} failed={failed} />}
       emptyText={TECH_MESSAGES.emptyList}
       listLabel={TECH_MESSAGES.listLabel}

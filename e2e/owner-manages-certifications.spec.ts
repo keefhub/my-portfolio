@@ -484,10 +484,10 @@ test("E2E-03: the list SQL is exactly the proven text for the three tables, the 
 
   const lines = original.split("\n");
   expect(lines).toContain(
-    'export const LIST_TABLES: readonly ListTable[] = ["experience", "projects", "certifications"];',
+    'export const LIST_TABLES: readonly ListTable[] = ["experience", "projects", "certifications", "tech_categories"];',
   );
   expect(lines.filter((l) => /^export type ListTable =/.test(l))).toEqual([
-    'export type ListTable = "experience" | "projects" | "certifications";',
+    'export type ListTable = "experience" | "projects" | "certifications" | "tech_categories";',
   ]);
 
   const serverFiles = fs.readdirSync("src/lib/server").filter((f) => fs.statSync("src/lib/server/" + f).isFile());
@@ -2424,9 +2424,9 @@ test("E2E-34: the earlier specs now skip Certifications, keep the table set and 
 
   const projects = read("e2e/owner-manages-projects.spec.ts");
   expect(projects).toContain(
-    'export const LIST_TABLES: readonly ListTable[] = ["experience", "projects", "certifications"];',
+    'export const LIST_TABLES: readonly ListTable[] = ["experience", "projects", "certifications", "tech_categories"];',
   );
-  expect(projects).toContain('export type ListTable = "experience" | "projects" | "certifications";');
+  expect(projects).toContain('export type ListTable = "experience" | "projects" | "certifications" | "tech_categories";');
   for (const text of ["/techstack.ts", "/blogposts.ts", "/list.ts"]) expect(projects).toContain(text);
   expect(projects).not.toContain("/certifications.ts");
 

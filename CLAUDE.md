@@ -56,6 +56,8 @@ Every public route is prerendered at build time. Only the admin panel, `/api/aut
 | `/bright-warm-greenhouse/` | [src/app/bright-warm-greenhouse/page.tsx](src/app/bright-warm-greenhouse/page.tsx) — owner-only admin panel (`AdminPanel`, client component), dynamic; `noindex`, not in the sitemap or `robots.txt` |
 | `/api/auth/*` | [src/app/api/auth/[...nextauth]/route.ts](src/app/api/auth/[...nextauth]/route.ts) — the Auth.js handlers, including the Google return address `/api/auth/callback/google`, registered without a trailing slash; dynamic, with `/api/admin/*` and the admin panel the only other server routes |
 | `/api/admin/profile/` | [src/app/api/admin/profile/route.ts](src/app/api/admin/profile/route.ts) — the owner-only JSON entry point for the profile (`GET`, `PUT`), dynamic; it decides access with `getPanelState()` before any database call and talks to the database only through `src/lib/server/` |
+| `/api/admin/images/` | [src/app/api/admin/images/route.ts](src/app/api/admin/images/route.ts) — the owner-only image list, upload registration and delete (GET, POST, DELETE); the owner check and the image-id pattern run before any storage or database call |
+| `/api/admin/images/upload/` | [src/app/api/admin/images/upload/route.ts](src/app/api/admin/images/upload/route.ts) — the owner-only request for a one-file upload address (POST); the browser then sends the file straight to storage |
 
 The landing page (`/`) is a multi-section scroll with anchor nav — Hero, About,
 Experience, TechStack, Projects, Certifications. It is not routed; the sections

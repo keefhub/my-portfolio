@@ -1,6 +1,8 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
-import { expect, test } from "@playwright/test";
+import http from "node:http";
+import os from "node:os";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 import { encode } from "next-auth/jwt";
 import {
   ALLOWED_IMAGE_TYPES,
@@ -396,4 +398,1049 @@ test("E2E-05: saving the profile keeps the stored image list and reading an imag
     socialLinks: [],
   });
   expect(dbImages()).toEqual([HEADSHOT]);
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// Step 3 fixtures: the owner-only routes. Rows E2E-06 to E2E-16 call them through `next start`.
+// ---------------------------------------------------------------------------------------------------------------
+
+const LIST_API = "/api/admin/images/";
+const UPLOAD_API = "/api/admin/images/upload/";
+
+const OTHER = (): Claims => ({
+  sub: "other-1",
+  email: "mallory@example.test",
+  name: "Mallory Intruder",
+  emailVerified: true,
+});
+const UNVERIFIED = (): Claims => ({
+  sub: "owner-2",
+  email: setting("ADMIN_EMAIL"),
+  name: "Unverified Owner",
+  emailVerified: false,
+});
+
+function dbBreak(): void {
+  fs.writeFileSync(DB_FILE, JSON.stringify({ ...readDbFile(), unreachable: true }));
+}
+
+function dbFix(): void {
+  const { unreachable: _unreachable, ...rest } = readDbFile();
+  void _unreachable;
+  fs.writeFileSync(DB_FILE, JSON.stringify(rest));
+}
+
+function dbSeedImages(list: unknown[]): void {
+  fs.writeFileSync(DB_FILE, JSON.stringify({ images: list }));
+}
+
+function dbSeedBoth(profile: unknown, list: unknown[]): void {
+  fs.writeFileSync(DB_FILE, JSON.stringify({ profile, images: list }));
+}
+
+function storeBreak(): void {
+  fs.mkdirSync(STORE_DIR, { recursive: true });
+  fs.writeFileSync(STORE_DIR + "/unreachable", "");
+}
+
+function storeFix(): void {
+  fs.rmSync(STORE_DIR + "/unreachable", { force: true });
+}
+
+function storePut(id: string, bytes: Buffer, type: string): void {
+  fs.mkdirSync(STORE_DIR, { recursive: true });
+  fs.writeFileSync(STORE_DIR + "/" + id, bytes);
+  fs.writeFileSync(STORE_DIR + "/" + id + ".type", type);
+}
+
+function storeHas(id: string): boolean {
+  return fs.existsSync(STORE_DIR + "/" + id);
+}
+
+function storeIds(): string[] {
+  if (!fs.existsSync(STORE_DIR)) return [];
+  return fs
+    .readdirSync(STORE_DIR)
+    .filter((name) => name !== "unreachable" && !name.endsWith(".type"))
+    .sort();
+}
+
+const HOST = "https://stand-in.invalid";
+const publicOf = (id: string): string => HOST + "/storage/v1/object/public/images/" + id;
+const uploadOf = (id: string): string =>
+  HOST + "/storage/v1/object/upload/sign/images/" + id + "?token=stand-in-token";
+
+const PNG_1X1 = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+// The 70 bytes of PNG_1X1 followed by zero bytes up to exactly n bytes.
+function png(n: number): Buffer {
+  const out = Buffer.alloc(n);
+  PNG_1X1.copy(out, 0, 0, Math.min(PNG_1X1.length, n));
+  return out;
+}
+
+// The svg text followed by spaces up to exactly n bytes.
+function svg(n: number): Buffer {
+  const head = '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>';
+  return Buffer.from(head + " ".repeat(Math.max(0, n - head.length)));
+}
+
+const imageOf = (entry: { id: string; name: string; contentType: string; size: number }) => ({
+  id: entry.id,
+  name: entry.name,
+  url: publicOf(entry.id),
+  contentType: entry.contentType,
+  size: entry.size,
+});
+
+function seedHeadshot(): void {
+  dbSeedImages([HEADSHOT]);
+  storePut(HEADSHOT.id, png(307200), "image/png");
+}
+
+const KEITH_BASE = {
+  name: "Keith Lim",
+  headline: "Software Engineer",
+  about: [] as string[],
+  photo: "",
+  email: "",
+  resumeLink: "",
+  socialLinks: [] as { label: string; url: string }[],
+};
+
+const LEAKS = ["10.1.2.3", "key-marker-standin", "password-marker-standin", "ECONNREFUSED"];
+
+const ID_PATTERN = /^[0-9a-f-]{36}\.png$/;
+
+type Reply = { status: number; text: string; json: unknown; cacheControl: string };
+
+// One direct call, without a browser. A body is sent as given with a JSON content type; the cookie header is the
+// whole header value, or absent.
+async function send(
+  request: APIRequestContext,
+  method: "GET" | "POST" | "DELETE" | "PUT",
+  url: string,
+  options: { cookie?: string; body?: string } = {},
+): Promise<Reply> {
+  const headers: Record<string, string> = {};
+  if (options.cookie !== undefined) headers.cookie = options.cookie;
+  if (options.body !== undefined) headers["content-type"] = "application/json";
+  const response = await request.fetch(url, {
+    method,
+    headers,
+    data: options.body,
+    maxRedirects: 0,
+  });
+  const text = await response.text();
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    json = undefined;
+  }
+  return { status: response.status(), text, json, cacheControl: response.headers()["cache-control"] ?? "" };
+}
+
+const asText = (body: unknown): string => JSON.stringify(body);
+
+function containsNone(text: string, needles: string[]): boolean {
+  return needles.every((needle) => !text.includes(needle));
+}
+
+test("E2E-06: every image route refuses a visitor, a wrong account and an unverified owner before it reads, lists, stores or deletes anything", async ({
+  request,
+}) => {
+  dbReset();
+  storeReset();
+  seedHeadshot();
+  const SECOND = "22222222-2222-4222-8222-222222222222.png";
+  storePut(SECOND, png(70), "image/png");
+
+  const sessions: { label: string; cookie: string | undefined; status: number; error: string }[] = [
+    { label: "no cookie", cookie: undefined, status: 401, error: "not-signed-in" },
+    { label: "not a token", cookie: SESSION_COOKIE + "=not-a-token", status: 401, error: "not-signed-in" },
+    { label: "other account", cookie: await cookieOf(OTHER()), status: 403, error: "not-allowed" },
+    { label: "unverified email", cookie: await cookieOf(UNVERIFIED()), status: 403, error: "not-allowed" },
+  ];
+
+  for (const session of sessions) {
+    const calls: { label: string; reply: Reply }[] = [
+      { label: "list", reply: await send(request, "GET", LIST_API, { cookie: session.cookie }) },
+      {
+        label: "upload address",
+        reply: await send(request, "POST", UPLOAD_API, {
+          cookie: session.cookie,
+          body: asText({ name: "small.png", type: "image/png", size: 2048 }),
+        }),
+      },
+      {
+        label: "register",
+        reply: await send(request, "POST", LIST_API, {
+          cookie: session.cookie,
+          body: asText({ id: SECOND, name: "x.png", type: "image/png", size: 70 }),
+        }),
+      },
+      {
+        label: "delete",
+        reply: await send(request, "DELETE", LIST_API + "?id=" + HEADSHOT.id, { cookie: session.cookie }),
+      },
+    ];
+    for (const call of calls) {
+      const where = session.label + " / " + call.label;
+      expect(call.reply.status, where).toBe(session.status);
+      expect(call.reply.json, where).toEqual({ error: session.error });
+      expect(call.reply.cacheControl, where).toContain("no-store");
+      expect(containsNone(call.reply.text, ["headshot.png", "small.png"]), where).toBe(true);
+    }
+  }
+
+  expect(dbImages()).toEqual([HEADSHOT]);
+  expect(storeIds()).toEqual([HEADSHOT.id, SECOND]);
+});
+
+test("E2E-07: every limit and every malformed input is refused with its fixed reason, and nothing is stored or listed", async ({
+  request,
+}) => {
+  dbReset();
+  storeReset();
+  const owner = await cookieOf(OWNER());
+
+  const png5 = (extra: Record<string, unknown>) => ({ name: "x.png", type: "image/png", size: 1000, ...extra });
+  const withoutKey = (key: string): Record<string, unknown> => {
+    const body: Record<string, unknown> = png5({});
+    delete body[key];
+    return body;
+  };
+
+  // Bodies (1) to (17): the raw text sent and the reason expected.
+  const bodies: { text: string; reason: string }[] = [
+    { text: asText({ name: "big.png", type: "image/png", size: 6291456 }), reason: "too-big" },
+    { text: asText({ name: "big.png", type: "image/png", size: 5242881 }), reason: "too-big" },
+    { text: asText({ name: "doc.pdf", type: "application/pdf", size: 1000 }), reason: "wrong-type" },
+    { text: asText({ name: "doc.pdf", type: "application/pdf", size: 6291456 }), reason: "wrong-type" },
+    { text: asText({ name: "anim.gif", type: "image/gif", size: 1000 }), reason: "wrong-type" },
+    { text: asText({ name: "x.png", type: "IMAGE/PNG", size: 1000 }), reason: "wrong-type" },
+    { text: asText({ name: "empty.png", type: "image/png", size: 0 }), reason: "empty" },
+    { text: asText(png5({ name: "   " })), reason: "invalid" },
+    { text: asText(png5({ name: "a".repeat(256) })), reason: "invalid" },
+    { text: asText(withoutKey("size")), reason: "invalid" },
+    { text: asText(withoutKey("type")), reason: "invalid" },
+    { text: asText(png5({ size: "1000" })), reason: "invalid" },
+    { text: asText(png5({ size: 1.5 })), reason: "invalid" },
+    { text: asText(png5({ size: -1 })), reason: "invalid" },
+    { text: "{", reason: "invalid" },
+    { text: "[]", reason: "invalid" },
+    { text: "", reason: "invalid" },
+  ];
+
+  for (const [index, body] of bodies.entries()) {
+    const reply = await send(request, "POST", UPLOAD_API, { cookie: owner, body: body.text });
+    expect(reply.status, "upload body " + (index + 1)).toBe(400);
+    expect(reply.json, "upload body " + (index + 1)).toEqual({ error: body.reason });
+  }
+
+  // Registration with bodies (1) to (14) plus a well-formed id.
+  const ID = "33333333-3333-4333-8333-333333333333.png";
+  for (const [index, body] of bodies.slice(0, 14).entries()) {
+    const parsed = JSON.parse(body.text) as Record<string, unknown>;
+    const reply = await send(request, "POST", LIST_API, {
+      cookie: owner,
+      body: asText({ ...parsed, id: ID }),
+    });
+    expect(reply.status, "register body " + (index + 1)).toBe(400);
+    expect(reply.json, "register body " + (index + 1)).toEqual({ error: body.reason });
+  }
+
+  // Registration without or with a bad id.
+  const good = { name: "x.png", type: "image/png", size: 1000 };
+  const badIds: (string | undefined)[] = [
+    undefined,
+    "../x.png",
+    "33333333-3333-4333-8333-333333333333.gif",
+    "33333333-3333-4333-8333-333333333333.PNG",
+  ];
+  for (const id of badIds) {
+    const reply = await send(request, "POST", LIST_API, {
+      cookie: owner,
+      body: asText(id === undefined ? good : { ...good, id }),
+    });
+    expect(reply.status, "register id " + String(id)).toBe(400);
+    expect(reply.json, "register id " + String(id)).toEqual({ error: "invalid" });
+  }
+
+  // Deletes with a missing, a path-like, a wrong-extension and an empty id.
+  for (const url of [
+    LIST_API,
+    LIST_API + "?id=../../x",
+    LIST_API + "?id=33333333-3333-4333-8333-333333333333.gif",
+    LIST_API + "?id=",
+  ]) {
+    const reply = await send(request, "DELETE", url, { cookie: owner });
+    expect(reply.status, "delete " + url).toBe(400);
+    expect(reply.json, "delete " + url).toEqual({ error: "invalid" });
+  }
+
+  // Controls: the edges of the limits are accepted.
+  for (const size of [5242880, 1]) {
+    const reply = await send(request, "POST", UPLOAD_API, {
+      cookie: owner,
+      body: asText({ name: "edge.png", type: "image/png", size }),
+    });
+    expect(reply.status, "control " + size).toBe(200);
+    const answer = reply.json as { id?: string; uploadUrl?: string };
+    expect(answer.id ?? "", "control " + size).toMatch(ID_PATTERN);
+    expect(answer.uploadUrl, "control " + size).toBe(uploadOf(answer.id ?? ""));
+  }
+
+  expect(dbImages()).toEqual([]);
+  expect(storeIds()).toEqual([]);
+});
+
+test("E2E-08: the owner gets an upload address, registers the stored file, and lists it newest first with an address that carries no file name", async ({
+  request,
+}) => {
+  dbReset();
+  storeReset();
+  const owner = await cookieOf(OWNER());
+  const noStore = (reply: Reply, where: string) => expect(reply.cacheControl, where).toContain("no-store");
+
+  const first = await send(request, "GET", LIST_API, { cookie: owner });
+  noStore(first, "(1)");
+  expect(first.status).toBe(200);
+  expect(first.json).toEqual({ images: [] });
+
+  const body = asText({ name: "headshot.png", type: "image/png", size: 307200 });
+  const issued1 = await send(request, "POST", UPLOAD_API, { cookie: owner, body });
+  noStore(issued1, "(2)");
+  expect(issued1.status).toBe(200);
+  const { id: id1 = "", uploadUrl: url1 } = issued1.json as { id?: string; uploadUrl?: string };
+  expect(id1).toMatch(ID_PATTERN);
+  expect(url1).toBe(uploadOf(id1));
+  expect(storeIds()).toEqual([]);
+  expect(dbImages()).toEqual([]);
+
+  storePut(id1, png(307200), "image/png");
+  const registered1 = await send(request, "POST", LIST_API, {
+    cookie: owner,
+    body: asText({ id: id1, name: " headshot.png ", type: "image/png", size: 307200 }),
+  });
+  noStore(registered1, "(3)");
+  expect(registered1.status).toBe(200);
+  const entry1 = { id: id1, name: "headshot.png", url: publicOf(id1), contentType: "image/png", size: 307200 };
+  expect(registered1.json).toEqual({ image: entry1 });
+  expect(dbImages()).toEqual([{ id: id1, name: "headshot.png", contentType: "image/png", size: 307200 }]);
+
+  const second = await send(request, "GET", LIST_API, { cookie: owner });
+  noStore(second, "(4)");
+  expect(second.status).toBe(200);
+  expect(second.json).toEqual({ images: [entry1] });
+
+  const issued2 = await send(request, "POST", UPLOAD_API, { cookie: owner, body });
+  noStore(issued2, "(5)");
+  expect(issued2.status).toBe(200);
+  const { id: id2 = "" } = issued2.json as { id?: string };
+  expect(id2).not.toBe(id1);
+  storePut(id2, png(307200), "image/png");
+  const registered2 = await send(request, "POST", LIST_API, {
+    cookie: owner,
+    body: asText({ id: id2, name: " headshot.png ", type: "image/png", size: 307200 }),
+  });
+  noStore(registered2, "(5)");
+  expect(registered2.status).toBe(200);
+
+  const third = await send(request, "GET", LIST_API, { cookie: owner });
+  noStore(third, "(6)");
+  expect(third.status).toBe(200);
+  const list = (third.json as { images: { id: string; name: string; url: string }[] }).images;
+  expect(list).toHaveLength(2);
+  expect(list[0].id).toBe(id2);
+  expect(list[1].id).toBe(id1);
+  expect(list.map((item) => item.name)).toEqual(["headshot.png", "headshot.png"]);
+  expect(list[0].url).not.toBe(list[1].url);
+  for (const item of list) expect(item.url).not.toContain("headshot");
+});
+
+test("E2E-09: a registration is checked against what storage really holds, and a stored file outside the rules is removed", async ({
+  request,
+}) => {
+  dbReset();
+  storeReset();
+  const owner = await cookieOf(OWNER());
+
+  const register = (id: string, type: string, size: number) =>
+    send(request, "POST", LIST_API, { cookie: owner, body: asText({ id, name: "f", type, size }) });
+
+  const A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png";
+  const B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.png";
+  const C = "cccccccc-cccc-4ccc-8ccc-cccccccccccc.png";
+  const D = "dddddddd-dddd-4ddd-8ddd-dddddddddddd.png";
+  const E = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee.png";
+  const F = "ffffffff-ffff-4fff-8fff-ffffffffffff.png";
+  const G = "99999999-9999-4999-8999-999999999999.png";
+
+  const a = await register(A, "image/png", 1000);
+  expect(a.status, "(a)").toBe(400);
+  expect(a.json, "(a)").toEqual({ error: "missing" });
+
+  storePut(B, png(6291456), "image/png");
+  const b = await register(B, "image/png", 1000);
+  expect(b.status, "(b)").toBe(400);
+  expect(b.json, "(b)").toEqual({ error: "rejected" });
+  expect(storeHas(B), "(b) removed").toBe(false);
+
+  storePut(C, Buffer.alloc(0), "image/png");
+  const c = await register(C, "image/png", 5);
+  expect(c.status, "(c)").toBe(400);
+  expect(c.json, "(c)").toEqual({ error: "rejected" });
+  expect(storeHas(C), "(c) removed").toBe(false);
+
+  storePut(D, png(100), "application/pdf");
+  const d = await register(D, "image/png", 100);
+  expect(d.status, "(d)").toBe(400);
+  expect(d.json, "(d)").toEqual({ error: "rejected" });
+  expect(storeHas(D), "(d) removed").toBe(false);
+
+  storePut(E, svg(100), "image/svg+xml");
+  const e = await register(E, "image/svg+xml", 100);
+  expect(e.status, "(e)").toBe(400);
+  expect(e.json, "(e)").toEqual({ error: "rejected" });
+  expect(storeHas(E), "(e) removed").toBe(false);
+
+  storePut(F, png(100), "image/png");
+  const f = await register(F, "image/jpeg", 100);
+  expect(f.status, "(f)").toBe(400);
+  expect(f.json, "(f)").toEqual({ error: "rejected" });
+  expect(storeHas(F), "(f) removed").toBe(false);
+
+  storePut(G, png(2000), "image/png");
+  const g = await register(G, "image/png", 999);
+  expect(g.status, "(g)").toBe(200);
+  expect((g.json as { image: { size: number } }).image.size, "(g)").toBe(2000);
+
+  const h = await register(G, "image/png", 999);
+  expect(h.status, "(h)").toBe(200);
+  expect(h.json, "(h)").toEqual(g.json);
+
+  expect(dbImages()).toEqual([{ id: G, name: "f", contentType: "image/png", size: 2000 }]);
+  expect(storeIds()).toEqual([G]);
+});
+
+test("E2E-10: a delete removes the file first, then the entry, and a storage or database failure leaves the entry for another try", async ({
+  request,
+}) => {
+  dbReset();
+  storeReset();
+  seedHeadshot();
+  const owner = await cookieOf(OWNER());
+  const remove = () => send(request, "DELETE", LIST_API + "?id=" + HEADSHOT.id, { cookie: owner });
+
+  const one = await remove();
+  expect(one.status, "(1)").toBe(200);
+  expect(one.json, "(1)").toEqual({ deleted: true });
+  expect(storeHas(HEADSHOT.id), "(1) file").toBe(false);
+  expect(dbImages(), "(1) entry").toEqual([]);
+
+  const two = await remove();
+  expect(two.status, "(2)").toBe(404);
+  expect(two.json, "(2)").toEqual({ error: "not-found" });
+
+  dbSeedImages([HEADSHOT]);
+  const three = await remove();
+  expect(three.status, "(3)").toBe(200);
+  expect(three.json, "(3)").toEqual({ deleted: true });
+  expect(dbImages(), "(3) entry").toEqual([]);
+
+  seedHeadshot();
+  storeBreak();
+  const four = await remove();
+  storeFix();
+  expect(four.status, "(4)").toBe(503);
+  expect(four.json, "(4)").toEqual({ error: "unavailable" });
+  expect(dbImages(), "(4) entry").toEqual([HEADSHOT]);
+  expect(storeHas(HEADSHOT.id), "(4) file").toBe(true);
+  expect(containsNone(four.text, LEAKS), "(4) leaks").toBe(true);
+
+  dbBreak();
+  const five = await remove();
+  expect(five.status, "(5)").toBe(503);
+  expect(five.json, "(5)").toEqual({ error: "unavailable" });
+  expect(storeHas(HEADSHOT.id), "(5) file").toBe(true);
+  dbFix();
+  expect(dbImages(), "(5) entry").toEqual([HEADSHOT]);
+  expect(containsNone(five.text, LEAKS), "(5) leaks").toBe(true);
+});
+
+test("E2E-11: an unreachable storage or database gives the fixed 503 on every route, with the refusals unchanged and no detail leaked", async ({
+  request,
+}) => {
+  dbReset();
+  storeReset();
+  seedHeadshot();
+  const FOURTH = "44444444-4444-4444-8444-444444444444.png";
+  storePut(FOURTH, png(70), "image/png");
+  storeBreak();
+  const owner = await cookieOf(OWNER());
+
+  const smallBody = asText({ name: "small.png", type: "image/png", size: 2048 });
+  const registerBody = asText({ id: FOURTH, name: "x.png", type: "image/png", size: 70 });
+  const calls = {
+    list: () => send(request, "GET", LIST_API, { cookie: owner }),
+    upload: () => send(request, "POST", UPLOAD_API, { cookie: owner, body: smallBody }),
+    register: () => send(request, "POST", LIST_API, { cookie: owner, body: registerBody }),
+    remove: () => send(request, "DELETE", LIST_API + "?id=" + HEADSHOT.id, { cookie: owner }),
+  };
+
+  for (const [label, call] of Object.entries(calls)) {
+    const reply = await call();
+    expect(reply.status, "(1) " + label).toBe(503);
+    expect(reply.json, "(1) " + label).toEqual({ error: "unavailable" });
+    expect(containsNone(reply.text, [...LEAKS, "headshot.png"]), "(1) leaks " + label).toBe(true);
+  }
+
+  const signedOut = await send(request, "GET", LIST_API);
+  expect(signedOut.status, "(2) no cookie").toBe(401);
+  expect(signedOut.json, "(2) no cookie").toEqual({ error: "not-signed-in" });
+  const stranger = await send(request, "GET", LIST_API, { cookie: await cookieOf(OTHER()) });
+  expect(stranger.status, "(2) other account").toBe(403);
+  expect(stranger.json, "(2) other account").toEqual({ error: "not-allowed" });
+
+  storeFix();
+  dbBreak();
+  const list = await calls.list();
+  expect(list.status, "(3) list").toBe(503);
+  expect(list.json, "(3) list").toEqual({ error: "unavailable" });
+  expect(containsNone(list.text, LEAKS), "(3) list leaks").toBe(true);
+
+  const upload = await calls.upload();
+  expect(upload.status, "(3) upload").toBe(200);
+  expect((upload.json as { id?: string }).id ?? "", "(3) upload").toMatch(ID_PATTERN);
+
+  const register = await calls.register();
+  expect(register.status, "(3) register").toBe(503);
+  expect(register.json, "(3) register").toEqual({ error: "unavailable" });
+  expect(containsNone(register.text, LEAKS), "(3) register leaks").toBe(true);
+
+  const remove = await calls.remove();
+  expect(remove.status, "(3) delete").toBe(503);
+  expect(remove.json, "(3) delete").toEqual({ error: "unavailable" });
+  expect(containsNone(remove.text, LEAKS), "(3) delete leaks").toBe(true);
+  expect(storeHas(HEADSHOT.id), "(3) file").toBe(true);
+
+  dbFix();
+  const after = await calls.list();
+  expect(after.status, "(4)").toBe(200);
+  expect(after.json, "(4)").toEqual({ images: [imageOf(HEADSHOT)] });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// The real fetch code: a fake Storage server run by the test process and a second built site on port 3102.
+// ---------------------------------------------------------------------------------------------------------------
+
+const SITE_PORT = 3102;
+const SITE = "http://localhost:" + SITE_PORT;
+const REAL_KEY = ["key", "marker", "realpath"].join("-");
+const BUCKET_BODY =
+  '{"id":"images","name":"images","public":true,"file_size_limit":5242880,"allowed_mime_types":["image/png","image/jpeg","image/webp","image/svg+xml"]}';
+
+type Seen = { method: string; url: string; headers: http.IncomingHttpHeaders; body: string };
+type FakeServer = { base: string; seen: Seen[]; close: () => Promise<void> };
+
+async function startFake(
+  handler: (seen: Seen, body: Buffer, res: http.ServerResponse) => void,
+): Promise<FakeServer> {
+  const seen: Seen[] = [];
+  const server = http.createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      const body = Buffer.concat(chunks);
+      const entry: Seen = {
+        method: req.method ?? "",
+        url: req.url ?? "",
+        headers: req.headers,
+        body: body.toString("utf8"),
+      };
+      seen.push(entry);
+      handler(entry, body, res);
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address();
+  const port = typeof address === "object" && address !== null ? address.port : 0;
+  return {
+    base: "http://127.0.0.1:" + port,
+    seen,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.closeAllConnections();
+        server.close(() => resolve());
+      }),
+  };
+}
+
+function reply(res: http.ServerResponse, status: number, text: string, type = "application/json"): void {
+  res.writeHead(status, { "content-type": type });
+  res.end(text);
+}
+
+type Site = { log: () => string };
+
+async function stopChild(child: ChildProcess): Promise<void> {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  const exited = new Promise<void>((resolve) => child.once("exit", () => resolve()));
+  child.kill();
+  await exited;
+}
+
+// Start the built site on SITE_PORT with the given storage settings, run the work, and always stop it.
+async function withSite<T>(
+  settings: { url: string; key: string | undefined },
+  work: (site: Site) => Promise<T>,
+): Promise<T> {
+  let output = "";
+  const env: NodeJS.ProcessEnv = { ...process.env, SUPABASE_URL: settings.url };
+  if (settings.key === undefined) delete env[KEY_NAME];
+  else env[KEY_NAME] = settings.key;
+  const child = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(SITE_PORT)], {
+    env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  child.stdout?.on("data", (chunk: Buffer) => {
+    output += chunk.toString();
+  });
+  child.stderr?.on("data", (chunk: Buffer) => {
+    output += chunk.toString();
+  });
+  try {
+    await expect
+      .poll(
+        async () => {
+          try {
+            return (await fetch(SITE + "/")).status;
+          } catch {
+            return 0;
+          }
+        },
+        { timeout: 90000, intervals: [500, 1000] },
+      )
+      .toBe(200);
+    return await work({ log: () => output });
+  } finally {
+    await stopChild(child);
+  }
+}
+
+test("E2E-12: the real storage calls carry the key, create the bucket once, issue and confirm an upload and remove the file", async ({
+  request,
+}) => {
+  test.setTimeout(240000);
+  dbReset();
+  storeReset();
+
+  const objects = new Map<string, { body: Buffer; type: string }>();
+  let bucketCreated = false;
+  const fake = await startFake((seen, body, res) => {
+    const path = seen.url.split("?")[0];
+    const signed = path.startsWith("/storage/v1/object/upload/sign/images/") && seen.method === "PUT";
+    const publicHead = path.startsWith("/storage/v1/object/public/images/") && seen.method === "HEAD";
+    const keyed = seen.headers.apikey === REAL_KEY && seen.headers.authorization === "Bearer " + REAL_KEY;
+    if (!signed && !publicHead && !keyed) return reply(res, 401, '{"error":"unauthorized"}');
+
+    if (seen.method === "GET" && path === "/storage/v1/bucket/images") {
+      return bucketCreated
+        ? reply(res, 200, '{"id":"images"}')
+        : reply(res, 404, '{"statusCode":"404","error":"Bucket not found"}');
+    }
+    if (seen.method === "POST" && path === "/storage/v1/bucket") {
+      bucketCreated = true;
+      return reply(res, 200, '{"name":"images"}');
+    }
+    if (seen.method === "POST" && path.startsWith("/storage/v1/object/upload/sign/images/")) {
+      const id = path.slice("/storage/v1/object/upload/sign/images/".length);
+      return reply(res, 200, JSON.stringify({ url: "/object/upload/sign/images/" + id + "?token=fake-token" }));
+    }
+    if (signed) {
+      const id = path.slice("/storage/v1/object/upload/sign/images/".length);
+      if (!seen.url.endsWith("?token=fake-token")) return reply(res, 401, '{"error":"bad token"}');
+      objects.set(id, { body, type: String(seen.headers["content-type"] ?? "") });
+      return reply(res, 200, JSON.stringify({ Key: "images/" + id }));
+    }
+    if (publicHead) {
+      const stored = objects.get(path.slice("/storage/v1/object/public/images/".length));
+      if (!stored) {
+        res.writeHead(400);
+        return void res.end();
+      }
+      res.writeHead(200, { "content-length": String(stored.body.length), "content-type": stored.type });
+      return void res.end();
+    }
+    if (seen.method === "DELETE" && path === "/storage/v1/object/images") {
+      const prefixes = (JSON.parse(seen.body) as { prefixes: string[] }).prefixes;
+      for (const id of prefixes) objects.delete(id);
+      return reply(res, 200, JSON.stringify(prefixes.map((name) => ({ name }))));
+    }
+    return reply(res, 404, '{"error":"unknown"}');
+  });
+
+  try {
+    await withSite({ url: fake.base, key: REAL_KEY }, async (site) => {
+      const owner = await cookieOf(OWNER());
+      const texts: string[] = [];
+      const call = async (
+        method: "GET" | "POST" | "DELETE",
+        path: string,
+        body?: string,
+      ): Promise<Reply> => {
+        const result = await send(request, method, SITE + path, { cookie: owner, body });
+        texts.push(result.text);
+        return result;
+      };
+      const keyHeaders = (entry: Seen) => {
+        expect(entry.headers.apikey, entry.method + " " + entry.url).toBe(REAL_KEY);
+        expect(entry.headers.authorization, entry.method + " " + entry.url).toBe("Bearer " + REAL_KEY);
+      };
+
+      const one = await call("GET", LIST_API);
+      expect(one.status, "(1)").toBe(200);
+      expect(one.json, "(1)").toEqual({ images: [] });
+      const bucketReads = fake.seen.filter((s) => s.method === "GET" && s.url === "/storage/v1/bucket/images");
+      const bucketCreates = fake.seen.filter((s) => s.method === "POST" && s.url === "/storage/v1/bucket");
+      expect(bucketReads).toHaveLength(1);
+      expect(bucketCreates).toHaveLength(1);
+      keyHeaders(bucketReads[0]);
+      keyHeaders(bucketCreates[0]);
+      expect(bucketCreates[0].body).toBe(BUCKET_BODY);
+      expect(String(bucketCreates[0].headers["content-type"])).toContain("application/json");
+
+      const two = await call("POST", UPLOAD_API, asText({ name: "headshot.png", type: "image/png", size: 70 }));
+      expect(two.status, "(2)").toBe(200);
+      const { id = "", uploadUrl } = two.json as { id?: string; uploadUrl?: string };
+      expect(id, "(2)").toMatch(ID_PATTERN);
+      expect(uploadUrl, "(2)").toBe(fake.base + "/storage/v1/object/upload/sign/images/" + id + "?token=fake-token");
+      const signing = fake.seen.find((s) => s.method === "POST" && s.url === "/storage/v1/object/upload/sign/images/" + id);
+      expect(signing, "(2) signing call").toBeDefined();
+      expect(signing?.body, "(2) signing body").toBe("{}");
+      expect(String(signing?.headers["content-type"]), "(2) signing type").toContain("application/json");
+
+      const three = await request.put(uploadUrl ?? "", {
+        headers: { "content-type": "image/png" },
+        data: PNG_1X1,
+        maxRedirects: 0,
+      });
+      expect(three.status(), "(3)").toBe(200);
+
+      const four = await call("POST", LIST_API, asText({ id, name: "headshot.png", type: "image/png", size: 70 }));
+      expect(four.status, "(4)").toBe(200);
+      const entry = (four.json as { image: { url: string; size: number } }).image;
+      expect(entry.url, "(4)").toBe(fake.base + "/storage/v1/object/public/images/" + id);
+      expect(entry.size, "(4)").toBe(70);
+      const head = fake.seen.find((s) => s.method === "HEAD" && s.url === "/storage/v1/object/public/images/" + id);
+      expect(head, "(4) HEAD").toBeDefined();
+      expect(head?.headers["accept-encoding"], "(4) HEAD encoding").toBe("identity");
+      expect(head?.headers.apikey, "(4) HEAD key").toBeUndefined();
+      expect(head?.headers.authorization, "(4) HEAD authorization").toBeUndefined();
+
+      const five = await call("GET", LIST_API);
+      expect(five.status, "(5)").toBe(200);
+      expect(five.json, "(5)").toEqual({ images: [four.json && (four.json as { image: unknown }).image] });
+
+      const six = await call("DELETE", LIST_API + "?id=" + id);
+      expect(six.status, "(6)").toBe(200);
+      expect(six.json, "(6)").toEqual({ deleted: true });
+      const removal = fake.seen.find((s) => s.method === "DELETE" && s.url === "/storage/v1/object/images");
+      expect(removal, "(6) removal").toBeDefined();
+      expect(removal?.body, "(6) removal body").toBe(JSON.stringify({ prefixes: [id] }));
+      if (removal) keyHeaders(removal);
+      expect(objects.size, "(6) fake map").toBe(0);
+
+      const seven = await call("GET", LIST_API);
+      expect(seven.json, "(7)").toEqual({ images: [] });
+
+      expect(fake.seen.filter((s) => s.method === "GET" && s.url === "/storage/v1/bucket/images")).toHaveLength(1);
+      expect(fake.seen.filter((s) => s.method === "POST" && s.url === "/storage/v1/bucket")).toHaveLength(1);
+      for (const text of texts) expect(text).not.toContain(REAL_KEY);
+      expect(site.log()).not.toContain(REAL_KEY);
+    });
+  } finally {
+    await fake.close();
+  }
+});
+
+test("E2E-13: an unusable setting or a failing storage gives the fixed 503, one fixed log line and no secret in either", async ({
+  request,
+}) => {
+  test.setTimeout(240000);
+  const owner = await cookieOf(OWNER());
+  const smallBody = asText({ name: "small.png", type: "image/png", size: 2048 });
+
+  type Outcome = { list?: Reply; upload: Reply; signedOut: Reply; log: string };
+
+  async function run(
+    settings: { url: string; key: string | undefined },
+    options: { listFirst: boolean; line: string },
+  ): Promise<Outcome> {
+    dbReset();
+    return withSite(settings, async (site) => {
+      const list = options.listFirst ? await send(request, "GET", SITE + LIST_API, { cookie: owner }) : undefined;
+      const upload = await send(request, "POST", SITE + UPLOAD_API, { cookie: owner, body: smallBody });
+      const signedOut = await send(request, "GET", SITE + LIST_API);
+      await expect.poll(() => site.log().includes(options.line), { timeout: 15000 }).toBe(true);
+      return { list, upload, signedOut, log: site.log() };
+    });
+  }
+
+  const unavailable = (outcome: Outcome, label: string) => {
+    if (outcome.list) {
+      expect(outcome.list.status, label + " list").toBe(503);
+      expect(outcome.list.text, label + " list").toBe('{"error":"unavailable"}');
+    }
+    expect(outcome.upload.status, label + " upload").toBe(503);
+    expect(outcome.upload.text, label + " upload").toBe('{"error":"unavailable"}');
+    expect(outcome.signedOut.status, label + " signed out").toBe(401);
+  };
+
+  // (i) an empty address and no key
+  const empty = await run({ url: "", key: undefined }, { listFirst: true, line: "[storage] bucket failed unknown" });
+  unavailable(empty, "(i)");
+  expect(empty.log).toContain("[storage] bucket failed unknown");
+  for (const reply of [empty.list, empty.upload, empty.signedOut]) {
+    expect(containsNone(reply?.text ?? "", LEAKS), "(i) leaks").toBe(true);
+  }
+
+  // (ii) an address with an empty key: the fake must see no request at all
+  const idle = await startFake((_seen, _body, res) => reply(res, 200, "{}"));
+  try {
+    const blank = await run({ url: idle.base, key: "" }, { listFirst: true, line: "[storage] bucket failed unknown" });
+    unavailable(blank, "(ii)");
+    expect(blank.log).toContain("[storage] bucket failed unknown");
+    expect(idle.seen, "(ii) fake requests").toEqual([]);
+    for (const answer of [blank.list, blank.upload, blank.signedOut]) {
+      expect(containsNone(answer?.text ?? "", LEAKS), "(ii) leaks").toBe(true);
+    }
+  } finally {
+    await idle.close();
+  }
+
+  // (iii) a storage that answers 500 with text that names the key
+  const failing = await startFake((_seen, _body, res) => reply(res, 500, REAL_KEY + " internal detail", "text/plain"));
+  try {
+    const broken = await run(
+      { url: failing.base, key: REAL_KEY },
+      { listFirst: true, line: "[storage] bucket failed HTTP_500" },
+    );
+    unavailable(broken, "(iii)");
+    expect(broken.log).toContain("[storage] bucket failed HTTP_500");
+    const hostPort = failing.base.slice("http://".length);
+    for (const secret of [REAL_KEY, "internal detail", hostPort]) {
+      for (const answer of [broken.list, broken.upload, broken.signedOut]) {
+        expect(answer?.text ?? "", "(iii) response leaks " + secret).not.toContain(secret);
+      }
+      expect(broken.log, "(iii) log leaks " + secret).not.toContain(secret);
+    }
+  } finally {
+    await failing.close();
+  }
+
+  // (iv) a storage that answers the bucket read and then signs an address that is not the object's
+  const elsewhere = await startFake((seen, _body, res) => {
+    if (seen.method === "GET" && seen.url === "/storage/v1/bucket/images") return reply(res, 200, '{"id":"images"}');
+    return reply(res, 200, '{"url":"/elsewhere"}');
+  });
+  try {
+    const odd = await run(
+      { url: elsewhere.base, key: REAL_KEY },
+      { listFirst: false, line: "[storage] sign failed unknown" },
+    );
+    unavailable(odd, "(iv)");
+    expect(odd.log).toContain("[storage] sign failed unknown");
+    const hostPort = elsewhere.base.slice("http://".length);
+    for (const secret of [REAL_KEY, "internal detail", hostPort, "/elsewhere"]) {
+      for (const answer of [odd.upload, odd.signedOut]) {
+        expect(answer.text, "(iv) response leaks " + secret).not.toContain(secret);
+      }
+      expect(odd.log, "(iv) log leaks " + secret).not.toContain(secret);
+    }
+  } finally {
+    await elsewhere.close();
+  }
+});
+
+test("E2E-14: the public pages stay prerendered and their pages and scripts carry nothing of the storage, the routes or the settings", async ({
+  request,
+}) => {
+  dbReset();
+  storeReset();
+
+  const manifest = JSON.parse(fs.readFileSync(".next/prerender-manifest.json", "utf8")) as {
+    routes: Record<string, unknown>;
+  };
+  const keys = Object.keys(manifest.routes);
+  expect(keys.filter((key) => key.startsWith("/api/admin"))).toEqual([]);
+  for (const route of [
+    "/",
+    "/blog",
+    "/blog/hello-world",
+    "/blog/building-portfolio-nextjs",
+    "/robots.txt",
+    "/rss.xml",
+    "/sitemap.xml",
+  ]) {
+    expect(keys, route).toContain(route);
+  }
+
+  const forbidden = [
+    "SUPABASE_URL",
+    KEY_NAME,
+    "stand-in.invalid",
+    "api/admin",
+    "upload/sign",
+    "StorageUnavailable",
+  ];
+  const scripts = new Set<string>();
+  for (const page of ["/", "/blog/", "/blog/hello-world/", "/blog/building-portfolio-nextjs/"]) {
+    const response = await request.get(page);
+    expect(response.status(), page).toBe(200);
+    const html = await response.text();
+    for (const needle of forbidden) expect(html, page + " carries " + needle).not.toContain(needle);
+    for (const match of html.matchAll(/\/_next\/static\/[^"'\s\\]+?\.js/g)) scripts.add(match[0]);
+  }
+  expect(scripts.size).toBeGreaterThan(0);
+  for (const script of scripts) {
+    const response = await request.get(script);
+    expect(response.status(), script).toBe(200);
+    const text = await response.text();
+    for (const needle of forbidden) expect(text, script + " carries " + needle).not.toContain(needle);
+  }
+
+  const auth = gitGrep(["-l", "-E", "@/lib/auth\\b", "--", "src"]);
+  for (const path of gitPaths(auth.stdout)) {
+    expect(
+      path.startsWith("src/app/api/auth/") ||
+        path.startsWith("src/app/api/admin/") ||
+        path.startsWith("src/app/bright-warm-greenhouse/"),
+      path,
+    ).toBe(true);
+  }
+  const server = gitGrep(["-l", "-E", "lib/server", "--", "src", ":(exclude)src/lib/server", ":(exclude)src/app/api/admin"]);
+  expect(server.stdout).toBe("");
+  expect(server.status).toBe(1);
+});
+
+test("E2E-15: uploading and deleting an image never touches the stored profile", async ({ request }) => {
+  dbReset();
+  storeReset();
+  dbSeedBoth(KEITH_BASE, []);
+  const owner = await cookieOf(OWNER());
+
+  const issued = await send(request, "POST", UPLOAD_API, {
+    cookie: owner,
+    body: asText({ name: "headshot.png", type: "image/png", size: 70 }),
+  });
+  expect(issued.status).toBe(200);
+  const { id = "" } = issued.json as { id?: string };
+  expect(id).toMatch(ID_PATTERN);
+
+  storePut(id, png(70), "image/png");
+  const registered = await send(request, "POST", LIST_API, {
+    cookie: owner,
+    body: asText({ id, name: "headshot.png", type: "image/png", size: 70 }),
+  });
+  expect(registered.status).toBe(200);
+  expect(dbStored()).toEqual(KEITH_BASE);
+  expect(dbImages()).toHaveLength(1);
+
+  const removed = await send(request, "DELETE", LIST_API + "?id=" + id, { cookie: owner });
+  expect(removed.status).toBe(200);
+  expect(dbStored()).toEqual(KEITH_BASE);
+  expect(dbImages()).toEqual([]);
+});
+
+// Build a throw-away git repository the way the sign-in and profile specs' gate tests do, add the files and run
+// the gate. Pieces are put together so that this file never trips the gate's own scans.
+const DASH = String.fromCharCode(8212);
+const BODY = "export const x = 1;";
+const QUOTE = String.fromCharCode(34);
+const GLOBAL_CALL = ["fet", "ch"].join("") + "(" + QUOTE + "https:" + "/" + "/" + "example.test" + QUOTE + ");";
+
+type GateRun = { lines: string[]; status: number | null };
+
+function runGate(files: { file: string; content: string }[]): GateRun {
+  const dir = fs.mkdtempSync(os.tmpdir() + "/gate-");
+  try {
+    const sh = (cmd: string, args: string[], env: Record<string, string> = {}) =>
+      spawnSync(cmd, args, { cwd: dir, encoding: "utf8", env: { ...process.env, ...env } });
+
+    sh("git", ["init", "-q"]);
+    fs.mkdirSync(dir + "/docs/features/fixture", { recursive: true });
+    fs.writeFileSync(
+      dir + "/docs/features/fixture/spec.md",
+      [
+        "## 8. Implementation plan",
+        "",
+        "## Phase A " + DASH + " Fixture",
+        "",
+        "### Step 1 " + DASH + " Fixture",
+        "",
+        "- **Files:**",
+        ...files.map((f) => "  - add `" + f.file + "`"),
+        "- **Risk:** low " + DASH + " fixture",
+        "- **Verify:**",
+        "  - `npm run typecheck`",
+        "",
+      ].join("\n"),
+    );
+    fs.mkdirSync(dir + "/scripts", { recursive: true });
+    fs.copyFileSync(process.cwd() + "/scripts/check-task.sh", dir + "/scripts/check-task.sh");
+    sh("git", ["add", "docs/features/fixture/spec.md", "scripts/check-task.sh"]);
+    sh("git", [
+      "-c",
+      "user.email=fixture@example.test",
+      "-c",
+      "user.name=fixture",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "-q",
+      "-m",
+      "init",
+    ]);
+
+    for (const f of files) {
+      const target = dir + "/" + f.file;
+      fs.mkdirSync(target.slice(0, target.lastIndexOf("/")), { recursive: true });
+      fs.writeFileSync(target, f.content);
+    }
+
+    const result = sh("bash", ["scripts/check-task.sh", "fixture", "1"], { CHECK_SKIP_RUN: "1" });
+    return { lines: (result.stdout ?? "").split("\n"), status: result.status };
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test("E2E-16: the mechanical gate accepts the new routes, the storage module and the browser client, and still rejects an API route elsewhere", async () => {
+  test.setTimeout(180000);
+  dbReset();
+  storeReset();
+
+  const added = runGate([
+    { file: "src/app/api/admin/images/route.ts", content: BODY },
+    { file: "src/app/api/admin/images/upload/route.ts", content: BODY },
+    { file: "src/lib/server/storage.ts", content: GLOBAL_CALL + "\n" },
+    { file: "src/lib/admin/imagesClient.ts", content: BODY },
+  ]);
+  expect(added.lines.filter((l) => l.startsWith("PASS STATIC")), "PASS STATIC").not.toEqual([]);
+  expect(added.lines.filter((l) => l.startsWith("PASS IMPORTS")), "PASS IMPORTS").not.toEqual([]);
+  expect(added.lines.filter((l) => l.startsWith("FAIL STATIC")), "FAIL STATIC").toEqual([]);
+  expect(added.lines.filter((l) => l.startsWith("FAIL IMPORTS")), "FAIL IMPORTS").toEqual([]);
+
+  const stray = runGate([{ file: "src/app/api/images/route.ts", content: BODY }]);
+  expect(
+    stray.lines.filter((l) => l.startsWith("FAIL STATIC") && l.includes("src/app/api/images/route.ts")),
+    "FAIL STATIC names the stray route",
+  ).not.toEqual([]);
+  expect(stray.status).toBe(1);
 });

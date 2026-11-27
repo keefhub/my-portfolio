@@ -490,7 +490,7 @@ reasons=()
 high_paths=()
 for p in "${changed[@]}"; do
   case "$p" in
-    src/lib/*|src/app/layout.tsx|src/app/rss.xml/*|src/app/sitemap.ts|src/app/robots.ts|src/app/blog/*|scripts/*|package.json|next.config.ts|firebase.json|playwright.config.ts|.github/*|.claude/settings.json)
+    src/lib/*|src/app/layout.tsx|src/app/rss.xml/*|src/app/sitemap.ts|src/app/robots.ts|src/app/blog/*|scripts/*|package.json|next.config.ts|firebase.json|vercel.json|playwright.config.ts|.github/*|.claude/settings.json)
       high_paths+=("$p") ;;
   esac
 done

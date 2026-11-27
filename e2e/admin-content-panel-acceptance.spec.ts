@@ -1627,7 +1627,7 @@ test.describe("admin content panel: intent acceptance", () => {
     expect(hits.filter((h) => h !== "name@site.com")).toEqual([]);
     const workflow = repoText(".github/workflows/pipeline.yml");
     const secrets = new Set([...workflow.matchAll(/secrets\.([A-Za-z0-9_]+)/g)].map((m) => m[1]));
-    expect(secrets).toEqual(new Set(["GITHUB_TOKEN", "FIREBASE_SERVICE_ACCOUNT"]));
+    expect(secrets).toEqual(new Set(["FIREBASE_SERVICE_ACCOUNT"]));
     for (const f of adminFiles()) expect(readFileSync(f, "utf8"), rel(f)).not.toContain("process.env");
   });
 

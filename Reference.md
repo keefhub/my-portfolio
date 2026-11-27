@@ -15,7 +15,7 @@
 | **Icons**     | lucide-react 0.503                                      |
 | **Fonts**     | Geist (sans), Geist Mono (via `next/font`)              |
 | **Content**   | Markdown blog in `content/blog/`, built by unified/remark/rehype |
-| **Deploy**    | Firebase Hosting (static export via `next build`)       |
+| **Deploy**    | Vercel (static export via `next build`, Git integration) |
 | **Output**    | `output: "export"` + `trailingSlash: true` → `./out/`   |
 
 ---
@@ -74,7 +74,7 @@ User toggles theme → ThemeContext → localStorage + data-theme attr on <html>
 - **Landing page is anchor-scrolled, the blog is routed**: `/` is one page of sections; `/blog` and `/blog/<slug>` are real routes
 - **Mixed server/client components**: 8 of 17 are `"use client"`. The landing-page sections are client (animation + state); the blog tree and metadata routes are server components
 - **Static export**: `output: "export"`. No API routes, no middleware, no ISR, no request-time rendering. Dynamic routes need `generateStaticParams`; route handlers need `dynamic = "force-static"`
-- **`trailingSlash: true`**: Emits `out/blog/<slug>/index.html`. Firebase Hosting serves exact-match files only, so the flat `.html` form left every blog URL unmatched. Coupled to `firebase.json` and `absoluteUrl()` in `src/lib/site.ts` — change all three together
+- **`trailingSlash: true`**: Emits `out/blog/<slug>/index.html`. The host serves exact-match files only, so the flat `.html` form leaves every blog URL unmatched. Coupled to `vercel.json` and `absoluteUrl()` in `src/lib/site.ts` — change all three together
 - **Build-time content pipeline**: Markdown in `content/blog/` is read, validated, and rendered during `next build` — never at runtime
 - **CSS variables for theming**: Light/dark tokens in `:root` / `[data-theme="dark"]`
 - **Flip cards**: Used in both Experience and Projects for progressive disclosure
@@ -468,20 +468,26 @@ Update `[data-theme="dark"]` block in `globals.css` to add new token overrides.
 
 ```
 next build          → static export to ./out/
-firebase deploy     → deploys ./out/ to Firebase Hosting
+git push            → Vercel builds (vercel.json: `npm run build`, output `out/`) and publishes
 ```
+
+`master` is Vercel's production branch (thegoldenpothos.xyz); `develop` is served at
+sit.thegoldenpothos.xyz (a domain assigned to that branch). Other branches get preview URLs, which the
+admin panel treats as SIT (any host that is neither production nor local, `environmentFor()`).
+Firebase is no longer the host, but still provides sign-in and the database for the admin panel; the
+CI workflow publishes each Firebase project's security rules.
 
 `next.config.ts`:
 
 ```typescript
 const nextConfig: NextConfig = {
   output: "export",
-  trailingSlash: true, // → out/blog/<slug>/index.html (Firebase needs exact-match files)
+  trailingSlash: true, // → out/blog/<slug>/index.html (the host serves exact-match files)
   images: { unoptimized: true },
 };
 ```
 
-`firebase.json` mirrors it with `"trailingSlash": true` and `"cleanUrls": false`,
+`vercel.json` mirrors it with `"trailingSlash": true` and `"cleanUrls": false`,
 plus an explicit `application/rss+xml` Content-Type header for `/rss.xml`.
 `absoluteUrl()` in `src/lib/site.ts` appends the same trailing slash to canonical,
 OG, RSS, and sitemap URLs — while deliberately *not* slashing file paths like

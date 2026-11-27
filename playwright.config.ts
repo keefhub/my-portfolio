@@ -1,7 +1,7 @@
 import { defineConfig, devices, type ReporterDescription } from "@playwright/test";
 
 // Tests run against the real static export in out/ — run `npm run build` first
-// (or use `npm run test:e2e`, which does). http-server mirrors Firebase Hosting:
+// (or use `npm run test:e2e`, which does). http-server mirrors the static host (Vercel):
 // exact-match files with trailing-slash directory indexes, no SPA fallback.
 const PORT = 3100;
 

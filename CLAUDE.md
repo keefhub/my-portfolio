@@ -3,7 +3,7 @@
 Personal portfolio + blog for Keith Lim — `https://thegoldenpothos.xyz`.
 
 Next.js 16.2.6 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS v4 ·
-Framer Motion · Firebase JS SDK (admin panel only) · **statically exported** to `out/` and served by Firebase Hosting.
+Framer Motion · Firebase JS SDK (admin panel only) · **statically exported** to `out/` and served by Vercel.
 
 Import alias: `@/*` → `./src/*`.
 
@@ -70,12 +70,13 @@ dynamic route needs `generateStaticParams`. Route handlers must be
 `export const dynamic = "force-static"`.
 
 **2. `trailingSlash: true` is load-bearing in three places.**
-[next.config.ts](next.config.ts), [firebase.json](firebase.json), and
+[next.config.ts](next.config.ts), [vercel.json](vercel.json), and
 `absoluteUrl()` in [src/lib/site.ts](src/lib/site.ts) must agree. It makes each
 route emit `out/blog/<slug>/index.html` instead of `out/blog/<slug>.html`.
-Firebase Hosting only serves exact-match files, so flipping this leaves every
-blog URL unmatched and falling through to the SPA rewrite. Do not change it in
-one file alone.
+The host serves exact-match files, so flipping this leaves every blog URL
+unmatched (a 404, or a redirect to the wrong form). Do not change it in one file alone.
+`vercel.json` also holds the build command and the `/rss.xml` content type; there is no
+catch-all rewrite, so an unknown URL reaches `out/404.html`.
 
 **3. Never import the blog barrel from a client component.**
 [src/lib/blog/posts.ts](src/lib/blog/posts.ts) is `import "server-only"` and
@@ -203,7 +204,7 @@ uses `docs/` instead and never touches them.
 - **Playwright is the only test runner.** Specs live in `e2e/` and run against the built `out/`. Don't add Vitest, Jest or another runner without asking.
 - **Run only the feature's own e2e spec** (`npx playwright test e2e/<slug>.spec.ts`) — at feature completion and before pushing to `develop`. Never the full suite as a gate (too slow), and never e2e in CI.
 - **Models: orchestrator Opus, subagents Sonnet.** Every dispatched subagent passes `model: sonnet`; don't raise a subagent's tier. See the profile's Models section.
-- **Never commit or push to `develop`, `main` or `master`.** `master` deploys the live site. Work on a feature branch and open a pull request into `develop`; a human merges. `scripts/guard-bash.sh`, wired in `.claude/settings.json`, refuses direct pushes, force pushes, `git add -A`, `git commit -a`, `--no-verify`, `.env` access and a pull request to any other base.
+- **Never commit or push to `develop`, `main` or `master`.** `master` is Vercel's production branch and deploys the live site. Work on a feature branch and open a pull request into `develop`; a human merges. `scripts/guard-bash.sh`, wired in `.claude/settings.json`, refuses direct pushes, force pushes, `git add -A`, `git commit -a`, `--no-verify`, `.env` access and a pull request to any other base.
 - **Never write or read a secret.** The site has none. Don't read, print or edit `.env*`.
 
 ---

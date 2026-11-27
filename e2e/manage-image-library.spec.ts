@@ -428,7 +428,7 @@ test.describe("manage-image-library", () => {
     expect(stValue).toBe(PLACEHOLDER);
   });
 
-  test("E2E-13: firebase.json names the storage rules and emulator and keeps hosting", async () => {
+  test("E2E-13: firebase.json names the storage rules and emulator and carries no hosting", async () => {
     const config = JSON.parse(repoText("firebase.json")) as Record<string, any>;
     expect(config.storage?.rules).toBe("storage.rules");
     expect(config.emulators?.storage).toEqual({ host: "127.0.0.1", port: 9199 });
@@ -436,12 +436,9 @@ test.describe("manage-image-library", () => {
     expect(config.emulators?.auth).toEqual({ host: "127.0.0.1", port: 9099 });
     const emulatorKeys = ["auth", "firestore", "storage", "ui", "singleProjectMode"];
     for (const key of Object.keys(config.emulators ?? {})) expect(emulatorKeys).toContain(key);
-    expect(config.hosting?.public).toBe("out");
-    expect(config.hosting?.trailingSlash).toBe(true);
-    expect(config.hosting?.cleanUrls).toBe(false);
-    const allowed = ["hosting", "firestore", "storage", "emulators"];
+    const allowed = ["firestore", "storage", "emulators"];
     for (const key of Object.keys(config)) expect(allowed).toContain(key);
-    for (const key of ["functions", "extensions", "database", "dataconnect", "remoteconfig", "apphosting"]) {
+    for (const key of ["hosting", "functions", "extensions", "database", "dataconnect", "remoteconfig", "apphosting"]) {
       expect(config).not.toHaveProperty(key);
     }
   });

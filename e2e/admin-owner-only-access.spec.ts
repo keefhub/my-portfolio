@@ -304,17 +304,29 @@ test("E2E-22: firebase.json points Firestore at the rules and the emulator", () 
   expect(config.firestore?.rules).toBe("firestore.rules");
   expect(config.emulators?.firestore).toEqual({ host: "127.0.0.1", port: 8080 });
   expect(config.emulators?.auth).toEqual({ host: "127.0.0.1", port: 9099 });
-  expect(config.hosting?.public).toBe("out");
-  expect(config.hosting?.trailingSlash).toBe(true);
-  expect(config.hosting?.cleanUrls).toBe(false);
-  const allowed = ["hosting", "firestore", "storage", "emulators"];
+  // The site is hosted on Vercel (vercel.json), so firebase.json carries no hosting block.
+  const allowed = ["firestore", "storage", "emulators"];
   for (const key of Object.keys(config)) expect(allowed).toContain(key);
-  for (const key of ["functions", "extensions", "database", "dataconnect", "remoteconfig", "apphosting"]) {
+  for (const key of ["hosting", "functions", "extensions", "database", "dataconnect", "remoteconfig", "apphosting"]) {
     expect(config).not.toHaveProperty(key);
   }
 });
 
-test("E2E-21: the live deploy publishes the rules after hosting and uses no new secret", () => {
+test("E2E-22b: vercel.json serves the static export with trailing slashes and the RSS content type", () => {
+  const config = JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8")) as Record<string, any>;
+  expect(config.outputDirectory).toBe("out");
+  expect(config.buildCommand).toBe("npm run build");
+  expect(config.trailingSlash).toBe(true);
+  expect(config.cleanUrls).toBe(false);
+  // No catch-all rewrite: an unknown URL must reach out/404.html, not the home page.
+  expect(config).not.toHaveProperty("rewrites");
+  const rss = (config.headers ?? []).find((h: { source: string }) => h.source === "/rss.xml");
+  expect(rss?.headers).toEqual([{ key: "Content-Type", value: "application/rss+xml; charset=utf-8" }]);
+  // trailingSlash must agree with next.config.ts.
+  expect(readFileSync(join(ROOT, "next.config.ts"), "utf8")).toMatch(/trailingSlash:\s*true/);
+});
+
+test("E2E-21: each deploy job publishes only its own project's rules and uses no new secret", () => {
   const workflow = readFileSync(join(ROOT, ".github/workflows/pipeline.yml"), "utf8");
   const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as {
     scripts: Record<string, string>;
@@ -329,18 +341,16 @@ test("E2E-21: the live deploy publishes the rules after hosting and uses no new 
 
   expect(prod).toContain("npm run deploy:rules");
   expect(prod).toContain("GOOGLE_APPLICATION_CREDENTIALS");
-  expect(prod.indexOf("FirebaseExtended/action-hosting-deploy")).toBeGreaterThan(-1);
-  expect(prod.indexOf("FirebaseExtended/action-hosting-deploy")).toBeLessThan(
-    prod.indexOf("npm run deploy:rules"),
-  );
   expect(prod).not.toContain("continue-on-error");
   // SIT is its own Firebase project: staging deploys the SIT rules only, never the production script.
   expect(staging).toContain("npm run deploy:rules:sit");
   expect(staging).not.toMatch(/npm run deploy:rules(?!:sit)/);
   expect(staging).not.toContain("thegoldenpothos-5b3a1");
+  // The site is deployed by Vercel's Git integration, not by this workflow.
+  expect(workflow).not.toContain("FirebaseExtended/action-hosting-deploy");
 
   const secrets = new Set([...workflow.matchAll(/secrets\.([A-Za-z0-9_]+)/g)].map((m) => m[1]));
-  expect(secrets).toEqual(new Set(["GITHUB_TOKEN", "FIREBASE_SERVICE_ACCOUNT"]));
+  expect(secrets).toEqual(new Set(["FIREBASE_SERVICE_ACCOUNT"]));
 
   expect(pkg.scripts["deploy:rules"]).toBe(
     "firebase deploy --only firestore:rules,storage --project thegoldenpothos-5b3a1",
@@ -348,9 +358,7 @@ test("E2E-21: the live deploy publishes the rules after hosting and uses no new 
   expect(pkg.scripts["deploy:rules:sit"]).toBe(
     "firebase deploy --only firestore:rules --project thegoldenpothos-sit",
   );
-  expect(pkg.scripts.deploy).toBe(
-    "npm run build && firebase deploy --only hosting --project thegoldenpothos-5b3a1",
-  );
+  expect(pkg.scripts).not.toHaveProperty("deploy");
 });
 
 // ---- Panel notice rows (E2E-14 to E2E-18, E2E-20) ----

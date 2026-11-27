@@ -21,6 +21,16 @@ import {
   type ListTable,
 } from "@/lib/server/listSql";
 import {
+  POST_DELETE_SQL,
+  POST_INSERT_SQL,
+  POST_READ_ALL_SQL,
+  POST_READ_ONE_PUBLISHED_SQL,
+  POST_READ_ONE_SQL,
+  POST_READ_PUBLISHED_SQL,
+  POST_SCHEMA_STATEMENTS,
+  POST_UPDATE_SQL,
+} from "@/lib/server/postSql";
+import {
   readStandIn,
   readStandInImages,
   readStandInList,
@@ -74,6 +84,9 @@ async function ensureSchema(setting: string, sql: Client): Promise<void> {
         for (const statement of listSchemaStatements(table)) {
           await sql.unsafe(statement);
         }
+      }
+      for (const statement of POST_SCHEMA_STATEMENTS) {
+        await sql.unsafe(statement);
       }
     })();
     schemaReady = attempt;
@@ -306,6 +319,138 @@ export async function deleteListRecord(table: ListTable, id: string): Promise<bo
       return true;
     }
     const rows = await clientFor(setting).unsafe(listDeleteSql(table), [id]);
+    return rows.length > 0;
+  });
+}
+
+export type StoredPost = { slug: string; published: boolean; data: unknown };
+
+type StandInPost = { slug: string; status: "draft" | "published"; data: unknown };
+
+const POSTS_KEY = "blog_posts";
+
+function asStandInPost(value: unknown): StandInPost | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const item = value as Record<string, unknown>;
+  if (typeof item.slug !== "string") return null;
+  if (item.status !== "draft" && item.status !== "published") return null;
+  return { slug: item.slug, status: item.status, data: item.data };
+}
+
+let standInPostWrites: Promise<unknown> = Promise.resolve();
+
+function serialisePostWrite<T>(work: () => Promise<T>): Promise<T> {
+  const next = standInPostWrites.then(work, work);
+  standInPostWrites = next.catch(() => undefined);
+  return next;
+}
+
+function toStoredPost(record: { slug: string; status: string; data: unknown }): StoredPost {
+  return { slug: record.slug, published: record.status === "published", data: record.data };
+}
+
+function statusOf(record: StoredPost): "draft" | "published" {
+  return record.published ? "published" : "draft";
+}
+
+export async function readPostRecords(onlyPublished: boolean): Promise<StoredPost[]> {
+  return run("read", async (setting, path) => {
+    if (path !== null) {
+      const records: StoredPost[] = [];
+      for (const element of await readStandInList(path, POSTS_KEY)) {
+        const post = asStandInPost(element);
+        if (post === null) continue;
+        const stored = toStoredPost(post);
+        if (onlyPublished && !stored.published) continue;
+        records.push(stored);
+      }
+      return records;
+    }
+    const rows = await clientFor(setting).unsafe(onlyPublished ? POST_READ_PUBLISHED_SQL : POST_READ_ALL_SQL);
+    return rows.map((row) => toStoredPost(row as unknown as { slug: string; status: string; data: unknown }));
+  });
+}
+
+export async function readPostRecord(slug: string, onlyPublished: boolean): Promise<StoredPost | null> {
+  return run("read", async (setting, path) => {
+    if (path !== null) {
+      for (const element of await readStandInList(path, POSTS_KEY)) {
+        const post = asStandInPost(element);
+        if (post === null || post.slug !== slug) continue;
+        const stored = toStoredPost(post);
+        if (onlyPublished && !stored.published) return null;
+        return stored;
+      }
+      return null;
+    }
+    const rows = await clientFor(setting).unsafe(onlyPublished ? POST_READ_ONE_PUBLISHED_SQL : POST_READ_ONE_SQL, [
+      slug,
+    ]);
+    if (rows.length === 0) return null;
+    return toStoredPost(rows[0] as unknown as { slug: string; status: string; data: unknown });
+  });
+}
+
+export async function insertPostRecord(record: StoredPost): Promise<boolean> {
+  return run("write", async (setting, path) => {
+    if (path !== null) {
+      return serialisePostWrite(async () => {
+        const stored = await readStandInList(path, POSTS_KEY);
+        if (stored.some((element) => asStandInPost(element)?.slug === record.slug)) return false;
+        await writeStandInList(path, POSTS_KEY, [
+          ...stored,
+          { slug: record.slug, status: statusOf(record), data: record.data },
+        ]);
+        return true;
+      });
+    }
+    const rows = await clientFor(setting).unsafe(POST_INSERT_SQL, [
+      record.slug,
+      statusOf(record),
+      JSON.stringify(record.data),
+    ]);
+    return rows.length > 0;
+  });
+}
+
+export async function updatePostRecord(record: StoredPost): Promise<boolean> {
+  return run("write", async (setting, path) => {
+    if (path !== null) {
+      return serialisePostWrite(async () => {
+        const stored = await readStandInList(path, POSTS_KEY);
+        let found = false;
+        const next = stored.map((element) => {
+          const post = asStandInPost(element);
+          if (post === null || post.slug !== record.slug) return element;
+          found = true;
+          return { ...(element as Record<string, unknown>), status: statusOf(record), data: record.data };
+        });
+        if (!found) return false;
+        await writeStandInList(path, POSTS_KEY, next);
+        return true;
+      });
+    }
+    const rows = await clientFor(setting).unsafe(POST_UPDATE_SQL, [
+      record.slug,
+      statusOf(record),
+      JSON.stringify(record.data),
+    ]);
+    return rows.length > 0;
+  });
+}
+
+export async function deletePostRecord(slug: string): Promise<boolean> {
+  return run("write", async (setting, path) => {
+    if (path !== null) {
+      return serialisePostWrite(async () => {
+        const stored = await readStandInList(path, POSTS_KEY);
+        const kept = stored.filter((element) => asStandInPost(element)?.slug !== slug);
+        if (kept.length === stored.length) return false;
+        await writeStandInList(path, POSTS_KEY, kept);
+        return true;
+      });
+    }
+    const rows = await clientFor(setting).unsafe(POST_DELETE_SQL, [slug]);
     return rows.length > 0;
   });
 }

@@ -30,6 +30,7 @@ export const BLOG_MESSAGES = {
   listLabel: "Blog posts list",
   addLabel: "Add post",
   imagesFailed: "The uploaded images could not be loaded.",
+  postGone: "This post no longer exists.",
 };
 
 const DATE_SHAPE = /^[1-9]\d{3}-\d{2}-\d{2}$/;
@@ -91,8 +92,22 @@ export function checkBlogPost(input: BlogPostContent): ListCheck<BlogPostContent
   return { ok: true, content };
 }
 
-export function blogPostFromData(data: unknown, id: string): BlogPostContent {
-  if (typeof data !== "object" || data === null) return { ...emptyBlogPost(), slug: id };
+export type BlogPostWire = {
+  title: string;
+  excerpt: string;
+  date: string;
+  slug: string;
+  tags: string[];
+  draft: boolean;
+  featured: boolean;
+  coverImage: string;
+  coverAlt: string;
+  body: string;
+};
+
+export function blogPostFromData(data: unknown, id?: string): BlogPostContent {
+  const fallbackSlug = id ?? "";
+  if (typeof data !== "object" || data === null) return { ...emptyBlogPost(), slug: fallbackSlug };
   const d = data as Record<string, unknown>;
   const text = (v: unknown): string => (typeof v === "string" ? v : "");
   const tags = Array.isArray(d.tags)
@@ -102,7 +117,7 @@ export function blogPostFromData(data: unknown, id: string): BlogPostContent {
     title: text(d.title),
     excerpt: text(d.excerpt),
     date: text(d.date),
-    slug: id,
+    slug: typeof d.slug === "string" && d.slug !== "" ? d.slug : fallbackSlug,
     tags,
     coverImage: text(d.coverImage),
     coverAlt: text(d.coverAlt),
@@ -112,17 +127,65 @@ export function blogPostFromData(data: unknown, id: string): BlogPostContent {
   };
 }
 
-export function blogPostToData(content: BlogPostContent): Record<string, unknown> {
+export function blogPostToData(content: BlogPostContent): BlogPostWire {
   return {
     title: content.title,
     excerpt: content.excerpt,
     date: content.date,
+    slug: content.slug,
     tags: parseTags(content.tags),
     draft: content.status !== "Published",
     featured: content.featured,
     coverImage: content.coverImage,
     coverAlt: content.coverAlt,
     body: content.body,
+  };
+}
+
+export function blogPostShape(input: unknown): BlogPostContent | null {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
+  const d = input as Record<string, unknown>;
+  const textOf = (v: unknown): string | null => {
+    if (v === undefined) return "";
+    return typeof v === "string" ? v : null;
+  };
+  const title = textOf(d.title);
+  const excerpt = textOf(d.excerpt);
+  const date = textOf(d.date);
+  const slug = textOf(d.slug);
+  const coverImage = textOf(d.coverImage);
+  const coverAlt = textOf(d.coverAlt);
+  const body = textOf(d.body);
+  if (
+    title === null ||
+    excerpt === null ||
+    date === null ||
+    slug === null ||
+    coverImage === null ||
+    coverAlt === null ||
+    body === null
+  ) {
+    return null;
+  }
+  let tags = "";
+  if (d.tags !== undefined) {
+    if (!Array.isArray(d.tags) || !d.tags.every((t) => typeof t === "string")) return null;
+    tags = (d.tags as string[]).join(", ");
+  }
+  if (d.draft !== undefined && typeof d.draft !== "boolean") return null;
+  if (d.featured !== undefined && typeof d.featured !== "boolean") return null;
+  const draft = d.draft === undefined ? true : d.draft;
+  return {
+    title,
+    excerpt,
+    date,
+    slug,
+    tags,
+    coverImage,
+    coverAlt,
+    body,
+    featured: d.featured === true,
+    status: draft === false ? "Published" : "Draft",
   };
 }
 

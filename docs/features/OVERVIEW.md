@@ -54,3 +54,10 @@ One row per feature, appended by `/help-discover-this` Mode B and `/agentic-disc
 | Owner signs in with Google | [owner-google-sign-in](owner-google-sign-in/story.md) |
 | Owner edits profile | [owner-edits-profile](owner-edits-profile/story.md) |
 | Owner uploads images | [owner-uploads-images](owner-uploads-images/story.md) |
+| Owner manages experience | [owner-manages-experience](owner-manages-experience/story.md) |
+| Owner manages projects | [owner-manages-projects](owner-manages-projects/story.md) |
+| Owner manages certifications | [owner-manages-certifications](owner-manages-certifications/story.md) |
+| Owner manages tech stack | [owner-manages-tech-stack](owner-manages-tech-stack/story.md) |
+| Owner manages blog posts | [owner-manages-blog-posts](owner-manages-blog-posts/story.md) |
+| Owner previews blog post | [owner-previews-blog-post](owner-previews-blog-post/story.md) |
+| Retire Firebase and document the new stack | [retire-firebase](retire-firebase/story.md) |

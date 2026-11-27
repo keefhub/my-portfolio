@@ -290,6 +290,13 @@ Populated by `/help-discover-this` and `/agentic-discover` as features are added
 | 11 | [owner-google-sign-in](docs/features/owner-google-sign-in/story.md) | The gate everything else sits behind; lifts the static export for the panel, adds Auth.js, proves the `/api/auth/*` callback under `trailingSlash: true` early, and amends the standing docs the lift makes false |
 | 12 | [owner-edits-profile](docs/features/owner-edits-profile/story.md) | Simplest editor (one record); first use of the database, so it fixes the server entry point, the owner-only check, the empty and unreachable states |
 | 13 | [owner-uploads-images](docs/features/owner-uploads-images/story.md) | Storage and the owner-only upload pattern must exist before any editor can pick an uploaded image; adds the picker to the profile photo |
+| 14 | [owner-manages-experience](docs/features/owner-manages-experience/story.md) | First list; fixes the reorder and confirm-delete pattern the next three reuse |
+| 15 | [owner-manages-projects](docs/features/owner-manages-projects/story.md) | Reuses the list pattern; no new dependency |
+| 16 | [owner-manages-certifications](docs/features/owner-manages-certifications/story.md) | Reuses the list pattern; badge uses the image picker |
+| 17 | [owner-manages-tech-stack](docs/features/owner-manages-tech-stack/story.md) | Reuses the list pattern, plus nested items; icons use the picker |
+| 18 | [owner-manages-blog-posts](docs/features/owner-manages-blog-posts/story.md) | Most rules (unique slug, draft, status list, public read of published posts); cover uses the picker |
+| 19 | [owner-previews-blog-post](docs/features/owner-previews-blog-post/story.md) | Needs the post editor to preview from |
+| 20 | [retire-firebase](docs/features/retire-firebase/story.md) | Last, because every other slice removes only what it replaces; this one deletes what is left and checks the whole |
 
 Do not reorder or skip features without an explicit user request. Do not implement scenarios beyond what's written.
 

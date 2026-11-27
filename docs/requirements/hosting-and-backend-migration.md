@@ -103,16 +103,16 @@ table (row 10). Status is one of `pending`, `written`, `BLOCKED: <what it needs>
 
 | # | Slug | Why here | Status |
 | --- | --- | --- | --- |
-| 11 | `owner-google-sign-in` | The gate everything else sits behind; lifts the static export for the panel, adds Auth.js, proves the `/api/auth/*` callback under `trailingSlash: true` early, and amends the standing docs the lift makes false | pending |
+| 11 | `owner-google-sign-in` | The gate everything else sits behind; lifts the static export for the panel, adds Auth.js, proves the `/api/auth/*` callback under `trailingSlash: true` early, and amends the standing docs the lift makes false | written |
 | 12 | `owner-edits-profile` | Simplest editor (one record); first use of the database, so it fixes the server entry point, the owner-only check, the empty and unreachable states | written |
-| 13 | `owner-uploads-images` | Storage and the owner-only upload pattern must exist before any editor can pick an uploaded image; adds the picker to the profile photo | pending |
-| 14 | `owner-manages-experience` | First list; fixes the reorder and confirm-delete pattern the next three reuse | pending |
-| 15 | `owner-manages-projects` | Reuses the list pattern; no new dependency | pending |
-| 16 | `owner-manages-certifications` | Reuses the list pattern; badge uses the image picker | pending |
-| 17 | `owner-manages-tech-stack` | Reuses the list pattern, plus nested items; icons use the picker | pending |
-| 18 | `owner-manages-blog-posts` | Most rules (unique slug, draft, status list, public read of published posts); cover uses the picker | pending |
-| 19 | `owner-previews-blog-post` | Needs the post editor to preview from | pending |
-| 20 | `retire-firebase` | Last, because every other slice removes only what it replaces; this one deletes what is left and checks the whole | pending |
+| 13 | `owner-uploads-images` | Storage and the owner-only upload pattern must exist before any editor can pick an uploaded image; adds the picker to the profile photo | written |
+| 14 | `owner-manages-experience` | First list; fixes the reorder and confirm-delete pattern the next three reuse | written |
+| 15 | `owner-manages-projects` | Reuses the list pattern; no new dependency | written |
+| 16 | `owner-manages-certifications` | Reuses the list pattern; badge uses the image picker | written |
+| 17 | `owner-manages-tech-stack` | Reuses the list pattern, plus nested items; icons use the picker | written |
+| 18 | `owner-manages-blog-posts` | Most rules (unique slug, draft, status list, public read of published posts); cover uses the picker | written |
+| 19 | `owner-previews-blog-post` | Needs the post editor to preview from | written |
+| 20 | `retire-firebase` | Last, because every other slice removes only what it replaces; this one deletes what is left and checks the whole | written |
 
 ## Coverage of the intent
 
@@ -272,3 +272,13 @@ Each question the interactive discovery would have asked, and what was taken. `[
 5. Intent §6 13 asks for "no Firebase service-account secret" in the pull request pipeline, but §7 leaves
    removing the Firebase secrets and GitHub environments to the owner after cutover. `retire-firebase`
    removes every use of them from the workflow; the secrets themselves stay until the owner deletes them.
+6. Coverage review notes (non-blocking, `.run-logs/hosting-and-backend-migration/discover-review.md`): the
+   colour-token constraint (light and dark) has a scenario only in `owner-previews-blog-post`, and the
+   paid-plan constraint (§5) has a scenario only in `retire-firebase`. Each is covered at least once, which is
+   what the intent asks; the spec stage may add more coverage where a screen changes its styling.
+7. `owner-manages-certifications` contains one wording slip, "Five or fewer people use the panel". The intent
+   says one owner and no other users (§2.3, §3). Read it as the owner alone; the spec stage should correct
+   the sentence.
+8. The review's single blocking finding (the Offline and time category in `owner-manages-experience`) was
+   fixed by one `[auto]` assumption (no. 20) in that story, and was not reviewed a second time, as the
+   skill allows only one review.

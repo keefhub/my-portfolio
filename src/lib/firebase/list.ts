@@ -8,17 +8,11 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { getFirebaseDb } from "./client";
-import { UNPOSITIONED, sortEntries, type ListEntry } from "../admin/list";
+import { UNPOSITIONED, sortEntries, type ListEntry, type ListStore } from "../admin/list";
+
+export type { ListStore };
 
 export const LIST_TIMEOUT_MS: number = 10000;
-
-export type ListStore<T> = {
-  load(): Promise<ListEntry<T>[]>;
-  add(content: T, position: number): Promise<string>;
-  update(id: string, content: T): Promise<void>;
-  reorder(changes: { id: string; position: number }[]): Promise<void>;
-  remove(id: string): Promise<void>;
-};
 
 export async function withTimeout<R>(write: Promise<R>): Promise<R> {
   let timer: ReturnType<typeof setTimeout> | undefined;

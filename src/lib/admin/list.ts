@@ -1,6 +1,17 @@
 export type ListEntry<T> = { id: string; position: number; content: T };
 export type FieldErrors = Record<string, string | undefined>;
 export type ListCheck<T> = { ok: true; content: T } | { ok: false; errors: FieldErrors };
+export type ListStore<T> = {
+  load(): Promise<ListEntry<T>[]>;
+  add(content: T, position: number): Promise<string>;
+  update(id: string, content: T): Promise<void>;
+  reorder(changes: { id: string; position: number }[]): Promise<void>;
+  remove(id: string): Promise<void>;
+};
+
+export const LIST_ID_PATTERN: RegExp =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 export type ListMove = "up" | "down";
 export type ListFailure = "save" | "move" | "delete";
 

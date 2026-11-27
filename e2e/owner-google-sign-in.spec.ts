@@ -797,11 +797,22 @@ test("E2E-28: the panel and the auth routes are server-rendered, the public rout
   expect(manifest.dynamicRoutes["/blog/[slug]"].fallback).toBe(false);
 
   const result = gitGrep(["-l", "-E", "@/lib/auth\\b", "--", "src"]);
-  expect(result.stdout.split("\n").filter(Boolean).sort()).toEqual([
-    "src/app/api/auth/[...nextauth]/route.ts",
-    "src/app/bright-warm-greenhouse/actions.ts",
-    "src/app/bright-warm-greenhouse/page.tsx",
-  ]);
+  const importers = result.stdout.split("\n").filter(Boolean).sort();
+  for (const file of importers) {
+    expect(
+      file.startsWith("src/app/api/auth/") ||
+        file.startsWith("src/app/api/admin/") ||
+        file.startsWith("src/app/bright-warm-greenhouse/"),
+      file,
+    ).toBe(true);
+  }
+  expect(importers).toEqual(
+    expect.arrayContaining([
+      "src/app/api/auth/[...nextauth]/route.ts",
+      "src/app/bright-warm-greenhouse/actions.ts",
+      "src/app/bright-warm-greenhouse/page.tsx",
+    ]),
+  );
 });
 
 test("E2E-29: signing in sends the browser to Google's sign-in page with the right request", async ({

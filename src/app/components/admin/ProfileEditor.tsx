@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { UploadedImage } from "@/lib/admin/images";
+import { listImages } from "@/lib/admin/imagesClient";
 import {
   PROFILE_MESSAGES,
   checkProfile,
   emptyProfile,
+  photoSelection,
   profileFromData,
   type ProfileContent,
   type ProfileErrors,
@@ -60,13 +63,23 @@ export default function ProfileEditor(): React.JSX.Element {
   const [load, setLoad] = useState<LoadState>({ kind: "loading" });
   const [errors, setErrors] = useState<ProfileErrors | null>(null);
   const [message, setMessage] = useState<Message>(null);
+  const [images, setImages] = useState<UploadedImage[]>([]);
+  const [imagesFailed, setImagesFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const mounted = useRef(true);
 
   useEffect(() => {
     mounted.current = true;
+    async function loadImages(): Promise<{ list: UploadedImage[]; failed: boolean }> {
+      try {
+        return { list: await listImages(), failed: false };
+      } catch {
+        return { list: [], failed: true };
+      }
+    }
     async function initialLoad(): Promise<void> {
+      const imagesRequest = loadImages();
       let next: LoadState = { kind: "failed" };
       try {
         const response = await fetch(PROFILE_URL, {
@@ -85,7 +98,15 @@ export default function ProfileEditor(): React.JSX.Element {
       } catch {
         next = { kind: "failed" };
       }
+      if (next.kind === "failed") {
+        if (!mounted.current) return;
+        setLoad(next);
+        return;
+      }
+      const loaded = await imagesRequest;
       if (!mounted.current) return;
+      setImages(loaded.list);
+      setImagesFailed(loaded.failed);
       setLoad(next);
     }
     void initialLoad();
@@ -153,6 +174,7 @@ export default function ProfileEditor(): React.JSX.Element {
     const linkErrors = errors?.socialLinks ?? [];
     const fieldStyle: React.CSSProperties = { ...inputStyle, minWidth: 0 };
     const labelBox: React.CSSProperties = { ...labelStyle, minWidth: 0 };
+    const selection = photoSelection(form.photo, images);
     content = (
       <>
         {!load.exists && (
@@ -237,12 +259,37 @@ export default function ProfileEditor(): React.JSX.Element {
 
           <fieldset style={groupStyle}>
             <legend style={legendStyle}>Photo</legend>
+            {imagesFailed && (
+              <p role="alert" style={errorStyle}>
+                {PROFILE_MESSAGES.imagesFailed}
+              </p>
+            )}
+            <label htmlFor="profile-photo-image" style={labelBox}>
+              Uploaded image
+            </label>
+            <select
+              id="profile-photo-image"
+              style={fieldStyle}
+              value={selection.imageId}
+              disabled={saving}
+              onChange={(e) => {
+                const chosen = images.find((i) => i.id === e.target.value);
+                update({ photo: chosen ? chosen.url : "" });
+              }}
+            >
+              <option value="">None</option>
+              {images.map((image) => (
+                <option key={image.id} value={image.id}>
+                  {image.name}
+                </option>
+              ))}
+            </select>
             <label style={labelBox}>
               Photo path
               <input
                 type="text"
                 style={fieldStyle}
-                value={form.photo}
+                value={selection.path}
                 disabled={saving}
                 onChange={(e) => update({ photo: e.target.value })}
               />

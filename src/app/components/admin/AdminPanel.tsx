@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { signInAction, signOutAction } from "@/app/bright-warm-greenhouse/actions";
 import type { PanelState } from "@/lib/admin/access";
 import { ADMIN_SECTIONS } from "@/lib/admin/sections";
+import ImageLibrary from "./ImageLibrary";
 import ProfileEditor from "./ProfileEditor";
 
 const buttonStyle: React.CSSProperties = {
@@ -104,7 +105,8 @@ export default function AdminPanel(props: {
           </ul>
         </nav>
         {section && section.id === "profile" && <ProfileEditor />}
-        {section && section.id !== "profile" && (
+        {section && section.id === "images" && <ImageLibrary />}
+        {section && section.id !== "profile" && section.id !== "images" && (
           <p role="status" style={{ margin: 0, color: "var(--muted)" }}>
             {section.label} editor is not available yet.
           </p>

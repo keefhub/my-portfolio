@@ -2,7 +2,15 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Browser,
+  type BrowserContext,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 import { encode } from "next-auth/jwt";
 import {
   ALLOWED_IMAGE_TYPES,
@@ -1443,4 +1451,916 @@ test("E2E-16: the mechanical gate accepts the new routes, the storage module and
     "FAIL STATIC names the stray route",
   ).not.toEqual([]);
   expect(stray.status).toBe(1);
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// Step 4 fixtures: the Images screen and the Profile screen's image select, driven in a browser. The browser's own
+// calls to the stand-in storage host are answered here with context.route, so the repo has no test-only route (D-5).
+// ---------------------------------------------------------------------------------------------------------------
+
+const PANEL = "/bright-warm-greenhouse/";
+const UPLOAD_FAILED = "The image could not be uploaded.";
+const LOAD_FAILED = "The images could not be loaded.";
+const DELETE_FAILED = "That image could not be deleted.";
+const ALREADY_GONE = "That image was already deleted.";
+const EMPTY_LIST = "No images uploaded yet";
+const SECTION_LABELS = ["Profile", "Experience", "Projects", "Certifications", "Tech stack", "Blog posts", "Images"];
+const PHOTO = {
+  id: "22222222-2222-4222-8222-222222222222.jpg",
+  name: "photo.jpg",
+  contentType: "image/jpeg",
+  size: 1572864,
+};
+
+type UploadFile = { name: string; mimeType: string; buffer: Buffer };
+
+async function routeStorage(context: BrowserContext): Promise<void> {
+  const uploadPrefix = "/storage/v1/object/upload/sign/images/";
+  const publicPrefix = "/storage/v1/object/public/images/";
+  await context.route("https://stand-in.invalid/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const method = request.method();
+    const cors = { "access-control-allow-origin": "*" };
+
+    if (method === "OPTIONS") {
+      await route.fulfill({
+        status: 204,
+        headers: { ...cors, "access-control-allow-methods": "*", "access-control-allow-headers": "*" },
+      });
+      return;
+    }
+    if (method === "PUT" && url.pathname.startsWith(uploadPrefix)) {
+      const id = decodeURIComponent(url.pathname.slice(uploadPrefix.length));
+      if (url.searchParams.get("token") !== "stand-in-token") {
+        await route.fulfill({
+          status: 403,
+          headers: { ...cors, "content-type": "application/json" },
+          body: '{"error":"forbidden"}',
+        });
+        return;
+      }
+      fs.mkdirSync(STORE_DIR, { recursive: true });
+      fs.writeFileSync(STORE_DIR + "/" + id, request.postDataBuffer() ?? Buffer.alloc(0));
+      fs.writeFileSync(STORE_DIR + "/" + id + ".type", request.headers()["content-type"] ?? "");
+      await route.fulfill({
+        status: 200,
+        headers: { ...cors, "content-type": "application/json" },
+        body: JSON.stringify({ Key: "images/" + id }),
+      });
+      return;
+    }
+    if ((method === "GET" || method === "HEAD") && url.pathname.startsWith(publicPrefix)) {
+      const id = decodeURIComponent(url.pathname.slice(publicPrefix.length));
+      if (!fs.existsSync(STORE_DIR + "/" + id)) {
+        await route.fulfill({ status: 404, headers: cors, body: "" });
+        return;
+      }
+      const type = fs.existsSync(STORE_DIR + "/" + id + ".type")
+        ? fs.readFileSync(STORE_DIR + "/" + id + ".type", "utf8")
+        : "application/octet-stream";
+      await route.fulfill({
+        status: 200,
+        headers: { ...cors, "content-type": type },
+        body: fs.readFileSync(STORE_DIR + "/" + id),
+      });
+      return;
+    }
+    await route.fulfill({ status: 404, headers: cors, body: "" });
+  });
+}
+
+async function ownerPage(
+  browser: Browser,
+  baseURL: string,
+  options: Parameters<Browser["newContext"]>[0] = {},
+): Promise<{ context: BrowserContext; page: Page }> {
+  const context = await browser.newContext(options);
+  await context.addCookies([{ name: SESSION_COOKIE, value: await mint(OWNER()), url: baseURL }]);
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await routeStorage(context);
+  const page = await context.newPage();
+  return { context, page };
+}
+
+async function visitorPage(browser: Browser): Promise<{ context: BrowserContext; page: Page }> {
+  const context = await browser.newContext();
+  await routeStorage(context);
+  const page = await context.newPage();
+  return { context, page };
+}
+
+const menu = (page: Page) => page.getByRole("navigation", { name: "Admin sections" });
+const library = (page: Page) => page.locator('section[aria-label="Image library"]');
+const itemsOf = (page: Page) => page.getByRole("list", { name: "Uploaded images" }).getByRole("listitem");
+const itemNamed = (page: Page, name: string) => itemsOf(page).filter({ hasText: name });
+const libraryAlert = (page: Page) => library(page).getByRole("alert");
+const libraryStatus = (page: Page, text: string) => library(page).getByRole("status").filter({ hasText: text });
+const uploadButton = (page: Page) => library(page).getByRole("button", { name: "Upload", exact: true });
+const fileField = (page: Page) => page.getByLabel("Image file", { exact: true });
+const confirmGroup = (page: Page) => page.getByRole("group", { name: "Confirm delete" });
+
+// Click a menu button until its screen is there (the click is lost if it lands before hydration).
+async function openScreen(page: Page, label: string, shown: Locator): Promise<void> {
+  const button = menu(page).getByRole("button", { name: label, exact: true });
+  await expect(async () => {
+    await button.click({ timeout: 5000 });
+    await expect(shown).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 15000 });
+}
+
+const imagesHeading = (page: Page) => page.getByRole("heading", { name: "Images", exact: true });
+
+async function openImages(page: Page): Promise<void> {
+  await page.goto(PANEL);
+  await openScreen(page, "Images", imagesHeading(page));
+}
+
+async function reopenImages(page: Page): Promise<void> {
+  await page.reload();
+  await openScreen(page, "Images", imagesHeading(page));
+}
+
+async function openProfile(page: Page): Promise<void> {
+  await page.goto(PANEL);
+  await openScreen(page, "Profile", page.getByLabel("Name", { exact: true }));
+}
+
+async function reopenProfile(page: Page): Promise<void> {
+  await page.reload();
+  await openScreen(page, "Profile", page.getByLabel("Name", { exact: true }));
+}
+
+async function clickUpload(page: Page): Promise<void> {
+  await uploadButton(page).click();
+}
+
+async function upload(page: Page, file: UploadFile): Promise<void> {
+  await fileField(page).setInputFiles(file);
+  await clickUpload(page);
+}
+
+const HEADSHOT_FILE = (): UploadFile => ({ name: "headshot.png", mimeType: "image/png", buffer: png(307200) });
+
+async function clickDeleteConfirm(page: Page, name: string): Promise<void> {
+  await itemNamed(page, name).getByRole("button", { name: "Delete", exact: true }).click();
+  await confirmGroup(page).getByRole("button", { name: "Confirm", exact: true }).click();
+}
+
+type Recorded = { url: string; type: string; text: string };
+
+// Record the URL and text of every response whose content type is HTML, JavaScript, JSON or CSS.
+function recordResponses(page: Page): () => Promise<Recorded[]> {
+  const records: Recorded[] = [];
+  const pending: Promise<void>[] = [];
+  page.on("response", (response) => {
+    const type = response.headers()["content-type"] ?? "";
+    if (!/html|javascript|json|css/i.test(type)) return;
+    pending.push(
+      response.text().then(
+        (text) => {
+          records.push({ url: response.url(), type, text });
+        },
+        () => undefined,
+      ),
+    );
+  });
+  return async () => {
+    await Promise.all(pending);
+    return records;
+  };
+}
+
+// A route that holds the matching request of the given method until the test releases it.
+function holdRoute(page: Page, match: (url: URL) => boolean, method: string) {
+  let count = 0;
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const ready = page.route(match, async (route) => {
+    if (route.request().method() === method) {
+      count += 1;
+      await gate;
+    }
+    await route.continue();
+  });
+  return { ready, count: () => count, release: () => release() };
+}
+
+test("E2E-17: the owner uploads a PNG, JPEG, WebP or SVG image, sees its name, size and preview, and finds it again after a reload", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(150000);
+  const cases = [
+    { name: "headshot.png", type: "image/png", buffer: png(307200), bytes: 307200, size: "300 KB", ext: "png" },
+    { name: "photo.jpg", type: "image/jpeg", buffer: png(1572864), bytes: 1572864, size: "1.5 MB", ext: "jpg" },
+    { name: "banner.webp", type: "image/webp", buffer: png(204800), bytes: 204800, size: "200 KB", ext: "webp" },
+    { name: "logo.svg", type: "image/svg+xml", buffer: svg(2048), bytes: 2048, size: "2 KB", ext: "svg" },
+    { name: "large.png", type: "image/png", buffer: png(5242880), bytes: 5242880, size: "5 MB", ext: "png" },
+  ];
+
+  for (const c of cases) {
+    dbReset();
+    storeReset();
+    const { context, page } = await ownerPage(browser, baseURL as string);
+    await openImages(page);
+    await expect(page.getByText(EMPTY_LIST)).toBeVisible();
+    await upload(page, { name: c.name, mimeType: c.type, buffer: c.buffer });
+
+    const check = async (where: string) => {
+      await expect(itemsOf(page), where).toHaveCount(1);
+      const item = itemsOf(page).first();
+      await expect(item, where).toContainText(c.name);
+      await expect(item, where).toContainText(c.size);
+      const entries = dbImages() as { id: string }[];
+      expect(entries, where).toHaveLength(1);
+      const id = entries[0].id;
+      const image = item.getByRole("img");
+      await expect(image, where).toHaveAttribute("alt", c.name);
+      await expect(image, where).toHaveAttribute("src", publicOf(id));
+      await expect(libraryAlert(page), where).toHaveCount(0);
+    };
+
+    await check(c.name + " after the upload");
+    const ids = storeIds();
+    expect(ids, c.name).toHaveLength(1);
+    expect(ids[0].endsWith(c.ext), c.name + " extension").toBe(true);
+    expect(dbImages(), c.name).toEqual([{ id: ids[0], name: c.name, contentType: c.type, size: c.bytes }]);
+    expect(fs.statSync(STORE_DIR + "/" + ids[0]).size, c.name + " stored bytes").toBe(c.bytes);
+    if (c.ext === "svg") await expect(page.locator("object, embed, iframe")).toHaveCount(0);
+
+    await reopenImages(page);
+    await check(c.name + " after the reload");
+    if (c.ext === "svg") await expect(page.locator("object, embed, iframe")).toHaveCount(0);
+    await context.close();
+  }
+});
+
+test("E2E-18: the owner copies an image's address, and anyone can open it with no sign-in and no secret in it", async ({
+  browser,
+  baseURL,
+}) => {
+  dbReset();
+  storeReset();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  const recorded = recordResponses(page);
+  await openImages(page);
+  await upload(page, HEADSHOT_FILE());
+  await expect(itemsOf(page)).toHaveCount(1);
+
+  await itemsOf(page).first().getByRole("button", { name: "Copy address", exact: true }).click();
+  await expect(libraryStatus(page, "Address copied")).toHaveText("Address copied");
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  const id = (dbImages() as { id: string }[])[0].id;
+  expect(copied).toBe(publicOf(id));
+  for (const needle of ["?", "token", "key", "SUPABASE"]) expect(copied, needle).not.toContain(needle);
+
+  const visitor = await visitorPage(browser);
+  const response = await visitor.page.goto(copied);
+  expect(response?.status()).toBe(200);
+  expect(response?.headers()["content-type"]).toBe("image/png");
+  expect((await response?.body())?.length).toBe(307200);
+  await visitor.context.close();
+
+  const needles = ["SUPABASE_URL", KEY_NAME, "key-marker-standin", "token="];
+  const html = await page.content();
+  for (const needle of needles) expect(html, "page html carries " + needle).not.toContain(needle);
+  for (const record of await recorded()) {
+    if (record.url.endsWith("/api/admin/images/upload/")) continue;
+    for (const needle of needles) expect(record.text, record.url + " carries " + needle).not.toContain(needle);
+  }
+  await context.close();
+});
+
+test("E2E-19: a file over 5 MB, of another type, empty, or none at all is refused on the screen before anything is sent", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(150000);
+  const cases: { label: string; file: UploadFile | null; alert: string }[] = [
+    { label: "5 MB and 1 byte", file: { name: "big1.png", mimeType: "image/png", buffer: png(5242881) }, alert: "That image is over 5 MB" },
+    { label: "6 MB", file: { name: "big6.png", mimeType: "image/png", buffer: png(6291456) }, alert: "That image is over 5 MB" },
+    {
+      label: "a PDF",
+      file: { name: "doc.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") },
+      alert: "Only PNG, JPEG, WebP or SVG images can be uploaded",
+    },
+    { label: "an empty file", file: { name: "empty.png", mimeType: "image/png", buffer: Buffer.alloc(0) }, alert: "That file is empty" },
+    { label: "no file", file: null, alert: "Choose an image first." },
+  ];
+
+  for (const c of cases) {
+    dbReset();
+    storeReset();
+    seedHeadshot();
+    const { context, page } = await ownerPage(browser, baseURL as string);
+    const posts: string[] = [];
+    page.on("request", (request) => {
+      const path = new URL(request.url()).pathname;
+      if (request.method() === "POST" && (path === LIST_API || path === UPLOAD_API)) posts.push(path);
+    });
+    await openImages(page);
+    await expect(itemNamed(page, "headshot.png")).toHaveCount(1);
+
+    if (c.file) await upload(page, c.file);
+    else await clickUpload(page);
+
+    await expect(libraryAlert(page), c.label).toHaveText(c.alert);
+    expect(posts, c.label + " posts").toEqual([]);
+    await expect(itemsOf(page), c.label).toHaveCount(1);
+    await expect(itemsOf(page).first(), c.label).toContainText("headshot.png");
+    expect(dbImages(), c.label).toEqual([HEADSHOT]);
+    expect(storeIds(), c.label).toEqual([HEADSHOT.id]);
+    await context.close();
+  }
+});
+
+test("E2E-20: the file's type decides what is accepted, not its name", async ({ browser, baseURL }) => {
+  dbReset();
+  storeReset();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openImages(page);
+  await expect(page.getByText(EMPTY_LIST)).toBeVisible();
+
+  await upload(page, { name: "notes.txt", mimeType: "image/png", buffer: png(2048) });
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(itemsOf(page).first()).toContainText("notes.txt");
+  await expect(itemsOf(page).first()).toContainText("2 KB");
+  const entries = dbImages() as { id: string; name: string; contentType: string }[];
+  expect(entries).toHaveLength(1);
+  expect(entries[0].name).toBe("notes.txt");
+  expect(entries[0].contentType).toBe("image/png");
+  expect(entries[0].id.endsWith(".png")).toBe(true);
+
+  await upload(page, { name: "photo.png", mimeType: "application/pdf", buffer: png(100) });
+  await expect(libraryAlert(page)).toHaveText("Only PNG, JPEG, WebP or SVG images can be uploaded");
+  await expect(itemsOf(page)).toHaveCount(1);
+  expect(storeIds()).toHaveLength(1);
+  await context.close();
+});
+
+test("E2E-21: the same file uploaded twice is two images with their own addresses, newest first", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(90000);
+  dbReset();
+  storeReset();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openImages(page);
+  await expect(page.getByText(EMPTY_LIST)).toBeVisible();
+
+  await upload(page, HEADSHOT_FILE());
+  await expect(itemsOf(page)).toHaveCount(1);
+  await upload(page, HEADSHOT_FILE());
+  await expect(itemsOf(page)).toHaveCount(2);
+  await upload(page, { name: "photo.jpg", mimeType: "image/jpeg", buffer: png(1572864) });
+  await expect(itemsOf(page)).toHaveCount(3);
+
+  const order = ["photo.jpg", "headshot.png", "headshot.png"];
+  const check = async (where: string) => {
+    await expect(itemsOf(page), where).toHaveCount(3);
+    await expect(itemsOf(page), where).toContainText(order);
+    const entries = dbImages() as { id: string; name: string }[];
+    expect(entries, where).toHaveLength(3);
+    expect(entries.map((entry) => entry.name), where).toEqual(order);
+    const ids = entries.map((entry) => entry.id);
+    expect(new Set(ids).size, where).toBe(3);
+    for (const id of ids) expect(id, where).toMatch(/^[0-9a-f-]{36}\.(png|jpg)$/);
+    const sources = await itemsOf(page).getByRole("img").evaluateAll((nodes) =>
+      nodes.map((node) => (node as HTMLImageElement).getAttribute("src") ?? ""),
+    );
+    expect(sources, where).toEqual(ids.map(publicOf));
+    expect(new Set(sources).size, where).toBe(3);
+    for (const source of sources) {
+      expect(source.includes("headshot"), where).toBe(false);
+      expect(source.includes("photo"), where).toBe(false);
+    }
+  };
+
+  await check("after the uploads");
+  expect(storeIds()).toHaveLength(3);
+  await reopenImages(page);
+  await check("after the reload");
+  await context.close();
+});
+
+test("E2E-22: deleting an image removes its file and its entry, and the address stops opening", async ({
+  browser,
+  baseURL,
+}) => {
+  dbReset();
+  storeReset();
+  dbSeedBoth({ ...KEITH_BASE, photo: publicOf(HEADSHOT.id) }, [HEADSHOT]);
+  storePut(HEADSHOT.id, png(307200), "image/png");
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openImages(page);
+  await expect(itemNamed(page, "headshot.png")).toHaveCount(1);
+
+  await clickDeleteConfirm(page, "headshot.png");
+  await expect(page.getByText(EMPTY_LIST)).toBeVisible();
+  expect(storeHas(HEADSHOT.id)).toBe(false);
+  expect(dbImages()).toEqual([]);
+
+  const visitor = await visitorPage(browser);
+  const response = await visitor.page.goto(publicOf(HEADSHOT.id));
+  expect(response?.status()).toBe(404);
+  await visitor.context.close();
+
+  await reopenImages(page);
+  await expect(page.getByText(EMPTY_LIST)).toBeVisible();
+  await expect(page.getByRole("list", { name: "Uploaded images" })).toHaveCount(0);
+  expect(dbStored()).toEqual({ ...KEITH_BASE, photo: publicOf(HEADSHOT.id) });
+  await context.close();
+});
+
+test("E2E-23: deleting asks first, and cancelling keeps the image and its address", async ({ browser, baseURL }) => {
+  dbReset();
+  storeReset();
+  seedHeadshot();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openImages(page);
+  await expect(itemNamed(page, "headshot.png")).toHaveCount(1);
+
+  await itemNamed(page, "headshot.png").getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(
+    page.getByText('Delete "headshot.png"? Records that still use this image will show a broken image.'),
+  ).toBeVisible();
+  await expect(confirmGroup(page).getByRole("button", { name: "Confirm", exact: true })).toBeVisible();
+  await expect(confirmGroup(page).getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
+  expect(dbImages()).toEqual([HEADSHOT]);
+  expect(storeHas(HEADSHOT.id)).toBe(true);
+
+  const visitor = await visitorPage(browser);
+  const response = await visitor.page.goto(publicOf(HEADSHOT.id));
+  expect(response?.status()).toBe(200);
+  expect(response?.headers()["content-type"]).toBe("image/png");
+  await visitor.context.close();
+
+  await confirmGroup(page).getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(
+    page.getByText('Delete "headshot.png"? Records that still use this image will show a broken image.'),
+  ).toHaveCount(0);
+  await reopenImages(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(itemsOf(page).first()).toContainText("headshot.png");
+  await context.close();
+});
+
+test("E2E-24: a failed upload says so, leaves nothing listed, and the owner can try again", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+
+  // (a) storage unreachable, then back
+  {
+    dbReset();
+    storeReset();
+    const { context, page } = await ownerPage(browser, baseURL as string);
+    await openImages(page);
+    await expect(page.getByText(EMPTY_LIST)).toBeVisible();
+    storeBreak();
+    await upload(page, HEADSHOT_FILE());
+    await expect(libraryAlert(page)).toHaveText(UPLOAD_FAILED);
+    await expect(page.getByText(EMPTY_LIST)).toBeVisible();
+    expect(dbImages()).toEqual([]);
+    await expect(uploadButton(page)).toBeEnabled();
+    await expect(libraryStatus(page, "Uploading…")).toHaveCount(0);
+
+    storeFix();
+    await upload(page, HEADSHOT_FILE());
+    await expect(itemsOf(page)).toHaveCount(1);
+    await expect(itemsOf(page).first()).toContainText("headshot.png");
+    await context.close();
+  }
+
+  // (b) the browser's own send of the file fails
+  {
+    dbReset();
+    storeReset();
+    const { context, page } = await ownerPage(browser, baseURL as string);
+    await context.route("https://stand-in.invalid/**", async (route) => {
+      if (route.request().method() === "PUT") await route.abort("connectionfailed");
+      else await route.fallback();
+    });
+    await openImages(page);
+    await expect(page.getByText(EMPTY_LIST)).toBeVisible();
+    await upload(page, HEADSHOT_FILE());
+    await expect(libraryAlert(page)).toHaveText(UPLOAD_FAILED);
+    expect(dbImages()).toEqual([]);
+    expect(storeIds()).toEqual([]);
+    await expect(uploadButton(page)).toBeEnabled();
+    await context.close();
+  }
+
+  // (c) the database unreachable when the file is registered
+  {
+    dbReset();
+    storeReset();
+    const { context, page } = await ownerPage(browser, baseURL as string);
+    await openImages(page);
+    await expect(page.getByText(EMPTY_LIST)).toBeVisible();
+    dbBreak();
+    await upload(page, HEADSHOT_FILE());
+    await expect(libraryAlert(page)).toHaveText(UPLOAD_FAILED);
+    dbFix();
+    await reopenImages(page);
+    await expect(page.getByText(EMPTY_LIST)).toBeVisible();
+    expect(dbImages()).toEqual([]);
+    await context.close();
+  }
+});
+
+test("E2E-25: when the list cannot be loaded the screen says so, the panel stays usable, and the public site is untouched", async ({
+  browser,
+  baseURL,
+  request,
+}) => {
+  test.setTimeout(120000);
+  for (const mode of ["storage", "database"] as const) {
+    dbReset();
+    storeReset();
+    seedHeadshot();
+    const first = await request.get("/");
+    const before = await first.text();
+    const { context, page } = await ownerPage(browser, baseURL as string);
+    if (mode === "storage") storeBreak();
+    else dbBreak();
+    await openImages(page);
+
+    await expect(libraryAlert(page), mode).toHaveText(LOAD_FAILED);
+    await expect(page.getByText(EMPTY_LIST), mode).toHaveCount(0);
+    await expect(page.getByRole("list", { name: "Uploaded images" }), mode).toHaveCount(0);
+    const text = await page.locator("body").innerText();
+    expect(containsNone(text, LEAKS), mode + " leaks").toBe(true);
+    await expect(menu(page).getByRole("button"), mode).toHaveText(SECTION_LABELS);
+    await expect(page.getByRole("button", { name: "Sign out", exact: true }), mode).toBeVisible();
+
+    await menu(page).getByRole("button", { name: "Experience", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Admin" }).getByRole("status"), mode).toHaveText(
+      "Experience editor is not available yet.",
+    );
+    await expect(page.getByRole("alert").filter({ hasText: LOAD_FAILED }), mode).toHaveCount(0);
+    const second = await request.get("/");
+    expect(second.status(), mode).toBe(200);
+    expect(await second.text(), mode).toBe(before);
+
+    if (mode === "storage") storeFix();
+    else dbFix();
+    await menu(page).getByRole("button", { name: "Images", exact: true }).click();
+    await expect(itemsOf(page), mode).toHaveCount(1);
+    await expect(itemsOf(page).first(), mode).toContainText("headshot.png");
+    await context.close();
+  }
+});
+
+test("E2E-26: a failed delete says so and leaves the image listed and stored, so it can be deleted again", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  dbReset();
+  storeReset();
+  seedHeadshot();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openImages(page);
+  await expect(itemNamed(page, "headshot.png")).toHaveCount(1);
+
+  await itemNamed(page, "headshot.png").getByRole("button", { name: "Delete", exact: true }).click();
+  storeBreak();
+  await confirmGroup(page).getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(libraryAlert(page)).toHaveText(DELETE_FAILED);
+  await expect(itemNamed(page, "headshot.png")).toHaveCount(1);
+  await expect(confirmGroup(page)).toHaveCount(0);
+  expect(dbImages()).toEqual([HEADSHOT]);
+  expect(containsNone(await library(page).innerText(), LEAKS)).toBe(true);
+
+  storeFix();
+  await clickDeleteConfirm(page, "headshot.png");
+  await expect(page.getByText(EMPTY_LIST)).toBeVisible();
+
+  seedHeadshot();
+  await reopenImages(page);
+  await expect(itemNamed(page, "headshot.png")).toHaveCount(1);
+  await itemNamed(page, "headshot.png").getByRole("button", { name: "Delete", exact: true }).click();
+  dbBreak();
+  await confirmGroup(page).getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(libraryAlert(page)).toHaveText(DELETE_FAILED);
+  expect(storeHas(HEADSHOT.id)).toBe(true);
+  await expect(itemNamed(page, "headshot.png")).toHaveCount(1);
+  await context.close();
+});
+
+test("E2E-27: while an upload or a delete is running the controls are off and a double click sends one request", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  dbReset();
+  storeReset();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openImages(page);
+  await expect(page.getByText(EMPTY_LIST)).toBeVisible();
+
+  const uploadHold = holdRoute(page, (url) => url.pathname === UPLOAD_API, "POST");
+  await uploadHold.ready;
+  await fileField(page).setInputFiles(HEADSHOT_FILE());
+  await uploadButton(page).dblclick();
+  await expect(libraryStatus(page, "Uploading…")).toHaveText("Uploading…");
+  await expect(uploadButton(page)).toBeDisabled();
+  await expect(fileField(page)).toBeDisabled();
+  expect(uploadHold.count()).toBe(1);
+  uploadHold.release();
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(itemsOf(page).first()).toContainText("headshot.png");
+  expect(uploadHold.count()).toBe(1);
+  expect(dbImages()).toHaveLength(1);
+
+  const deleteHold = holdRoute(
+    page,
+    (url) => url.pathname === LIST_API && url.searchParams.has("id"),
+    "DELETE",
+  );
+  await deleteHold.ready;
+  const item = itemNamed(page, "headshot.png");
+  await item.getByRole("button", { name: "Delete", exact: true }).click();
+  await confirmGroup(page).getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(libraryStatus(page, "Deleting…")).toHaveText("Deleting…");
+  await expect(confirmGroup(page).getByRole("button", { name: "Confirm", exact: true })).toBeDisabled();
+  await expect(confirmGroup(page).getByRole("button", { name: "Cancel", exact: true })).toBeDisabled();
+  await expect(item.getByRole("button", { name: "Delete", exact: true })).toBeDisabled();
+  await expect(uploadButton(page)).toBeDisabled();
+  deleteHold.release();
+  await expect(page.getByText(EMPTY_LIST)).toBeVisible();
+
+  dbReset();
+  storeReset();
+  await reopenImages(page);
+  await expect(page.getByText(EMPTY_LIST)).toBeVisible();
+  const lastHold = holdRoute(page, (url) => url.pathname === UPLOAD_API, "POST");
+  await lastHold.ready;
+  await fileField(page).setInputFiles(HEADSHOT_FILE());
+  await uploadButton(page).click();
+  await expect.poll(() => lastHold.count()).toBe(1);
+  await reopenImages(page);
+  const stored = dbImages().length;
+  if (stored === 0) await expect(page.getByText(EMPTY_LIST)).toBeVisible();
+  expect(await fileField(page).evaluate((input) => (input as HTMLInputElement).files?.length ?? 0)).toBe(0);
+  await expect(itemsOf(page)).toHaveCount(stored);
+
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+  await context.close();
+});
+
+test("E2E-28: deleting an image that another window already deleted says so and refreshes the list", async ({
+  browser,
+  baseURL,
+}) => {
+  dbReset();
+  storeReset();
+  seedHeadshot();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  const second = await context.newPage();
+  await openImages(page);
+  await openImages(second);
+  await expect(itemNamed(page, "headshot.png")).toHaveCount(1);
+  await expect(itemNamed(second, "headshot.png")).toHaveCount(1);
+
+  await clickDeleteConfirm(page, "headshot.png");
+  await expect(page.getByText(EMPTY_LIST)).toBeVisible();
+  await expect(itemNamed(second, "headshot.png")).toHaveCount(1);
+
+  await clickDeleteConfirm(second, "headshot.png");
+  await expect(libraryAlert(second)).toHaveText(ALREADY_GONE);
+  await expect(second.getByText(EMPTY_LIST)).toBeVisible();
+  expect(dbImages()).toEqual([]);
+  await context.close();
+});
+
+test("E2E-29: the Images screen fits a phone, follows the theme tokens and works from the keyboard", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  const longName = "N".repeat(120) + ".png";
+  const surfaceByTheme: Record<string, string> = {};
+
+  for (const theme of ["light", "dark"]) {
+    dbReset();
+    storeReset();
+    dbSeedImages([{ id: HEADSHOT.id, name: longName, contentType: "image/png", size: 307200 }]);
+    storePut(HEADSHOT.id, png(307200), "image/png");
+    const { context, page } = await ownerPage(browser, baseURL as string, { viewport: { width: 375, height: 800 } });
+    await page.addInitScript((t) => {
+      try {
+        localStorage.setItem("theme", t);
+      } catch {
+        // storage unavailable: the page falls back to its default theme
+      }
+    }, theme);
+    await openImages(page);
+    await expect(itemsOf(page)).toHaveCount(1);
+    await clickUpload(page);
+    await expect(libraryAlert(page).filter({ hasText: "Choose an image first." })).toHaveText("Choose an image first.");
+
+    const widths = await page.evaluate(() => ({
+      root: document.documentElement.scrollWidth,
+      body: document.body.scrollWidth,
+    }));
+    expect(widths.root, theme + " root width").toBeLessThanOrEqual(375);
+    expect(widths.body, theme + " body width").toBeLessThanOrEqual(375);
+    const boxes = await page.locator("button, input, img").evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const rect = node.getBoundingClientRect();
+        return { label: node.tagName + " " + (node.textContent ?? "").slice(0, 20), x: rect.x, right: rect.x + rect.width, width: rect.width, height: rect.height };
+      }),
+    );
+    for (const box of boxes) {
+      if (box.width === 0 && box.height === 0) continue;
+      expect(box.x, theme + " " + box.label).toBeGreaterThanOrEqual(0);
+      expect(box.right, theme + " " + box.label).toBeLessThanOrEqual(375);
+    }
+
+    const probe = (property: "backgroundColor" | "color", token: string) =>
+      page.evaluate(
+        ([prop, value]) => {
+          const div = document.createElement("div");
+          (div.style as unknown as Record<string, string>)[prop] = value;
+          document.body.appendChild(div);
+          const computed = (getComputedStyle(div) as unknown as Record<string, string>)[prop];
+          div.remove();
+          return computed;
+        },
+        [property, "var(" + token + ")"] as const,
+      );
+    const computed = (locator: Locator, property: "background-color" | "color") =>
+      locator.evaluate((el, p) => getComputedStyle(el).getPropertyValue(p), property);
+
+    const item = itemsOf(page).first();
+    const surfaceAlt = await probe("backgroundColor", "--surface-alt");
+    expect(await computed(item, "background-color"), theme + " item").toBe(surfaceAlt);
+    expect(await computed(item.getByText(longName, { exact: true }), "color"), theme + " name").toBe(
+      await probe("color", "--foreground"),
+    );
+    expect(await computed(item.getByText("300 KB", { exact: true }), "color"), theme + " size").toBe(
+      await probe("color", "--muted"),
+    );
+    const alert = libraryAlert(page).filter({ hasText: "Choose an image first." });
+    expect(await computed(alert, "color"), theme + " alert").toBe(await probe("color", "--accent-rose"));
+    surfaceByTheme[theme] = surfaceAlt;
+    if (theme === "dark") await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+    await item.getByRole("button", { name: "Delete", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await expect(confirmGroup(page)).toBeVisible();
+    await confirmGroup(page).getByRole("button", { name: "Confirm", exact: true }).focus();
+    await page.keyboard.press("Tab");
+    await expect(confirmGroup(page).getByRole("button", { name: "Cancel", exact: true })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(confirmGroup(page)).toHaveCount(0);
+    await context.close();
+  }
+  expect(surfaceByTheme.dark).not.toBe(surfaceByTheme.light);
+});
+
+test("E2E-30: no page, script or answer carries a storage setting or a failure's text, and the three screens' files name no server or old-backend module", async ({
+  browser,
+  baseURL,
+}) => {
+  dbReset();
+  storeReset();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  const recorded = recordResponses(page);
+  await openImages(page);
+  await upload(page, HEADSHOT_FILE());
+  await expect(itemsOf(page)).toHaveCount(1);
+  await itemsOf(page).first().getByRole("button", { name: "Copy address", exact: true }).click();
+  await expect(libraryStatus(page, "Address copied")).toHaveText("Address copied");
+  await clickDeleteConfirm(page, "headshot.png");
+  await expect(page.getByText(EMPTY_LIST)).toBeVisible();
+  await openScreen(page, "Profile", page.getByLabel("Name", { exact: true }));
+  await expect(page.getByLabel("Uploaded image", { exact: true })).toBeVisible();
+
+  const records = await recorded();
+  expect(STORE_DIR).not.toBe("");
+  expect(records.some((record) => /javascript/i.test(record.type))).toBe(true);
+  expect(records.some((record) => new URL(record.url).pathname === LIST_API)).toBe(true);
+  expect(records.some((record) => new URL(record.url).pathname === PANEL_API)).toBe(true);
+
+  const needles = [
+    "SUPABASE_URL",
+    KEY_NAME,
+    "key-marker-standin",
+    "password-marker-standin",
+    STAND_IN_PREFIX,
+    STORE_DIR,
+    "ECONNREFUSED",
+    "10.1.2.3",
+  ];
+  for (const record of records) {
+    if (record.url.endsWith("/api/admin/images/upload/")) continue;
+    for (const needle of needles) expect(record.text, record.url + " carries " + needle).not.toContain(needle);
+  }
+
+  const files = [
+    "src/app/components/admin/ImageLibrary.tsx",
+    "src/app/components/admin/AdminPanel.tsx",
+    "src/app/components/admin/ProfileEditor.tsx",
+    "src/lib/admin/imagesClient.ts",
+    "src/lib/admin/images.ts",
+    "src/lib/admin/storagelog.ts",
+  ];
+  const serverSide = [
+    ["lib", "server"].join("/"),
+    ["lib", "auth"].join("/"),
+    ["next", "auth"].join("-"),
+    ["post", "gres"].join(""),
+    ["server", "only"].join("-"),
+  ];
+  const oldBackend = ["fire", "base"].join("");
+  for (const file of files) {
+    const text = fs.readFileSync(file, "utf8");
+    for (const needle of serverSide) expect(text.includes(needle), file + " names " + needle).toBe(false);
+    expect(text.toLowerCase().includes(oldBackend), file + " names the old backend").toBe(false);
+  }
+  await context.close();
+});
+
+const photoSelect = (page: Page) => page.getByLabel("Uploaded image", { exact: true });
+const selectedOption = (select: Locator) => select.locator("option:checked");
+const photoPath = (page: Page) => page.getByLabel("Photo path", { exact: true });
+
+test("E2E-31: the profile's photo can be chosen from the uploaded images, and the choice survives a save and a reload", async ({
+  browser,
+  baseURL,
+}) => {
+  dbReset();
+  storeReset();
+  dbSeedBoth(KEITH_BASE, [PHOTO, HEADSHOT]);
+  storePut(PHOTO.id, png(1572864), "image/jpeg");
+  storePut(HEADSHOT.id, png(307200), "image/png");
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openProfile(page);
+
+  await expect(photoSelect(page).locator("option")).toHaveText(["None", "photo.jpg", "headshot.png"]);
+  await photoSelect(page).selectOption({ label: "headshot.png" });
+  await expect(photoPath(page)).toHaveValue("");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Profile saved" })).toHaveText("Profile saved");
+  expect(dbStored()).toEqual({ ...KEITH_BASE, photo: publicOf(HEADSHOT.id) });
+
+  await reopenProfile(page);
+  await expect(selectedOption(photoSelect(page))).toHaveText("headshot.png");
+  await expect(photoPath(page)).toHaveValue("");
+  await context.close();
+});
+
+test("E2E-32: a photo that is not one of the uploaded images stays as typed text", async ({ browser, baseURL }) => {
+  dbReset();
+  storeReset();
+  dbSeedBoth({ ...KEITH_BASE, photo: publicOf(HEADSHOT.id) }, [HEADSHOT]);
+  storePut(HEADSHOT.id, png(307200), "image/png");
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openProfile(page);
+
+  await expect(selectedOption(photoSelect(page))).toHaveText("headshot.png");
+  await expect(photoPath(page)).toHaveValue("");
+  await photoPath(page).fill("/images/keith.jpg");
+  await expect(selectedOption(photoSelect(page))).toHaveText("None");
+
+  const unknown = publicOf("55555555-5555-4555-8555-555555555555.png");
+  dbSeedBoth({ ...KEITH_BASE, photo: unknown }, [HEADSHOT]);
+  await reopenProfile(page);
+  await expect(selectedOption(photoSelect(page))).toHaveText("None");
+  await expect(photoPath(page)).toHaveValue(unknown);
+  await context.close();
+});
+
+test("E2E-33: when the uploaded images cannot be loaded the profile form still loads and saves with a typed path", async ({
+  browser,
+  baseURL,
+}) => {
+  dbReset();
+  storeReset();
+  dbSeedBoth(KEITH_BASE, [HEADSHOT]);
+  storeBreak();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openProfile(page);
+
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Keith Lim");
+  await expect(
+    page.getByRole("group", { name: "Photo", exact: true }).getByRole("alert"),
+  ).toHaveText("The uploaded images could not be loaded.");
+  await expect(photoSelect(page).locator("option")).toHaveText(["None"]);
+  const text = await page.locator('section[aria-label="Profile editor"]').innerText();
+  expect(containsNone(text, LEAKS)).toBe(true);
+
+  await photoPath(page).fill("/images/keith.jpg");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Profile saved" })).toHaveText("Profile saved");
+  expect((dbStored() as { photo: string }).photo).toBe("/images/keith.jpg");
+  await context.close();
 });

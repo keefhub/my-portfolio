@@ -75,3 +75,22 @@ Review: risk reviewer PASS (review 1)
 Findings: test-coverage | note | logged | the escalation for test-passed-before-change was expected; seven rows are regression guards
 NOTE: the other earlier admin specs (manage-*, preview-blog-post, manage-image-library, admin-content-panel-acceptance) are now red by design (D13); later slices replace them and retire-firebase deletes what is left.
 =====================================================================
+
+=====================================================================
+Task 5 — Amend the standing docs the lift makes false
+Completed: 2026-11-27      Commit: 08c6965
+
+Summary: CLAUDE.md, OVERVIEW section 2 and the repo profile no longer say the site is a pure static export; they describe Vercel, the dynamic panel and Auth.js handler, next start for the behavioural gate, and the reworded secret rule (no secret values in the repo, pages or logs).
+Decisions: "Admin modules are client-only" became "Admin modules", with the leftover Firebase rules moved to a "Leftover rules" paragraph until retire-firebase. "built out/" became "built site (next start)". Invariant 2's "out/404.html" became "the framework's 404 page" (D24).
+Deviations: None.
+Files changed: CLAUDE.md (modified), docs/features/OVERVIEW.md (modified), .claude/repo-profile.md (modified)
+E2E tests written: E2E-31      Passed before the change: None.
+Manual checks pending: E2E-32 (the owner's real Google sign-in on SIT) and E2E-33.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

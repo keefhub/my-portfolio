@@ -35,3 +35,16 @@ Tier: high only because of the test-passed-before-change escalation (the Step it
 Review: risk reviewer PASS (review 1)
 Findings: None.
 =====================================================================
+
+=====================================================================
+Completion — owner-manages-projects
+Completed: 2026-11-27
+
+Built: The panel's Projects screen. The owner adds, edits, reorders and, after confirming, deletes projects and they persist through an owner-only route at /api/admin/projects/, a faithful copy of the experience route (diff against it: only names and the service definition differ). The closed set of list tables gained one name and nothing else in the list SQL changed; the generic list service, the browser list client and the shared list editor from owner-manages-experience were reused unchanged. The Firebase projects store and its old spec are removed.
+Deviations from the spec: None.
+[auto] decisions: 24 lines tagged [auto] in the spec. No auto-revision was needed.
+Feature review: PASS, no findings.
+Final verification: npm run typecheck ok; npm run build ok; npx playwright test e2e/owner-manages-projects.spec.ts 30 passed, 0 failed (the four earlier specs also pass whole: sign-in 33, experience 29, profile 30, images 35).
+Manual checks still pending (never run): E2E-32 (the owner's SIT check after the merge to develop and once the database setting is in Vercel: add, edit, reorder and delete a project; the real database, the pooler and row level security are untested here). The shared schema step now creates two list tables; if the pooler refused the new projects statement on SIT it would hide every database-backed screen at once.
+Follow-ups not in scope: none new. No new setting name, no new dependency and no change to scripts/check-task.sh or playwright.config.ts in this feature.
+=====================================================================

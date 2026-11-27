@@ -55,3 +55,22 @@ Tier: high (spec Risk: high; large-diff 190 non-test lines; test-passed-before-c
 Review: risk reviewer PASS (review 1; checked the id pattern before every storage and database call, the owner check before any body read, and percent-encoded traversal)
 Findings: None.
 =====================================================================
+
+=====================================================================
+Task 4 — The Images screen, the profile's image select and the panel
+Completed: 2026-11-27      Commit: 491da5f
+
+Summary: The Images screen lists uploaded images newest first, uploads a PNG, JPEG, WebP or SVG up to 5 MB (the browser asks for a one-file upload address, sends the file straight to storage, then registers it), copies an address and deletes after confirming. The Profile screen gains an Uploaded image select beside the Photo path text. The sign-in spec's menu loop skips Images as well as Profile.
+Decisions: ProfileEditor starts the image list at the same time as the profile fetch and never waits for it when the profile fails; on success it waits for the images before leaving the loading state. A failed image request sets an imagesFailed flag and leaves the images empty. The select and the text input both derive from photoSelection(form.photo, images), so form.photo stays the single stored text.
+Deviations: None.
+Files changed: src/app/components/admin/ImageLibrary.tsx (modified), src/app/components/admin/ProfileEditor.tsx (modified), src/app/components/admin/AdminPanel.tsx (modified), e2e/owner-uploads-images.spec.ts (modified), e2e/owner-google-sign-in.spec.ts (modified: the menu loop)
+E2E tests written: E2E-17 to E2E-33      Passed before the change: None.
+Manual checks pending: E2E-36 (the owner's SIT check of the real Storage service).
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

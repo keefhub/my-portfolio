@@ -233,3 +233,105 @@ test("E2E-35: the mechanical gate accepts this feature's server pieces and still
   expect(startsWithPath(h, "FAIL IMPORTS", hPath), "(h) FAIL IMPORTS names the path").not.toEqual([]);
   expect(h.status, "(h) exit status").toBe(1);
 });
+
+// Step 3: owner decision, Auth.js configuration and handler.
+
+test("E2E-10: the Google return route reaches the handler with and without a trailing slash and lists the provider", async ({
+  request,
+  baseURL,
+}) => {
+  const cleanCookie = (headers: Record<string, string>) => {
+    expect(headers["set-cookie"] ?? "").not.toContain("authjs.session-token");
+  };
+
+  const first = await request.get("/api/auth/callback/google?error=access_denied", { maxRedirects: 0 });
+  expect(first.status()).toBe(308);
+  expect(first.headers()["location"]).toBe("/api/auth/callback/google/?error=access_denied");
+  cleanCookie(first.headers());
+
+  const second = await request.get("/api/auth/callback/google/?error=access_denied", { maxRedirects: 0 });
+  expect(second.status()).toBe(302);
+  const secondUrl = new URL(second.headers()["location"], baseURL);
+  expect(secondUrl.pathname).toBe("/bright-warm-greenhouse/");
+  expect(secondUrl.searchParams.has("error")).toBe(true);
+  cleanCookie(second.headers());
+
+  const third = await request.get(
+    "/api/auth/callback/google/?error=access_denied&iss=https%3A%2F%2Faccounts.google.com",
+    { maxRedirects: 0 },
+  );
+  expect(third.status()).toBe(302);
+  const thirdUrl = new URL(third.headers()["location"], baseURL);
+  expect(thirdUrl.pathname).toBe("/bright-warm-greenhouse/");
+  expect(thirdUrl.searchParams.has("error")).toBe(true);
+  cleanCookie(third.headers());
+
+  const providers = await request.get("/api/auth/providers/", { maxRedirects: 0 });
+  expect(providers.status()).toBe(200);
+  const json = (await providers.json()) as { google: { callbackUrl: string } };
+  expect(json.google.callbackUrl.endsWith("/api/auth/callback/google")).toBe(true);
+});
+
+test("E2E-14: accessFor recognises the owner only by a verified, matching, non-blank email", async () => {
+  const { accessFor } = await import("../src/lib/admin/access");
+  const rows: [string | null | undefined, boolean | undefined, string | undefined][] = [
+    ["owner@example.test", true, "owner@example.test"],
+    ["Owner@Example.TEST", true, "owner@example.test"],
+    ["owner@example.test", true, "  OWNER@example.test  "],
+    ["  owner@example.test ", true, "owner@example.test"],
+    ["owner@example.test", false, "owner@example.test"],
+    ["owner@example.test", undefined, "owner@example.test"],
+    ["other@example.test", true, "owner@example.test"],
+    ["owner@example.test.evil.test", true, "owner@example.test"],
+    ["xowner@example.test", true, "owner@example.test"],
+    [null, true, "owner@example.test"],
+    [undefined, true, undefined],
+    ["owner@example.test", true, undefined],
+    ["owner@example.test", true, ""],
+    ["owner@example.test", true, "   "],
+    ["", true, ""],
+    ["  ", true, "  "],
+  ];
+  expect(rows).toHaveLength(16);
+  const results = rows.map(([email, verified, admin]) => accessFor(email, verified, admin));
+  expect(results).toEqual([
+    "owner",
+    "owner",
+    "owner",
+    "owner",
+    ...Array.from({ length: 12 }, () => "not-allowed"),
+  ]);
+});
+
+test("E2E-15: verifiedClaim is true only for email_verified exactly true", async () => {
+  const { verifiedClaim } = await import("../src/lib/admin/access");
+  expect(verifiedClaim({ email_verified: true })).toBe(true);
+  expect(verifiedClaim({ email_verified: false })).toBe(false);
+  expect(verifiedClaim({ email_verified: "true" })).toBe(false);
+  expect(verifiedClaim({ email_verified: 1 })).toBe(false);
+  expect(verifiedClaim({})).toBe(false);
+  expect(verifiedClaim(undefined)).toBe(false);
+  expect(verifiedClaim(null)).toBe(false);
+});
+
+test("E2E-16: authLogLine prints only the error type and never any detail", async () => {
+  const { authLogLine } = await import("../src/lib/admin/access");
+
+  const detailed = authLogLine({
+    type: "OAuthCallbackError",
+    name: "AuthError",
+    message: "boom owner@example.test code=4/abc",
+    cause: { err: new Error("tok-123"), parameters: { code: "4/abc" } },
+    stack: "stack-line-xyz",
+  });
+  expect(detailed).toBe("[auth] OAuthCallbackError");
+  for (const secret of ["owner@example.test", "4/abc", "tok-123", "stack-line-xyz"]) {
+    expect(detailed).not.toContain(secret);
+  }
+
+  expect(authLogLine(new Error("secret detail"))).toBe("[auth] Error");
+  expect(authLogLine(new TypeError("x"))).toBe("[auth] TypeError");
+  expect(authLogLine({ type: "", name: "JWTSessionError", message: "m" })).toBe("[auth] JWTSessionError");
+  expect(authLogLine("boom")).toBe("[auth] Error");
+  expect(authLogLine(undefined)).toBe("[auth] Error");
+});

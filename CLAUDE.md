@@ -54,6 +54,7 @@ Every route is prerendered at build time. There is no server at runtime.
 | `/sitemap.xml`  | [src/app/sitemap.ts](src/app/sitemap.ts)                      |
 | `/robots.txt`   | [src/app/robots.ts](src/app/robots.ts)                        |
 | `/bright-warm-greenhouse/` | [src/app/bright-warm-greenhouse/page.tsx](src/app/bright-warm-greenhouse/page.tsx) — owner-only admin panel (`AdminPanel`, client component); `noindex`, not in the sitemap or `robots.txt` |
+| `/api/auth/*` | [src/app/api/auth/[...nextauth]/route.ts](src/app/api/auth/[...nextauth]/route.ts) — the Auth.js sign-in handler; the only dynamic route besides the admin panel |
 
 The landing page (`/`) is a multi-section scroll with anchor nav — Hero, About,
 Experience, TechStack, Projects, Certifications. It is not routed; the sections

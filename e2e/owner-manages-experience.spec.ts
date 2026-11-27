@@ -1392,8 +1392,8 @@ test("E2E-19: an unreachable database shows one fixed load message, keeps the me
   await expect(button(page, "Sign out")).toBeVisible();
 
   await button(menu(page), "Blog posts").click();
-  await expect(page.getByRole("status").filter({ hasText: "Blog posts editor is not available yet." })).toBeVisible();
-  await expect(page.getByRole("alert").filter({ hasText: LOAD_FAILED })).toHaveCount(0);
+  await expect(page.getByRole("alert").filter({ hasText: LOAD_FAILED })).toHaveText(LOAD_FAILED);
+  await expect(page.getByText("No posts yet.")).toHaveCount(0);
   const after = await request.get("/");
   expect(after.status()).toBe(200);
   expect(await after.text()).toBe(before);
@@ -1865,8 +1865,8 @@ test("E2E-29: the three earlier specs now expect the Blog posts notice and skip 
   const gone = gitGrep(["-n", "-F", piece("Experience editor is", " not available yet."), "--", "e2e"]);
   expect(gone.stdout).toBe("");
   expect(gone.status).toBe(1);
-  expect(read("e2e/owner-edits-profile.spec.ts")).toContain("Blog posts editor is not available yet.");
-  expect(read("e2e/owner-uploads-images.spec.ts")).toContain("Blog posts editor is not available yet.");
+  expect(read("e2e/owner-edits-profile.spec.ts")).not.toContain(piece("Blog posts editor is", " not available yet."));
+  expect(read("e2e/owner-uploads-images.spec.ts")).not.toContain(piece("Blog posts editor is", " not available yet."));
   expect(read("e2e/owner-google-sign-in.spec.ts")).toContain('l !== "Experience"');
 });
 

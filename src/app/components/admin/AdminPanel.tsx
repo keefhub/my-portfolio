@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { signInAction, signOutAction } from "@/app/bright-warm-greenhouse/actions";
 import type { PanelState } from "@/lib/admin/access";
 import { ADMIN_SECTIONS } from "@/lib/admin/sections";
+import BlogPostsEditor from "./BlogPostsEditor";
 import CertificationsEditor from "./CertificationsEditor";
 import ExperienceEditor from "./ExperienceEditor";
 import ImageLibrary from "./ImageLibrary";
@@ -114,17 +115,7 @@ export default function AdminPanel(props: {
         {section && section.id === "projects" && <ProjectsEditor />}
         {section && section.id === "certifications" && <CertificationsEditor />}
         {section && section.id === "tech-stack" && <TechStackEditor />}
-        {section &&
-          section.id !== "profile" &&
-          section.id !== "images" &&
-          section.id !== "experience" &&
-          section.id !== "projects" &&
-          section.id !== "certifications" &&
-          section.id !== "tech-stack" && (
-          <p role="status" style={{ margin: 0, color: "var(--muted)" }}>
-            {section.label} editor is not available yet.
-          </p>
-        )}
+        {section && section.id === "blog-posts" && <BlogPostsEditor />}
         <SignOutForm />
       </>
     );

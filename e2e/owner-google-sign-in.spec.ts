@@ -650,11 +650,18 @@ test("E2E-13: each menu item shows its own not-available notice and the menu sta
   await expect(region).toHaveText(T_OWNER, { useInnerText: true });
   const menu = page.getByRole("navigation", { name: "Admin sections" }).getByRole("button");
 
-  for (const label of LABELS.filter((l) => l !== "Profile" && l !== "Images" && l !== "Experience" && l !== "Projects" && l !== "Certifications" && l !== "Tech stack")) {
+  for (const label of LABELS.filter((l) => l !== "Profile" && l !== "Images" && l !== "Experience" && l !== "Projects" && l !== "Certifications" && l !== "Tech stack" && l !== "Blog posts")) {
     await menu.filter({ hasText: label }).first().click();
     const status = region.getByRole("status");
     await expect(status, label).toHaveCount(1);
     await expect(status, label).toHaveText(label + " editor is not available yet.");
+    await expect(page.getByRole("button", { name: "Sign out", exact: true }), label).toBeVisible();
+    await expect(menu, label).toHaveText(LABELS);
+  }
+  for (const label of LABELS) {
+    await menu.filter({ hasText: label }).first().click();
+    await expect(region.getByRole("heading", { name: label, exact: true, level: 2 }), label).toBeVisible();
+    await expect(region.getByRole("status").filter({ hasText: "editor is not available yet." }), label).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Sign out", exact: true }), label).toBeVisible();
     await expect(menu, label).toHaveText(LABELS);
   }

@@ -3,6 +3,20 @@ import type { ListEntry, ListStore } from "@/lib/admin/list";
 const FAILED = "The request failed.";
 const TIMEOUT_MS = 15000;
 
+export class ListConflictError extends Error {
+  constructor() {
+    super(FAILED);
+    this.name = "ListConflictError";
+  }
+}
+
+export class ListNotFoundError extends Error {
+  constructor() {
+    super(FAILED);
+    this.name = "ListNotFoundError";
+  }
+}
+
 function failure(): Error {
   return new Error(FAILED);
 }
@@ -27,6 +41,8 @@ async function send(url: string, method: string, body?: unknown): Promise<Respon
   } catch {
     throw failure();
   }
+  if (response.status === 409) throw new ListConflictError();
+  if (response.status === 404) throw new ListNotFoundError();
   if (!response.ok) throw failure();
   return response;
 }

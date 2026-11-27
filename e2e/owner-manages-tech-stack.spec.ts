@@ -2073,8 +2073,8 @@ test("E2E-22: an unreachable database shows one fixed load message, keeps the me
   await expect(button(page, "Sign out")).toBeVisible();
 
   await button(menu(page), "Blog posts").click();
-  await expect(page.getByRole("status").filter({ hasText: "Blog posts editor is not available yet." })).toBeVisible();
-  await expect(page.getByRole("alert").filter({ hasText: LOAD_FAILED })).toHaveCount(0);
+  await expect(page.getByRole("alert").filter({ hasText: LOAD_FAILED })).toHaveText(LOAD_FAILED);
+  await expect(page.getByText("No posts yet.")).toHaveCount(0);
   const after = await request.get("/");
   expect(after.status()).toBe(200);
   expect(await after.text()).toBe(before);
@@ -2718,7 +2718,6 @@ test("E2E-32: the earlier Firebase tech stack store and spec are gone, the share
   for (const path of mustNotExist) expect(fs.existsSync(path), path + " is gone").toBe(false);
   const mustExist = [
     piece("src/lib/", FIRE, "/list.ts"),
-    piece("src/lib/", FIRE, "/blogposts.ts"),
     "src/lib/admin/list.ts",
     "src/lib/admin/techstack.ts",
     "src/app/components/admin/ListEditor.tsx",
@@ -2808,12 +2807,12 @@ test("E2E-34: the earlier specs now skip Tech stack, keep the table set and the 
   ]) {
     expect(text, name + " pins the table set").toContain(tableSet);
     expect(text, name + " pins the table type").toContain(tableType);
-    for (const part of ["/blogposts.ts", "/list.ts"]) expect(text, name + " names " + part).toContain(part);
+    for (const part of ["/list.ts"]) expect(text, name + " names " + part).toContain(part);
     expect(text, name + " names the deleted store").not.toContain(piece("/tech", "stack.ts"));
   }
 
-  expect(read("e2e/owner-edits-profile.spec.ts")).toContain("Blog posts editor is not available yet.");
-  expect(read("e2e/owner-uploads-images.spec.ts")).toContain("Blog posts editor is not available yet.");
+  expect(read("e2e/owner-edits-profile.spec.ts")).not.toContain(piece("Blog posts editor is", " not available yet."));
+  expect(read("e2e/owner-uploads-images.spec.ts")).not.toContain(piece("Blog posts editor is", " not available yet."));
 });
 
 test("E2E-35: CLAUDE.md lists the tech stack route once, keeps the shared pattern and the settings, and drops the old counts", async () => {

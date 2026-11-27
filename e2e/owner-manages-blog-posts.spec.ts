@@ -1,6 +1,15 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import { expect, test, type APIRequestContext, type APIResponse } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type APIResponse,
+  type Browser,
+  type BrowserContext,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 import { encode } from "next-auth/jwt";
 
 test.describe.configure({ mode: "default" });
@@ -259,6 +268,228 @@ const EIGHT_REQUESTS: Sent[] = [
   { label: "PUT raw", send: (c, r) => apiSend(r, "PUT", idQuery("moving-to-vercel"), "{bad", c) },
   { label: "DELETE raw", send: (c, r) => apiSend(r, "DELETE", idQuery("moving-to-vercel"), "{bad", c) },
 ];
+
+// Browser fixtures: the panel, the storage stand-in, the screen's locators and the messages it shows.
+const PANEL = "/bright-warm-greenhouse/";
+const HOST = "https://stand-in.invalid";
+const publicUrlOf = (id: string): string => HOST + "/storage/v1/object/public/images/" + id;
+
+function storePut(id: string, bytes: Buffer, type: string): void {
+  fs.mkdirSync(STORE_DIR, { recursive: true });
+  fs.writeFileSync(STORE_DIR + "/" + id, bytes);
+  fs.writeFileSync(STORE_DIR + "/" + id + ".type", type);
+}
+
+function storeBreak(): void {
+  fs.mkdirSync(STORE_DIR, { recursive: true });
+  fs.writeFileSync(STORE_DIR + "/unreachable", "");
+}
+
+function storeFix(): void {
+  fs.rmSync(STORE_DIR + "/unreachable", { force: true });
+}
+
+const PNG_1X1 = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+const seedFiles = (): void => {
+  storePut(IMG_DIAGRAM, PNG_1X1, "image/png");
+};
+const seedMoving = (): void => dbSeedWith([DIAGRAM_IMAGE], [MOVING]);
+const postRow = (slug: string, status: string, title: string, date: string) => ({
+  slug,
+  status,
+  data: { title, excerpt: "x", date, tags: [], featured: false, coverImage: "", coverAlt: "", body: "x" },
+});
+
+const ENTRY_SAVED = "Entry saved";
+const ENTRY_DELETED = "Entry deleted";
+const LOAD_FAILED = "The entries could not be loaded.";
+const SAVE_FAILED = "The entry could not be saved. Try again, and check that you are signed in as the owner.";
+const DELETE_FAILED = "The entry could not be deleted. Try again, and check that you are signed in as the owner.";
+const SLUG_TAKEN = "A post with this slug already exists";
+const POST_GONE = "This post no longer exists.";
+const NO_POSTS = "No posts yet.";
+const TITLE_REQUIRED = "Enter a title";
+const EXCERPT_REQUIRED = "Enter an excerpt";
+const DATE_INVALID = "Enter a date as YYYY-MM-DD that is a real day";
+const SLUG_INVALID = "Enter a slug of lowercase letters, digits and hyphens";
+const BODY_REQUIRED = "Enter the post body";
+const IMAGES_FAILED = "The uploaded images could not be loaded.";
+const SLUG_FIXED = "The slug cannot be changed after the first save.";
+const ASK_MOVING = 'Delete "Notes on moving to Vercel"? This cannot be undone.';
+const SECTION_NAMES = ["Profile", "Experience", "Projects", "Certifications", "Tech stack", "Blog posts", "Images"];
+
+async function ownerPage(
+  browser: Browser,
+  baseURL: string,
+  options: Parameters<Browser["newContext"]>[0] = {},
+): Promise<{ context: BrowserContext; page: Page }> {
+  const context = await browser.newContext(options);
+  await context.addCookies([{ name: SESSION_COOKIE, value: await mint(OWNER()), url: baseURL }]);
+  await routeStorage(context);
+  const page = await context.newPage();
+  return { context, page };
+}
+
+async function visitorPage(browser: Browser): Promise<{ context: BrowserContext; page: Page }> {
+  const context = await browser.newContext();
+  await routeStorage(context);
+  const page = await context.newPage();
+  return { context, page };
+}
+
+// Answers the browser's calls to the storage stand-in from STORE_DIR (GET and HEAD of the public path).
+async function routeStorage(context: BrowserContext): Promise<void> {
+  const publicPrefix = "/storage/v1/object/public/images/";
+  await context.route(HOST + "/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const method = request.method();
+    const cors = { "access-control-allow-origin": "*" };
+    if (method === "OPTIONS") {
+      await route.fulfill({
+        status: 204,
+        headers: { ...cors, "access-control-allow-methods": "*", "access-control-allow-headers": "*" },
+      });
+      return;
+    }
+    if ((method === "GET" || method === "HEAD") && url.pathname.startsWith(publicPrefix)) {
+      const id = decodeURIComponent(url.pathname.slice(publicPrefix.length));
+      if (!fs.existsSync(STORE_DIR + "/" + id)) {
+        await route.fulfill({ status: 404, headers: cors, body: "" });
+        return;
+      }
+      const type = fs.existsSync(STORE_DIR + "/" + id + ".type")
+        ? fs.readFileSync(STORE_DIR + "/" + id + ".type", "utf8")
+        : "application/octet-stream";
+      await route.fulfill({
+        status: 200,
+        headers: { ...cors, "content-type": type },
+        body: fs.readFileSync(STORE_DIR + "/" + id),
+      });
+      return;
+    }
+    await route.fulfill({ status: 404, headers: cors, body: "" });
+  });
+}
+
+type Scope = Pick<Page, "getByRole">;
+
+const menu = (page: Page) => page.getByRole("navigation", { name: "Admin sections" });
+const screenOf = (page: Page) => page.locator('section[aria-label="Blog posts editor"]');
+const listOf = (page: Page) => page.getByRole("list", { name: "Blog posts list" });
+const itemsOf = (page: Page) => listOf(page).getByRole("listitem");
+const labelsOf = (page: Page) => listOf(page).locator("li > span:first-child");
+const button = (scope: Scope, name: string) => scope.getByRole("button", { name, exact: true });
+const statusWith = (page: Page, text: string) => screenOf(page).getByRole("status").filter({ hasText: text });
+const alertWith = (page: Page, text: string) => page.getByRole("alert").filter({ hasText: text });
+const confirmGroup = (page: Page) => page.getByRole("group", { name: "Confirm delete", exact: true });
+const coverGroup = (page: Page) => page.getByRole("group", { name: "Cover image", exact: true });
+const editHeading = (page: Page): Locator => page.getByRole("heading", { name: "Edit entry", level: 3 });
+const addHeading = (page: Page): Locator => page.getByRole("heading", { name: "Add entry", level: 3 });
+const field = (page: Page, name: string): Locator => page.getByRole("textbox", { name, exact: true });
+const imageSelect = (page: Page): Locator => page.getByRole("combobox", { name: "Uploaded image", exact: true });
+const statusSelect = (page: Page): Locator => page.getByRole("combobox", { name: "Status", exact: true });
+const featuredBox = (page: Page): Locator => page.getByRole("checkbox", { name: "Featured", exact: true });
+const linesOf = (item: Locator): Locator => item.locator("p");
+
+// The text of the checked option of a select.
+const selected = (select: Locator): Promise<string> =>
+  select.evaluate((el) => {
+    const node = el as HTMLSelectElement;
+    return (node.options[node.selectedIndex]?.text ?? "").trim();
+  });
+
+const optionTexts = async (select: Locator): Promise<string[]> =>
+  (await select.locator("option").allTextContents()).map((t) => t.trim());
+
+// Click the menu button until the screen's heading is there (a click that lands before hydration is lost).
+async function chooseSection(page: Page, label: string): Promise<void> {
+  const choose = button(menu(page), label);
+  const heading = page.getByRole("heading", { name: label, level: 2, exact: true });
+  await expect(async () => {
+    await choose.click({ timeout: 5000 });
+    await expect(heading).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 15000 });
+}
+
+async function openBlog(page: Page): Promise<void> {
+  await page.goto(PANEL);
+  await chooseSection(page, "Blog posts");
+}
+
+type PostFields = {
+  title?: string;
+  excerpt?: string;
+  date?: string;
+  slug?: string;
+  tags?: string;
+  coverImage?: string;
+  coverAlt?: string;
+  body?: string;
+};
+const FIELD_NAMES: [keyof PostFields, string][] = [
+  ["title", "Title"],
+  ["excerpt", "Excerpt"],
+  ["date", "Date"],
+  ["slug", "Slug"],
+  ["tags", "Tags"],
+  ["coverImage", "Cover image path"],
+  ["coverAlt", "Cover alt text"],
+  ["body", "Body"],
+];
+
+async function fillPost(page: Page, v: PostFields): Promise<void> {
+  for (const [key, name] of FIELD_NAMES) {
+    const value = v[key];
+    if (value !== undefined) await field(page, name).fill(value);
+  }
+}
+
+const NEW_POST = {
+  title: "Notes on moving to Vercel",
+  excerpt: "What changed and why",
+  date: "2026-05-15",
+  slug: "moving-to-vercel",
+  tags: "nextjs, vercel",
+  coverAlt: "A diagram of the hosting move",
+  body: "# Moving\n\nWe moved the site to Vercel.",
+};
+
+// Holds every request of one method to the route until release() is called, then lets it through.
+async function holdRoute(page: Page, method: string): Promise<{ release: () => void; count: () => number }> {
+  let seen = 0;
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(/\/api\/admin\/blog-posts\/(\?.*)?$/, async (route) => {
+    if (route.request().method() !== method) {
+      await route.fallback();
+      return;
+    }
+    seen += 1;
+    await gate;
+    await route.continue();
+  });
+  return { release: () => release(), count: () => seen };
+}
+
+async function expectAllDisabled(locator: Locator, label: string): Promise<void> {
+  const all = await locator.all();
+  expect(all.length, label + " is present").toBeGreaterThan(0);
+  for (const one of all) await expect(one, label).toBeDisabled();
+}
+
+async function expectInvalid(page: Page, target: Locator, message: string, label: string): Promise<void> {
+  await expect(target, label + " invalid").toHaveAttribute("aria-invalid", "true");
+  const describedBy = await target.getAttribute("aria-describedby");
+  expect(describedBy, label + " describedby").not.toBeNull();
+  await expect(page.locator('[id="' + describedBy + '"]'), label + " message").toHaveText(message);
+}
 
 test("E2E-01: no dependency or setting name was added", async () => {
   dbReset();
@@ -1058,4 +1289,974 @@ test("E2E-14: a post is public exactly while it is published, and saving it as a
   const stored = dbPosts();
   expect(stored.find((p) => p.slug === "moving-to-vercel")?.status).toBe("draft");
   expect(stored.find((p) => p.slug === "unfinished-thoughts")?.status).toBe("published");
+});
+
+test("E2E-15: the owner adds a draft post with a typed cover path to an empty list and it is stored and listed after a reload", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(90000);
+  dbReset();
+  storeReset();
+  dbSeedWith([DIAGRAM_IMAGE], []);
+  seedFiles();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openBlog(page);
+  const screen = screenOf(page);
+
+  await expect(screen.getByText(NO_POSTS)).toBeVisible();
+  await expect(button(screen, "Add post")).toBeVisible();
+  await button(screen, "Add post").click();
+  await expect(addHeading(page)).toBeVisible();
+  await expect.poll(() => selected(statusSelect(page))).toBe("Draft");
+  await expect(featuredBox(page)).not.toBeChecked();
+  await fillPost(page, { ...NEW_POST, coverImage: "/images/blog/vercel.png" });
+  await button(screen, "Save").click();
+
+  await expect(statusWith(page, ENTRY_SAVED)).toHaveText(ENTRY_SAVED);
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(labelsOf(page)).toHaveText(["Notes on moving to Vercel"]);
+  await expect(linesOf(itemsOf(page).first())).toHaveText([
+    "Slug: moving-to-vercel",
+    "Date: 15 May 2026",
+    "Status: Draft",
+  ]);
+
+  await page.reload();
+  await openBlog(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(labelsOf(page)).toHaveText(["Notes on moving to Vercel"]);
+  await expect(linesOf(itemsOf(page).first())).toHaveText([
+    "Slug: moving-to-vercel",
+    "Date: 15 May 2026",
+    "Status: Draft",
+  ]);
+
+  await button(itemsOf(page).first(), "Edit").click();
+  await expect(editHeading(page)).toBeVisible();
+  await expect(field(page, "Title")).toHaveValue("Notes on moving to Vercel");
+  await expect(field(page, "Excerpt")).toHaveValue("What changed and why");
+  await expect(field(page, "Date")).toHaveValue("2026-05-15");
+  await expect(field(page, "Slug")).toHaveValue("moving-to-vercel");
+  await expect(field(page, "Tags")).toHaveValue("nextjs, vercel");
+  await expect(field(page, "Cover image path")).toHaveValue("/images/blog/vercel.png");
+  await expect.poll(() => selected(imageSelect(page))).toBe("None");
+  await expect(field(page, "Cover alt text")).toHaveValue("A diagram of the hosting move");
+  await expect(field(page, "Body")).toHaveValue("# Moving\n\nWe moved the site to Vercel.");
+  await expect(featuredBox(page)).not.toBeChecked();
+  await expect.poll(() => selected(statusSelect(page))).toBe("Draft");
+
+  const stored = dbPosts();
+  expect(stored).toHaveLength(1);
+  expect(stored[0].status).toBe("draft");
+  expect(stored[0].data.coverImage).toBe("/images/blog/vercel.png");
+  await context.close();
+});
+
+test("E2E-16: the owner publishes a post with an uploaded cover and it is public with the image's address", async ({
+  browser,
+  baseURL,
+  request,
+}) => {
+  test.setTimeout(120000);
+  dbReset();
+  storeReset();
+  dbSeedWith([DIAGRAM_IMAGE], []);
+  seedFiles();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openBlog(page);
+  const screen = screenOf(page);
+
+  await button(screen, "Add post").click();
+  await expect(addHeading(page)).toBeVisible();
+  await fillPost(page, NEW_POST);
+  await statusSelect(page).selectOption({ label: "Published" });
+  await expect.poll(() => optionTexts(imageSelect(page))).toEqual(["None", "diagram.png"]);
+  await imageSelect(page).selectOption({ label: "diagram.png" });
+  await button(screen, "Save").click();
+
+  await expect(statusWith(page, ENTRY_SAVED)).toHaveText(ENTRY_SAVED);
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(linesOf(itemsOf(page).first()).nth(2)).toHaveText("Status: Published");
+
+  await page.reload();
+  await openBlog(page);
+  await button(itemsOf(page).first(), "Edit").click();
+  await expect(editHeading(page)).toBeVisible();
+  await expect.poll(() => selected(imageSelect(page))).toBe("diagram.png");
+  await expect(field(page, "Cover image path")).toHaveValue("");
+
+  const stored = dbPosts();
+  expect(stored).toHaveLength(1);
+  const address = publicUrlOf(IMG_DIAGRAM);
+  expect(stored[0].data.coverImage).toBe(address);
+  expect(String(stored[0].data.coverImage)).not.toContain("?");
+
+  const published = await apiGet(request, undefined, PUB);
+  expect(published.status(), "GET PUB status").toBe(200);
+  const body = (await published.json()) as { posts: { coverImage: string }[] };
+  expect(body.posts).toHaveLength(1);
+  expect(body.posts[0].coverImage).toBe(address);
+
+  const visitor = await visitorPage(browser);
+  const response = await visitor.page.goto(address);
+  expect(response?.status()).toBe(200);
+  expect(response?.headers()["content-type"]).toBe("image/png");
+  await visitor.context.close();
+  await context.close();
+});
+
+test("E2E-17: a taken slug is refused next to the form, the form stays and nothing is stored", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(90000);
+  dbReset();
+  storeReset();
+  seedMoving();
+  seedFiles();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openBlog(page);
+  const screen = screenOf(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+
+  await button(screen, "Add post").click();
+  await fillPost(page, {
+    title: "A different post",
+    excerpt: "Another",
+    date: "2026-06-02",
+    slug: "moving-to-vercel",
+    body: "Different body",
+  });
+  await button(screen, "Save").click();
+
+  await expect(alertWith(page, SLUG_TAKEN)).toHaveText(SLUG_TAKEN);
+  await expect(addHeading(page)).toBeVisible();
+  await expect(field(page, "Title")).toHaveValue("A different post");
+  await expect(field(page, "Slug")).toHaveValue("moving-to-vercel");
+  await expect(field(page, "Body")).toHaveValue("Different body");
+  await expect(statusWith(page, ENTRY_SAVED)).toHaveCount(0);
+  expect(dbPosts()).toEqual([MOVING]);
+
+  await button(screen, "Cancel").click();
+  await expect(addHeading(page)).toHaveCount(0);
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(labelsOf(page)).toHaveText(["Notes on moving to Vercel"]);
+  await context.close();
+});
+
+test("E2E-18: a bad title, excerpt, date, slug or body is refused next to the field with nothing sent", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(180000);
+  dbReset();
+  storeReset();
+  dbSeedWith([], []);
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openBlog(page);
+  const screen = screenOf(page);
+
+  type Case = { label: string; key: keyof typeof NEW_POST; value: string; name: string; message: string };
+  const cases: Case[] = [
+    { label: "(1)", key: "title", value: "", name: "Title", message: TITLE_REQUIRED },
+    { label: "(2)", key: "excerpt", value: "   ", name: "Excerpt", message: EXCERPT_REQUIRED },
+    { label: "(3)", key: "date", value: "15 May 2026", name: "Date", message: DATE_INVALID },
+    { label: "(4)", key: "date", value: "2026-02-30", name: "Date", message: DATE_INVALID },
+    { label: "(5)", key: "slug", value: "Moving To Vercel", name: "Slug", message: SLUG_INVALID },
+    { label: "(6)", key: "slug", value: "", name: "Slug", message: SLUG_INVALID },
+    { label: "(7)", key: "body", value: "   ", name: "Body", message: BODY_REQUIRED },
+  ];
+
+  for (const c of cases) {
+    await button(screen, "Add post").click();
+    await expect(addHeading(page)).toBeVisible();
+    const values = { ...NEW_POST, [c.key]: c.value };
+    await fillPost(page, values);
+    await button(screen, "Save").click();
+
+    await expectInvalid(page, field(page, c.name), c.message, c.label + " " + c.name);
+    for (const [key, name] of FIELD_NAMES) {
+      if (key === "coverImage") continue;
+      await expect(field(page, name), c.label + " " + name + " kept").toHaveValue(values[key as keyof typeof NEW_POST]);
+    }
+    await expect(addHeading(page)).toBeVisible();
+    await expect(statusWith(page, ENTRY_SAVED)).toHaveCount(0);
+    expect(dbPosts(), c.label).toEqual([]);
+    await button(screen, "Cancel").click();
+    await expect(addHeading(page)).toHaveCount(0);
+    await expect(screen.getByText(NO_POSTS), c.label).toBeVisible();
+  }
+  await context.close();
+});
+
+test("E2E-19: the owner edits a post, the slug stays fixed, and saving it as a draft takes it out of the public read", async ({
+  browser,
+  baseURL,
+  request,
+}) => {
+  test.setTimeout(120000);
+  dbReset();
+  storeReset();
+  seedMoving();
+  seedFiles();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openBlog(page);
+  const screen = screenOf(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+
+  await button(itemsOf(page).first(), "Edit").click();
+  await expect(editHeading(page)).toBeVisible();
+  await expect(field(page, "Slug")).toHaveValue("moving-to-vercel");
+  await expect(field(page, "Slug")).toHaveAttribute("readonly", "");
+  await expect(screen.getByText(SLUG_FIXED)).toBeVisible();
+  await fillPost(page, { title: "Notes on moving to Vercel (updated)", body: "Updated body" });
+  await featuredBox(page).check();
+  await statusSelect(page).selectOption({ label: "Draft" });
+  await button(screen, "Save").click();
+  await expect(statusWith(page, ENTRY_SAVED)).toHaveText(ENTRY_SAVED);
+
+  await page.reload();
+  await openBlog(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(labelsOf(page)).toHaveText(["Notes on moving to Vercel (updated)"]);
+  await expect(linesOf(itemsOf(page).first())).toHaveText([
+    "Slug: moving-to-vercel",
+    "Date: 15 May 2026",
+    "Status: Draft",
+  ]);
+  await button(itemsOf(page).first(), "Edit").click();
+  await expect(editHeading(page)).toBeVisible();
+  await expect(featuredBox(page)).toBeChecked();
+  await expect(field(page, "Slug")).toHaveValue("moving-to-vercel");
+  await expect(field(page, "Slug")).toHaveAttribute("readonly", "");
+  await expect.poll(() => selected(statusSelect(page))).toBe("Draft");
+  await expect(field(page, "Body")).toHaveValue("Updated body");
+
+  await expectAnswer(await apiGet(request, undefined, PUB), 200, { posts: [] }, "GET PUB after the draft save");
+  await context.close();
+});
+
+test("E2E-20: deleting asks first and Cancel keeps the post", async ({ browser, baseURL }) => {
+  test.setTimeout(90000);
+  dbReset();
+  storeReset();
+  seedMoving();
+  seedFiles();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openBlog(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+
+  await button(itemsOf(page).first(), "Delete").click();
+  const group = confirmGroup(page);
+  await expect(group).toBeVisible();
+  await expect(group.locator("p")).toHaveText(ASK_MOVING);
+  await expect(button(group, "Confirm")).toBeVisible();
+  await expect(button(group, "Cancel")).toBeVisible();
+  await expect(itemsOf(page)).toHaveCount(1);
+  expect(dbPosts()).toEqual([MOVING]);
+
+  await button(group, "Cancel").click();
+  await expect(confirmGroup(page)).toHaveCount(0);
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(labelsOf(page)).toHaveText(["Notes on moving to Vercel"]);
+
+  await page.reload();
+  await openBlog(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+  expect(dbPosts()).toEqual([MOVING]);
+  await context.close();
+});
+
+test("E2E-21: Confirm removes the post for good, with no undo, and it is gone from both reads", async ({
+  browser,
+  baseURL,
+  request,
+}) => {
+  test.setTimeout(90000);
+  dbReset();
+  storeReset();
+  seedMoving();
+  seedFiles();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openBlog(page);
+  const screen = screenOf(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+
+  await button(itemsOf(page).first(), "Delete").click();
+  await button(confirmGroup(page), "Confirm").click();
+  await expect(statusWith(page, ENTRY_DELETED)).toHaveText(ENTRY_DELETED);
+  await expect(listOf(page)).toHaveCount(0);
+  await expect(screen.getByText(NO_POSTS)).toBeVisible();
+  for (const name of ["Restore", "Undo", "Trash"]) {
+    await expect(page.getByRole("button", { name }), name).toHaveCount(0);
+  }
+
+  await page.reload();
+  await openBlog(page);
+  await expect(screen.getByText(NO_POSTS)).toBeVisible();
+  expect(dbPosts()).toEqual([]);
+  const owner = await ownerCookie();
+  await expectAnswer(await apiGet(request, owner), 200, { entries: [] }, "GET API after the delete");
+  await expectAnswer(await apiGet(request, undefined, PUB), 200, { posts: [] }, "GET PUB after the delete");
+  await context.close();
+});
+
+test("E2E-22: an unreachable database shows one fixed load message, keeps the menu working and recovers", async ({
+  browser,
+  baseURL,
+  request,
+}) => {
+  test.setTimeout(90000);
+  dbReset();
+  storeReset();
+  seedBoth();
+  seedFiles();
+  dbBreak();
+  const before = await (await request.get("/")).text();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openBlog(page);
+  const screen = screenOf(page);
+
+  await expect(alertWith(page, LOAD_FAILED)).toHaveText(LOAD_FAILED);
+  await expect(page.getByText(NO_POSTS)).toHaveCount(0);
+  await expect(button(screen, "Add post")).toHaveCount(0);
+  await expect(listOf(page)).toHaveCount(0);
+  const panelText = await page.locator("body").innerText();
+  for (const leak of LEAKS) expect(panelText, "panel leaks " + leak).not.toContain(leak);
+  await expect(menu(page).getByRole("button")).toHaveText(SECTION_NAMES);
+  await expect(button(page, "Sign out")).toBeVisible();
+  const after = await request.get("/");
+  expect(after.status()).toBe(200);
+  expect(await after.text()).toBe(before);
+
+  dbFix();
+  await button(menu(page), "Tech stack").click();
+  await expect(page.getByRole("heading", { name: "Tech stack", level: 2, exact: true })).toBeVisible();
+  await button(menu(page), "Blog posts").click();
+  await expect(itemsOf(page)).toHaveCount(2);
+  await expect(labelsOf(page)).toHaveText(["Unfinished thoughts", "Notes on moving to Vercel"]);
+  await context.close();
+});
+
+test("E2E-23: a failed save or delete shows one fixed message, keeps the form and the list, and works again after recovery", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(150000);
+  dbReset();
+  storeReset();
+  seedMoving();
+  seedFiles();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openBlog(page);
+  const screen = screenOf(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+
+  await button(screen, "Add post").click();
+  await expect(addHeading(page)).toBeVisible();
+  await fillPost(page, { ...NEW_POST, slug: "second-post" });
+  dbBreak();
+  await button(screen, "Save").click();
+  await expect(alertWith(page, SAVE_FAILED)).toHaveText(SAVE_FAILED);
+  await expect(addHeading(page)).toBeVisible();
+  await expect(field(page, "Title")).toHaveValue("Notes on moving to Vercel");
+  await expect(field(page, "Slug")).toHaveValue("second-post");
+  await expect(statusWith(page, ENTRY_SAVED)).toHaveCount(0);
+
+  await button(screen, "Cancel").click();
+  await expect(addHeading(page)).toHaveCount(0);
+  await button(itemsOf(page).first(), "Delete").click();
+  await button(confirmGroup(page), "Confirm").click();
+  await expect(alertWith(page, DELETE_FAILED)).toHaveText(DELETE_FAILED);
+  await expect(itemsOf(page)).toHaveCount(1);
+
+  dbFix();
+  await page.reload();
+  await openBlog(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+  expect(dbPosts()).toEqual([MOVING]);
+
+  await button(screen, "Add post").click();
+  await expect(addHeading(page)).toBeVisible();
+  await fillPost(page, { ...NEW_POST, slug: "second-post" });
+  await button(screen, "Save").click();
+  await expect(statusWith(page, ENTRY_SAVED)).toHaveText(ENTRY_SAVED);
+  expect(dbPosts()).toHaveLength(2);
+  await context.close();
+});
+
+test("E2E-24: a post deleted in another tab is not brought back and the stale screen shows the failure", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(150000);
+  dbReset();
+  storeReset();
+  seedMoving();
+  seedFiles();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  const second = await context.newPage();
+  await openBlog(page);
+  await openBlog(second);
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(itemsOf(second)).toHaveCount(1);
+
+  await button(itemsOf(page).first(), "Delete").click();
+  await button(confirmGroup(page), "Confirm").click();
+  await expect(statusWith(page, ENTRY_DELETED)).toHaveText(ENTRY_DELETED);
+  expect(dbPosts()).toEqual([]);
+
+  await button(itemsOf(second).first(), "Edit").click();
+  await expect(editHeading(second)).toBeVisible();
+  await fillPost(second, { title: "Edited elsewhere" });
+  await button(screenOf(second), "Save").click();
+  await expect(alertWith(second, POST_GONE)).toHaveText(POST_GONE);
+  await expect(editHeading(second)).toBeVisible();
+  await expect(field(second, "Title")).toHaveValue("Edited elsewhere");
+  await expect(statusWith(second, ENTRY_SAVED)).toHaveCount(0);
+  expect(dbPosts()).toEqual([]);
+
+  await second.reload();
+  await openBlog(second);
+  await expect(screenOf(second).getByText(NO_POSTS)).toBeVisible();
+  await context.close();
+});
+
+test("E2E-25: a save or delete after sign-in ended or with no network shows the fixed failure and keeps the typed text", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(150000);
+  for (const cause of ["expired", "offline"]) {
+    dbReset();
+    storeReset();
+    seedMoving();
+    seedFiles();
+    const { context, page } = await ownerPage(browser, baseURL as string);
+    await openBlog(page);
+    const screen = screenOf(page);
+    await expect(itemsOf(page), cause).toHaveCount(1);
+
+    if (cause === "expired") {
+      await context.clearCookies();
+      await context.addCookies([
+        { name: SESSION_COOKIE, value: await mint(OWNER(), { maxAge: -3600 }), url: baseURL as string },
+      ]);
+    } else {
+      await context.setOffline(true);
+    }
+
+    await button(itemsOf(page).first(), "Edit").click();
+    await expect(editHeading(page), cause).toBeVisible();
+    await fillPost(page, { title: "Typed while away" });
+    await button(screen, "Save").click();
+    await expect(alertWith(page, SAVE_FAILED), cause).toHaveText(SAVE_FAILED);
+    await expect(field(page, "Title"), cause).toHaveValue("Typed while away");
+
+    await button(screen, "Cancel").click();
+    await expect(editHeading(page), cause).toHaveCount(0);
+    await button(itemsOf(page).first(), "Delete").click();
+    await button(confirmGroup(page), "Confirm").click();
+    await expect(alertWith(page, DELETE_FAILED), cause).toHaveText(DELETE_FAILED);
+    await expect(itemsOf(page), cause).toHaveCount(1);
+    expect(dbPosts(), cause).toEqual([MOVING]);
+    await context.close();
+  }
+});
+
+test("E2E-26: while a request is in flight the screen shows its state, disables the controls and sends it once", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  dbReset();
+  storeReset();
+  dbSeedWith([DIAGRAM_IMAGE], []);
+  seedFiles();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openBlog(page);
+  const screen = screenOf(page);
+
+  await button(screen, "Add post").click();
+  await expect(addHeading(page)).toBeVisible();
+  await fillPost(page, NEW_POST);
+  const post = await holdRoute(page, "POST");
+  await button(screen, "Save").dblclick();
+  await expect(screen.getByRole("status")).toHaveText("Saving…");
+  await expectAllDisabled(screen.getByRole("button"), "buttons");
+  await expectAllDisabled(screen.getByRole("textbox"), "textboxes");
+  await expectAllDisabled(screen.getByRole("combobox"), "lists");
+  await expectAllDisabled(screen.getByRole("checkbox"), "Featured");
+  await expect(imageSelect(page)).toBeDisabled();
+  await expect(statusSelect(page)).toBeDisabled();
+  post.release();
+  await expect(statusWith(page, ENTRY_SAVED)).toHaveText(ENTRY_SAVED);
+  expect(post.count()).toBe(1);
+  expect(dbPosts()).toHaveLength(1);
+  await context.close();
+});
+
+test("E2E-27: posts are listed newest first, ties by title, with their slug, date and status and no move buttons", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(90000);
+  dbReset();
+  storeReset();
+  dbSeedWith(
+    [],
+    [
+      postRow("alpha-post", "published", "Alpha post", "2026-05-15"),
+      postRow("beta-post", "draft", "Beta post", "2026-05-15"),
+      postRow("gamma-post", "draft", "Gamma post", "2026-06-01"),
+      postRow("old-post", "published", "Old post", "2025-12-31"),
+    ],
+  );
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openBlog(page);
+  await expect(itemsOf(page)).toHaveCount(4);
+  await expect(labelsOf(page)).toHaveText(["Gamma post", "Alpha post", "Beta post", "Old post"]);
+  await expect(linesOf(itemsOf(page).nth(0))).toHaveText(["Slug: gamma-post", "Date: 1 June 2026", "Status: Draft"]);
+  await expect(linesOf(itemsOf(page).nth(1)).nth(2)).toHaveText("Status: Published");
+  await expect(linesOf(itemsOf(page).nth(2)).nth(2)).toHaveText("Status: Draft");
+  await expect(linesOf(itemsOf(page).nth(3))).toHaveText([
+    "Slug: old-post",
+    "Date: 31 December 2025",
+    "Status: Published",
+  ]);
+  for (const name of ["Move up", "Move down"]) {
+    await expect(page.getByRole("button", { name }), name).toHaveCount(0);
+  }
+  await context.close();
+});
+
+test("E2E-28: the cover picker and the path field keep each other in step, and a failed image list or a deleted image leaves the saved cover alone", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(180000);
+  dbReset();
+  storeReset();
+  const address = publicUrlOf(IMG_DIAGRAM);
+  const withCover = { slug: "moving-to-vercel", status: "published", data: { ...MOVING_DATA, coverImage: address } };
+  const coverStored = (): unknown => dbPosts()[0]?.data.coverImage;
+  dbSeedWith([DIAGRAM_IMAGE], [withCover]);
+  seedFiles();
+
+  // Part 1: the images cannot be loaded.
+  storeBreak();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openBlog(page);
+  const screen = screenOf(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+  await button(itemsOf(page).first(), "Edit").click();
+  await expect(editHeading(page)).toBeVisible();
+  await expect(coverGroup(page).getByRole("alert")).toHaveText(IMAGES_FAILED);
+  expect(await optionTexts(imageSelect(page))).toEqual(["None"]);
+  await expect(field(page, "Cover image path")).toHaveValue(address);
+  await button(screen, "Save").click();
+  await expect(statusWith(page, ENTRY_SAVED)).toHaveText(ENTRY_SAVED);
+  expect(coverStored()).toBe(address);
+
+  // Part 2: the image record is gone.
+  storeFix();
+  dbSeedWith([], [withCover]);
+  await page.reload();
+  await openBlog(page);
+  await button(itemsOf(page).first(), "Edit").click();
+  await expect(editHeading(page)).toBeVisible();
+  await expect.poll(() => selected(imageSelect(page))).toBe("None");
+  await expect(field(page, "Cover image path")).toHaveValue(address);
+  await expect(coverGroup(page).getByRole("alert")).toHaveCount(0);
+  await button(screen, "Save").click();
+  await expect(statusWith(page, ENTRY_SAVED)).toHaveText(ENTRY_SAVED);
+  expect(coverStored()).toBe(address);
+
+  // Part 3: the picker and the path field follow the last choice.
+  dbSeedWith([DIAGRAM_IMAGE], [MOVING]);
+  await page.reload();
+  await openBlog(page);
+  await button(itemsOf(page).first(), "Edit").click();
+  await expect(editHeading(page)).toBeVisible();
+  await expect.poll(() => optionTexts(imageSelect(page))).toEqual(["None", "diagram.png"]);
+  await field(page, "Cover image path").fill("/images/blog/x.png");
+  await expect.poll(() => selected(imageSelect(page))).toBe("None");
+  await imageSelect(page).selectOption({ label: "diagram.png" });
+  await expect(field(page, "Cover image path")).toHaveValue("");
+  await expect.poll(() => selected(imageSelect(page))).toBe("diagram.png");
+  await imageSelect(page).selectOption({ label: "None" });
+  await expect(field(page, "Cover image path")).toHaveValue("");
+  await expect.poll(() => selected(imageSelect(page))).toBe("None");
+  await field(page, "Cover image path").fill("/images/blog/last.png");
+  await button(screen, "Save").click();
+  await expect(statusWith(page, ENTRY_SAVED)).toHaveText(ENTRY_SAVED);
+  expect(coverStored()).toBe("/images/blog/last.png");
+  await context.close();
+});
+
+test("E2E-29: nothing typed in an unsaved form is kept after Cancel or a reload, with no dialog", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(90000);
+  dbReset();
+  storeReset();
+  dbSeedWith([], []);
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  const dialogs: string[] = [];
+  page.on("dialog", (dialog) => {
+    dialogs.push(dialog.message());
+    void dialog.dismiss();
+  });
+  await openBlog(page);
+  const screen = screenOf(page);
+
+  await button(screen, "Add post").click();
+  await expect(addHeading(page)).toBeVisible();
+  await fillPost(page, { title: "Draft" });
+  await button(screen, "Cancel").click();
+  await expect(addHeading(page)).toHaveCount(0);
+  await expect(screen.getByText(NO_POSTS)).toBeVisible();
+  expect(dbPosts()).toEqual([]);
+
+  await button(screen, "Add post").click();
+  await expect(addHeading(page)).toBeVisible();
+  await fillPost(page, { title: "Draft again", slug: "draft-again" });
+  await page.reload();
+  await openBlog(page);
+  await expect(screen.getByText(NO_POSTS)).toBeVisible();
+  await expect(addHeading(page)).toHaveCount(0);
+  await expect(field(page, "Title")).toHaveCount(0);
+  const text = await page.locator("body").innerText();
+  expect(text).not.toContain("Draft again");
+  expect(dbPosts()).toEqual([]);
+  expect(dialogs).toEqual([]);
+
+  await button(screen, "Add post").click();
+  await expect(addHeading(page)).toBeVisible();
+  await expect(button(screen, "Preview")).toBeVisible();
+  await context.close();
+});
+
+test("E2E-30: the Blog posts screen fits a phone, follows the theme tokens and works from the keyboard", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(300000);
+  const LONG = "long-" + "a".repeat(145);
+  const posts = Array.from({ length: 20 }, (_, i) => {
+    const nn = String(i + 1).padStart(2, "0");
+    if (nn === "07") return postRow(LONG, "published", "A".repeat(200), "2026-01-07");
+    return postRow("post-" + nn, "published", "Post " + nn, "2026-01-" + nn);
+  });
+  const surfaceByTheme: Record<string, string> = {};
+
+  for (const theme of ["light", "dark"]) {
+    dbReset();
+    storeReset();
+    dbSeedWith([], posts);
+    const { context, page } = await ownerPage(browser, baseURL as string, { viewport: { width: 375, height: 800 } });
+    await page.addInitScript((t) => {
+      try {
+        localStorage.setItem("theme", t);
+      } catch {
+        // storage unavailable: the page falls back to its default theme
+      }
+    }, theme);
+    await openBlog(page);
+    const screen = screenOf(page);
+    await expect(itemsOf(page)).toHaveCount(20);
+
+    const fits = async (when: string): Promise<void> => {
+      const widths = await page.evaluate(() => ({
+        root: document.documentElement.scrollWidth,
+        body: document.body.scrollWidth,
+      }));
+      expect(widths.root, theme + " root width " + when).toBeLessThanOrEqual(375);
+      expect(widths.body, theme + " body width " + when).toBeLessThanOrEqual(375);
+      const boxes = await page.locator("button, input, select, textarea, fieldset").evaluateAll((nodes) =>
+        nodes.map((node) => {
+          const rect = node.getBoundingClientRect();
+          return {
+            label: node.tagName + " " + (node.textContent ?? "").slice(0, 20),
+            x: rect.x,
+            right: rect.x + rect.width,
+            width: rect.width,
+            height: rect.height,
+          };
+        }),
+      );
+      for (const box of boxes) {
+        if (box.width === 0 && box.height === 0) continue;
+        expect(box.x, theme + " " + when + " " + box.label).toBeGreaterThanOrEqual(0);
+        expect(box.right, theme + " " + when + " " + box.label).toBeLessThanOrEqual(375);
+      }
+    };
+
+    // (1) The list.
+    await fits("list");
+    const longItem = itemsOf(page).filter({ hasText: "Slug: " + LONG });
+    await expect(longItem).toHaveCount(1);
+    const listBox = await listOf(page).boundingBox();
+    const itemBox = await longItem.boundingBox();
+    const lineBox = await longItem.locator("p").filter({ hasText: "Slug: " + LONG }).boundingBox();
+    expect(listBox, "list box").not.toBeNull();
+    expect(itemBox, "long item box").not.toBeNull();
+    expect(lineBox, "long line box").not.toBeNull();
+    const list = listBox as { x: number; width: number };
+    const long = itemBox as { x: number; width: number };
+    const line = lineBox as { x: number; width: number };
+    expect(long.width, theme + " long item width").toBeLessThanOrEqual(list.width + 0.5);
+    expect(line.x, theme + " long line left").toBeGreaterThanOrEqual(long.x - 0.5);
+    expect(line.x + line.width, theme + " long line right").toBeLessThanOrEqual(long.x + long.width + 0.5);
+
+    // (2) The tokens.
+    const probe = (property: "backgroundColor" | "color", token: string) =>
+      page.evaluate(
+        ([prop, value]) => {
+          const div = document.createElement("div");
+          (div.style as unknown as Record<string, string>)[prop] = value;
+          document.body.appendChild(div);
+          const computed = (getComputedStyle(div) as unknown as Record<string, string>)[prop];
+          div.remove();
+          return computed;
+        },
+        [property, "var(" + token + ")"] as const,
+      );
+    const computed = (locator: Locator, property: "background-color" | "color") =>
+      locator.evaluate((el, p) => getComputedStyle(el).getPropertyValue(p), property);
+
+    const first = itemsOf(page).first();
+    const surfaceAlt = await probe("backgroundColor", "--surface-alt");
+    expect(await computed(first, "background-color"), theme + " item").toBe(surfaceAlt);
+    expect(await computed(labelsOf(page).first(), "color"), theme + " item text").toBe(await probe("color", "--foreground"));
+    const slugLine = first.locator("p").filter({ hasText: "Slug: post-20" });
+    await expect(slugLine).toHaveCount(1);
+    expect(await computed(slugLine, "color"), theme + " slug line").toBe(await probe("color", "--muted"));
+    surfaceByTheme[theme] = surfaceAlt;
+    if (theme === "dark") await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+    // (3) The form of the long post.
+    await button(longItem, "Edit").click();
+    await expect(editHeading(page)).toBeVisible();
+    await fits("form of the long post");
+    for (const name of ["Title", "Slug", "Body"]) {
+      const box = await field(page, name).boundingBox();
+      expect(box, name + " box").not.toBeNull();
+      const b = box as { x: number; width: number };
+      expect(b.x, theme + " " + name + " left").toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width, theme + " " + name + " right").toBeLessThanOrEqual(375);
+    }
+    await button(screen, "Cancel").click();
+    await expect(editHeading(page)).toHaveCount(0);
+
+    // (4) A refused save.
+    await button(itemsOf(page).first(), "Edit").click();
+    await expect(editHeading(page)).toBeVisible();
+    await fillPost(page, { title: "   " });
+    await button(screen, "Save").click();
+    const alert = alertWith(page, TITLE_REQUIRED);
+    await expect(alert).toHaveText(TITLE_REQUIRED);
+    expect(await computed(alert, "color"), theme + " alert").toBe(await probe("color", "--accent-rose"));
+    await fits("form with an error");
+    await button(screen, "Cancel").click();
+    await expect(editHeading(page)).toHaveCount(0);
+
+    // (5) The keyboard.
+    const top = itemsOf(page).first();
+    await button(top, "Edit").focus();
+    await page.keyboard.press("Enter");
+    await expect(editHeading(page)).toBeVisible();
+    await button(screen, "Cancel").click();
+    await expect(editHeading(page)).toHaveCount(0);
+
+    await button(top, "Delete").focus();
+    await page.keyboard.press("Enter");
+    await expect(confirmGroup(page)).toBeVisible();
+    await button(confirmGroup(page), "Confirm").focus();
+    await page.keyboard.press("Tab");
+    await expect(button(confirmGroup(page), "Cancel")).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(confirmGroup(page)).toHaveCount(0);
+    await expect(itemsOf(page)).toHaveCount(20);
+    expect(dbPosts()).toHaveLength(20);
+    await context.close();
+  }
+  expect(surfaceByTheme.dark).not.toBe(surfaceByTheme.light);
+});
+
+test("E2E-31: every menu item shows its own screen and none shows a not-available notice", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  dbReset();
+  storeReset();
+  dbSeedWith([], []);
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await page.goto(PANEL);
+  for (const label of SECTION_NAMES) {
+    await chooseSection(page, label);
+    await expect(page.getByRole("heading", { name: label, exact: true, level: 2 }), label).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "editor is not available yet." }), label).toHaveCount(0);
+    await expect(button(page, "Sign out"), label).toBeVisible();
+    await expect(menu(page).getByRole("button"), label).toHaveText(SECTION_NAMES);
+  }
+  await context.close();
+});
+
+test("E2E-32: the earlier Firebase blog store and spec are gone, the shared files stay, and nothing imports the old store", async () => {
+  dbReset();
+  storeReset();
+  const mustNotExist = [piece("src/lib/", FIRE, "/blogposts.ts"), "e2e/manage-blog-posts.spec.ts"];
+  for (const path of mustNotExist) expect(fs.existsSync(path), path + " is gone").toBe(false);
+  const mustExist = [
+    piece("src/lib/", FIRE, "/list.ts"),
+    piece("src/lib/", FIRE, "/client.ts"),
+    piece("src/lib/", FIRE, "/config.ts"),
+    "src/lib/admin/list.ts",
+    "src/lib/admin/blogposts.ts",
+    "src/app/components/admin/ListEditor.tsx",
+    "src/app/components/admin/PostPreview.tsx",
+    "src/app/components/admin/BlogPostsEditor.tsx",
+    "e2e/preview-blog-post.spec.ts",
+    "e2e/admin-content-panel-acceptance.spec.ts",
+    "firestore.rules",
+  ];
+  for (const path of mustExist) expect(fs.existsSync(path), path + " exists").toBe(true);
+
+  const read = (path: string): string => fs.readFileSync(path, "utf8");
+  const editor = read("src/app/components/admin/BlogPostsEditor.tsx");
+  for (const text of [
+    "createHttpListStore",
+    "/api/admin/blog-posts/",
+    "ListConflictError",
+    "ListNotFoundError",
+    "listImages",
+    "photoSelection",
+    "UploadedImage",
+    'from "@/lib/admin/imagesClient"',
+    "PostPreview",
+    "Preview",
+  ]) {
+    expect(editor, "BlogPostsEditor has " + text).toContain(text);
+  }
+  for (const word of [
+    FIRE,
+    piece("lib/", "server"),
+    piece("lib/", "auth"),
+    piece("next", "-auth"),
+    PG,
+    piece("server", "-only"),
+  ]) {
+    expect(editor.toLowerCase(), "BlogPostsEditor names " + word).not.toContain(word);
+  }
+  expect(editor, "BlogPostsEditor names savingOn").not.toContain(piece("saving", "On"));
+
+  const panel = read("src/app/components/admin/AdminPanel.tsx");
+  for (const name of ["BlogPostsEditor", "TechStackEditor", "CertificationsEditor", "ProjectsEditor", "ExperienceEditor"]) {
+    expect(panel, "AdminPanel has " + name).toContain(name);
+  }
+  expect(panel).not.toContain(piece("not available", " yet"));
+  expect(panel).not.toContain(piece("lib/", "auth"));
+  expect(panel).not.toContain(piece("lib/", "server"));
+  expect(panel.toLowerCase()).not.toContain(FIRE);
+
+  const posts = read("src/lib/admin/blogposts.ts");
+  expect(posts.toLowerCase()).not.toContain(FIRE);
+  expect(posts).toMatch(/export function blogPostShape\b/);
+
+  const importers = gitGrep(["-n", "-E", piece(FIRE, "/blogposts"), "--", "src", "e2e"]);
+  expect(importers.stdout).toBe("");
+  expect(importers.status).toBe(1);
+});
+
+test("E2E-34: the earlier specs now skip Blog posts, expect its screen, and no spec expects its notice", async () => {
+  dbReset();
+  storeReset();
+  const read = (path: string): string => fs.readFileSync(path, "utf8");
+  const gone = gitGrep(["-n", "-F", piece("Blog posts editor is", " not available yet."), "--", "e2e"]);
+  expect(gone.stdout).toBe("");
+  expect(gone.status).toBe(1);
+
+  const signIn = read("e2e/owner-google-sign-in.spec.ts");
+  const loop = signIn.split("\n").filter((l) => l.includes('l !== "Blog posts"'));
+  expect(loop.length).toBeGreaterThan(0);
+  for (const label of ["Profile", "Images", "Experience", "Projects", "Certifications", "Tech stack", "Blog posts"]) {
+    for (const line of loop) expect(line, "sign-in loop skips " + label).toContain('l !== "' + label + '"');
+  }
+  expect(signIn).toContain("{ name: label, exact: true, level: 2 }");
+
+  for (const path of ["e2e/owner-edits-profile.spec.ts", "e2e/owner-uploads-images.spec.ts"]) {
+    const text = read(path);
+    expect(text, path + " expects the empty list").toContain(NO_POSTS);
+    expect(text, path + " expects the load message").toContain(LOAD_FAILED);
+  }
+  for (const name of ["experience", "projects", "certifications", "tech-stack"]) {
+    const text = read("e2e/owner-manages-" + name + ".spec.ts");
+    expect(text, name + " spec expects the load message").toContain(LOAD_FAILED);
+    expect(text, name + " spec expects the empty list").toContain(NO_POSTS);
+  }
+
+  const tableSet = 'export const LIST_TABLES: readonly ListTable[] = ["experience", "projects", "certifications", "tech_categories"];';
+  const tableType = 'export type ListTable = "experience" | "projects" | "certifications" | "tech_categories";';
+  for (const name of ["projects", "certifications", "tech-stack"]) {
+    const text = read("e2e/owner-manages-" + name + ".spec.ts");
+    expect(text, name + " spec names the deleted store").not.toContain(piece("/blog", "posts.ts"));
+    expect(text, name + " spec pins the table set").toContain(tableSet);
+    expect(text, name + " spec pins the table type").toContain(tableType);
+  }
+});
+
+test("E2E-35: CLAUDE.md lists the blog posts routes once each, keeps the shared pattern and the settings, and drops the old counts", async () => {
+  dbReset();
+  storeReset();
+  const doc = fs.readFileSync("CLAUDE.md", "utf8");
+  for (const text of [
+    "/api/admin/blog-posts/",
+    "/api/admin/blog-posts/published/",
+    "src/app/api/admin/blog-posts/route.ts",
+    "src/app/api/admin/blog-posts/published/route.ts",
+    "The blog posts are stored in Supabase",
+    "/api/admin/tech-stack/",
+    "src/app/api/admin/tech-stack/route.ts",
+    "/api/admin/certifications/",
+    "/api/admin/projects/",
+    "/api/admin/experience/",
+    "/api/admin/images/",
+    "/api/admin/images/upload/",
+    "/api/admin/profile/",
+    "createListService",
+    "createHttpListStore",
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_DB_URL",
+    "AUTH_SECRET",
+    "/api/auth/callback/google",
+    "src/lib/server/",
+    "src/app/api/admin/**",
+    "stand-in:",
+    "The site reads seven settings by name",
+    "the experience entries and the projects",
+    "The certifications are stored in Supabase",
+    "The tech stack is stored in Supabase",
+  ]) {
+    expect(doc, text).toContain(text);
+  }
+  const lines = doc.split("\n");
+  expect(lines.filter((l) => l.startsWith("| `/api/admin/blog-posts/` ")), "owner route rows").toHaveLength(1);
+  expect(lines.filter((l) => l.startsWith("| `/api/admin/blog-posts/published/` ")), "public route rows").toHaveLength(1);
+  for (const route of ["tech-stack", "certifications", "projects", "experience"]) {
+    const rows = lines.filter((l) => l.startsWith("| `/api/admin/" + route + "/`"));
+    expect(rows, "Routes table rows for the " + route + " route").toHaveLength(1);
+  }
+  for (const text of [
+    "The site reads five settings by name",
+    "The site reads four settings by name",
+    "only API route",
+    "The one remaining Firebase store",
+  ]) {
+    expect(doc, text).not.toContain(text);
+  }
 });

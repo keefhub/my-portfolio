@@ -2000,9 +2000,13 @@ test("E2E-25: when the list cannot be loaded the screen says so, the panel stays
     await expect(page.getByRole("button", { name: "Sign out", exact: true }), mode).toBeVisible();
 
     await menu(page).getByRole("button", { name: "Blog posts", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Admin" }).getByRole("status"), mode).toHaveText(
-      "Blog posts editor is not available yet.",
-    );
+    if (mode === "storage") {
+      await expect(page.getByText("No posts yet."), mode).toBeVisible();
+    } else {
+      await expect(page.getByRole("alert").filter({ hasText: "The entries could not be loaded." }), mode).toHaveText(
+        "The entries could not be loaded.",
+      );
+    }
     await expect(page.getByRole("alert").filter({ hasText: LOAD_FAILED }), mode).toHaveCount(0);
     const second = await request.get("/");
     expect(second.status(), mode).toBe(200);

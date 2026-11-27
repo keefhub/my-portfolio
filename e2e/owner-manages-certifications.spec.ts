@@ -1762,8 +1762,8 @@ test("E2E-22: an unreachable database shows one fixed load message, keeps the me
   await expect(button(page, "Sign out")).toBeVisible();
 
   await button(menu(page), "Blog posts").click();
-  await expect(page.getByRole("status").filter({ hasText: "Blog posts editor is not available yet." })).toBeVisible();
-  await expect(page.getByRole("alert").filter({ hasText: LOAD_FAILED })).toHaveCount(0);
+  await expect(page.getByRole("alert").filter({ hasText: LOAD_FAILED })).toHaveText(LOAD_FAILED);
+  await expect(page.getByText("No posts yet.")).toHaveCount(0);
   const after = await request.get("/");
   expect(after.status()).toBe(200);
   expect(await after.text()).toBe(before);
@@ -2343,7 +2343,6 @@ test("E2E-32: the earlier Firebase certifications store and spec are gone, the s
   for (const path of mustNotExist) expect(fs.existsSync(path), path + " is gone").toBe(false);
   const mustExist = [
     piece("src/lib/", FIRE, "/list.ts"),
-    piece("src/lib/", FIRE, "/blogposts.ts"),
     "src/lib/admin/list.ts",
     "src/lib/admin/certifications.ts",
     "src/app/components/admin/ListEditor.tsx",
@@ -2426,11 +2425,11 @@ test("E2E-34: the earlier specs now skip Certifications, keep the table set and 
     'export const LIST_TABLES: readonly ListTable[] = ["experience", "projects", "certifications", "tech_categories"];',
   );
   expect(projects).toContain('export type ListTable = "experience" | "projects" | "certifications" | "tech_categories";');
-  for (const text of ["/blogposts.ts", "/list.ts"]) expect(projects).toContain(text);
+  for (const text of ["/list.ts"]) expect(projects).toContain(text);
   expect(projects).not.toContain("/certifications.ts");
 
-  expect(read("e2e/owner-edits-profile.spec.ts")).toContain("Blog posts editor is not available yet.");
-  expect(read("e2e/owner-uploads-images.spec.ts")).toContain("Blog posts editor is not available yet.");
+  expect(read("e2e/owner-edits-profile.spec.ts")).not.toContain(piece("Blog posts editor is", " not available yet."));
+  expect(read("e2e/owner-uploads-images.spec.ts")).not.toContain(piece("Blog posts editor is", " not available yet."));
 });
 
 test("E2E-35: CLAUDE.md lists the certifications route once, keeps the shared pattern and the settings, and drops the old counts", async () => {

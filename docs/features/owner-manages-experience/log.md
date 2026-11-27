@@ -55,3 +55,16 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+
+=====================================================================
+Completion — owner-manages-experience
+Completed: 2026-11-27
+
+Built: The panel's Experience screen. The owner adds, edits, reorders and, after confirming, deletes work and education entries and they persist through an owner-only route at /api/admin/experience/ (the owner check runs before any body read and the entry-id pattern before any database call). The list logic is a generic service over a closed set of tables with all-or-nothing reordering, and an update, reorder or delete of an unknown id answers not found and never inserts. This builds the shared list pattern (store type, browser list client, generic service, shared editor) that the projects, certifications and tech stack slices reuse; Section 2.4 of the spec states what each must add. The Firebase experience store and its old spec are removed.
+Deviations from the spec: None in the build. Process mistake, corrected: the first attempt to commit Task 3 failed and the script logged the task anyway; commit 38b81f9 (titled "log task 3") also contains the Task 3 tests, the two Firebase deletions and the earlier-spec amendments and does not build on its own. 21e5278 completes the task and everything from it builds. The pushed history was not rewritten; the pull request should mention 38b81f9 so a bisect does not trip on it.
+[auto] decisions: 20 lines tagged [auto] in the spec. No auto-revision was needed.
+Feature review: PASS. Findings (all notes): the experience schema statements run inside the shared schema step, so if Supabase's pooler refuses them on SIT the profile and image routes fail too (look at the experience statements first; carried to E2E-31); no length or count cap on strings or detail lines (owner-only, spec Assumption 16); a paragraph in AdminPanel was not re-indented after the condition was split (cosmetic); and the mislabelled commit above.
+Final verification: npm run build ok; npx playwright test e2e/owner-manages-experience.spec.ts 29 passed, 0 failed (the three earlier specs also pass whole: profile 30, images 35, sign-in 33).
+Manual checks still pending (never run): E2E-31 (the owner's SIT check after the merge to develop and once the database setting is in Vercel: add, edit, reorder and delete an entry; the real database, the pooler and row level security are untested here).
+Follow-ups not in scope: the notes above. No new setting name, no new dependency and no change to scripts/check-task.sh in this feature.
+=====================================================================

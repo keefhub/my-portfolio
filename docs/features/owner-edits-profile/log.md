@@ -58,3 +58,22 @@ Review: risk reviewer PASS (review 1)
 Findings: edge-case | note | logged | isObject accepts arrays, so a profile value of [] loads an empty form instead of a load failure; the route never sends one (add && !Array.isArray(value) to tighten)
  vacuous-test | note | logged | E2E-22 (double click) may also pass without the saving guard, because React flushes the first click's state before the second lands; the guard is in the code as the Step requires
 =====================================================================
+
+=====================================================================
+Task 4 — Amend the standing docs the database makes false
+Completed: 2026-11-27      Commit: cb16871
+
+Summary: CLAUDE.md and the repo profile now describe the database behind the panel's owner-only routes, the two API route families, the SUPABASE_DB_URL setting, the src/lib/server/ modules and the stand-in database chosen by the setting value in tests.
+Decisions: The /api/admin/profile/ Routes row already existed (added during Task 2) and was reworded to the Step's wording. Invariant 1 says "the API routes are two families only" so that the forbidden phrase "only API route" does not remain. The src/lib/server/ paragraph is at the end of the Admin modules paragraph.
+Deviations: None.
+Files changed: CLAUDE.md (modified), .claude/repo-profile.md (modified), e2e/owner-edits-profile.spec.ts (modified)
+E2E tests written: E2E-29      Passed before the change: None.
+Manual checks pending: E2E-30 (the owner's SIT check).
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

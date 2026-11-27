@@ -17,3 +17,22 @@ Review: risk reviewer PASS (review 1). The reviewer copied the repo to a scratch
 Findings: edge-case | note | logged | a body or excerpt containing U+0000 or a lone surrogate passes validation but PostgreSQL jsonb rejects it, so on the real database the owner gets 503 instead of 400 (owner-only, fail-closed; for the SIT check E2E-36)
  nit | note | logged | the narrowed E2E-01 grep would miss a quoted subpath such as @supabase/x/y or a backtick string; the dependency equality in the same row would still fail on any added client library
 =====================================================================
+
+=====================================================================
+Task 2 — The Blog posts screen on the owner-only store, retire the earlier Firebase blog code, amend the earlier specs and the docs
+Completed: 2026-11-27      Commit: e5fa140
+
+Summary: The panel's Blog posts item now shows the editor on the owner-only store: the owner writes, edits and, after confirming, deletes markdown posts as draft or published with unique slugs, and picks a cover image (an uploaded image or a typed path; a typed or saved address still saves when the image list fails). The slug is read-only when editing; a taken slug and a post deleted elsewhere show their own messages; a missing draft flag stores a draft. The shared list client gained two error classes (a conflict and a missing entry); every other status is unchanged for the four other editors. This was the last section with the not-available notice, so the notice branch is removed from the panel. The Firebase blog post store and its old spec are deleted; PostPreview and the Preview button stay wired for the next slice. Eight earlier specs were amended: the assertions that the Blog posts item showed the notice now assert the new screen's real states, and the sign-in spec gained a loop that checks every section shows its heading, no not-available status, the Sign out button and an intact menu. CLAUDE.md gets the two Routes rows (this spec's D-19: Task 2 adds them) and the Leftover rules replacement.
+Decisions: ListConflictError and ListNotFoundError are exported classes in listClient.ts, each with a no-argument constructor calling super with the generic message and setting name; the 409 and 404 checks sit before the generic not-ok check. Both Routes rows were added directly after the tech-stack row. The notice branch was removed from AdminPanel and the editor renders for blog-posts after the tech-stack line.
+Deviations: None.
+Files changed: src/lib/admin/listClient.ts (modified), src/app/components/admin/BlogPostsEditor.tsx (modified), src/app/components/admin/AdminPanel.tsx (modified), CLAUDE.md (modified), src/lib/firebase/blogposts.ts (deleted), e2e/manage-blog-posts.spec.ts (deleted), e2e/owner-manages-blog-posts.spec.ts (modified), and seven earlier specs amended (e2e/owner-google-sign-in.spec.ts, owner-edits-profile.spec.ts, owner-uploads-images.spec.ts, owner-manages-experience.spec.ts, owner-manages-projects.spec.ts, owner-manages-certifications.spec.ts, owner-manages-tech-stack.spec.ts: the named lines only, no test title line)
+E2E tests written: E2E-15 to E2E-32, E2E-34, E2E-35 (E2E-33 is a compiler check)      Passed before the change: E2E-34 (it reads the earlier specs; the test author's amendments are its subject)
+Manual checks pending: E2E-36 (the owner's SIT check).
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: high only because of the test-passed-before-change escalation (the Step itself is Risk: low)
+Review: risk reviewer PASS (review 1)
+Findings: None.
+=====================================================================

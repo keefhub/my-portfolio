@@ -59,6 +59,7 @@ Every public route is prerendered at build time. Only the admin panel, `/api/aut
 | `/api/admin/images/` | [src/app/api/admin/images/route.ts](src/app/api/admin/images/route.ts) — the owner-only image list, upload registration and delete (GET, POST, DELETE); the owner check and the image-id pattern run before any storage or database call |
 | `/api/admin/images/upload/` | [src/app/api/admin/images/upload/route.ts](src/app/api/admin/images/upload/route.ts) — the owner-only request for a one-file upload address (POST); the browser then sends the file straight to storage |
 | `/api/admin/experience/` | [src/app/api/admin/experience/route.ts](src/app/api/admin/experience/route.ts) — the owner-only experience list (GET, POST, PUT?id=, PATCH, DELETE?id=); the owner check and the entry-id pattern run before any database call, and the list logic is the generic service in `src/lib/server/listStore.ts` |
+| `/api/admin/projects/` | [src/app/api/admin/projects/route.ts](src/app/api/admin/projects/route.ts) — the owner-only projects list (GET, POST, PUT?id=, PATCH, DELETE?id=); the owner check and the entry-id pattern run before any database call, and the list logic is the generic service in `src/lib/server/listStore.ts` |
 
 The landing page (`/`) is a multi-section scroll with anchor nav — Hero, About,
 Experience, TechStack, Projects, Certifications. It is not routed; the sections

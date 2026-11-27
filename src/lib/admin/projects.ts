@@ -47,6 +47,37 @@ export function checkProject(input: ProjectContent): ListCheck<ProjectContent> {
   return { ok: true, content };
 }
 
+export function projectShape(input: unknown): ProjectContent | null {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
+  const d = input as Record<string, unknown>;
+  const text = (v: unknown): string | null => {
+    if (v === undefined) return "";
+    return typeof v === "string" ? v : null;
+  };
+  const strings = (v: unknown): string[] | null => {
+    if (v === undefined) return [];
+    if (!Array.isArray(v) || !v.every((x) => typeof x === "string")) return null;
+    return [...(v as string[])];
+  };
+  const title = text(d.title);
+  const shortDesc = text(d.shortDesc);
+  const github = text(d.github);
+  const demo = text(d.demo);
+  const description = strings(d.description);
+  const tech = strings(d.tech);
+  if (
+    title === null ||
+    shortDesc === null ||
+    github === null ||
+    demo === null ||
+    description === null ||
+    tech === null
+  ) {
+    return null;
+  }
+  return { title, shortDesc, description, tech, github, demo };
+}
+
 export function projectFromData(data: unknown): ProjectContent {
   if (typeof data !== "object" || data === null) return emptyProject();
   const d = data as Record<string, unknown>;

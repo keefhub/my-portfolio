@@ -1,4 +1,6 @@
 import { randomBytes } from "node:crypto";
+import os from "node:os";
+import path from "node:path";
 import { defineConfig, devices, type ReporterDescription } from "@playwright/test";
 
 // Tests run against the production build in .next/ served by `next start` — run `npm run build` first
@@ -11,6 +13,7 @@ if (process.env.TEST_WORKER_INDEX === undefined) {
   process.env.AUTH_GOOGLE_ID = `${randomBytes(8).toString("hex")}.apps.example.test`;
   process.env.AUTH_GOOGLE_SECRET = randomBytes(12).toString("hex");
   process.env.ADMIN_EMAIL = `owner-${randomBytes(4).toString("hex")}@example.test`;
+  process.env.SUPABASE_DB_URL = `stand-in:${path.join(os.tmpdir(), "portfolio-standin-" + randomBytes(6).toString("hex") + ".json")}`;
 }
 
 // `npm run verify` sets VERIFY_PLAYWRIGHT_JSON so it can read the result as data; the console report still goes

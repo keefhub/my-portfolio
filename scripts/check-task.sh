@@ -29,7 +29,7 @@
 #   a forbidden import, a dependency change the Step does not name, an .env* file or a staged AGENTS.md,
 #     a raw colour in src/app/** (outside globals.css), a Tailwind `dark:` variant, an import of the blog
 #     barrel (@/lib/blog) from a "use client" file, a `"use server"` outside
-#     src/app/bright-warm-greenhouse/actions.ts, a new API route outside src/app/api/auth/, or a new
+#     src/app/bright-warm-greenhouse/actions.ts, a new API route outside src/app/api/auth/ and src/app/api/admin/, or a new
 #     middleware or proxy file
 # Warnings (each must be cleared or answered in the log; an uncleared one makes the task high tier):
 #   caught error passed to console.*, arbitrary Tailwind size in added lines, new component not named
@@ -405,7 +405,7 @@ fi
 
 # ---- server pieces, theming and the blog barrel ---------------------------------------------
 # Server Actions are allowed only in src/app/bright-warm-greenhouse/actions.ts; API routes only under
-# src/app/api/auth/; middleware and proxy files are not allowed.
+# src/app/api/auth/ and src/app/api/admin/; middleware and proxy files are not allowed.
 us_bad=0
 while IFS= read -r l; do
   [ -n "$l" ] || continue
@@ -414,11 +414,11 @@ while IFS= read -r l; do
 done < <(added_in '\.(ts|tsx|js|jsx|mjs|cjs)$' | grep -E $'\t'"[[:space:]]*[\"']use server[\"']" || true)
 for p in "${new_files[@]}"; do
   case "$p" in
-    src/app/api/auth/*) ;;
-    src/app/api/*|src/middleware.ts|src/proxy.ts|middleware.ts|proxy.ts) fail STATIC "new $p: API routes are allowed only under src/app/api/auth/ and middleware and proxy files are not allowed"; us_bad=1 ;;
+    src/app/api/auth/*|src/app/api/admin/*) ;;
+    src/app/api/*|src/middleware.ts|src/proxy.ts|middleware.ts|proxy.ts) fail STATIC "new $p: API routes are allowed only under src/app/api/auth/ and src/app/api/admin/ and middleware and proxy files are not allowed"; us_bad=1 ;;
   esac
 done
-[ "$us_bad" -eq 0 ] && pass STATIC "no server action outside its one file, no API route outside src/app/api/auth/, no middleware or proxy added"
+[ "$us_bad" -eq 0 ] && pass STATIC "no server action outside its one file, no API route outside src/app/api/auth/ and src/app/api/admin/, no middleware or proxy added"
 
 dark="$(added_in '^src/' | grep -E '(^|[^A-Za-z0-9_-])dark:[a-z]' || true)"
 if [ -n "$dark" ]; then

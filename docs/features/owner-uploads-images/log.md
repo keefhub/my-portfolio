@@ -74,3 +74,22 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+
+=====================================================================
+Task 5 — Retire the earlier Firebase image code
+Completed: 2026-11-27      Commit: 443c231
+
+Summary: Deleted the Firebase image store and its old spec, removed the old ImageRecord type, storagePathFor and the private extension table from the shared image rules, and switched the blog post, certification and tech stack editors to list images through the new client and the UploadedImage type.
+Decisions: The private EXTENSIONS table was removed together with ImageRecord and storagePathFor; imageExtension (its own switch) is untouched. In the editors the rename was a whole-word ImageRecord to UploadedImage plus the import swap to @/lib/admin/imagesClient.
+Deviations: None.
+Files changed: src/lib/firebase/images.ts (deleted), e2e/manage-image-library.spec.ts (deleted), src/lib/admin/images.ts (modified), src/app/components/admin/BlogPostsEditor.tsx (modified), src/app/components/admin/CertificationsEditor.tsx (modified), src/app/components/admin/TechStackEditor.tsx (modified), e2e/owner-uploads-images.spec.ts (modified)
+E2E tests written: E2E-34      Passed before the change: None.
+Manual checks pending: E2E-36 (the owner's SIT check).
+
+Attempts: 1
+Auto-revisions: Blocked on E2E-34 (a bare ImageRecord grep also matched the unrelated database function names insertImageRecord, listImageRecords and deleteImageRecord, so it could never pass); settled as D-33 [auto], whole-word matching (git grep -w), scope and intent unchanged. Spec commit: docs(owner-uploads-images): revise the spec after a blocked task.
+Mechanical gate: PASS (warnings: none)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

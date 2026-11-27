@@ -55,3 +55,23 @@ Tier: high (spec Risk: high; implementer-deviation)
 Review: risk reviewer PASS (review 1)
 Findings: None.
 =====================================================================
+
+=====================================================================
+Task 4 — Dynamic panel page, sign-in and sign-out actions, the three screens
+Completed: 2026-11-27      Commit: d43d662
+
+Summary: The panel page is dynamic and renders one of three screens (sign-in, not allowed, the owner's seven-item menu) from the server-side state. Sign-in and sign-out are server actions. The Firebase sign-in, the owner-ID code, the saving-off notice and the two earlier admin specs that tested them are deleted.
+Decisions: One SubmitButton (useFormStatus, disabled while pending) is shared by the sign-in and both sign-out forms. No ref guard against double submit: E2E-11 passes without it, and a ref written during render fails the react-hooks/refs lint rule.
+Deviations: None.
+Files changed: src/app/bright-warm-greenhouse/actions.ts (created), src/app/bright-warm-greenhouse/page.tsx (modified), src/app/components/admin/AdminPanel.tsx (modified), src/lib/admin/owner.ts (deleted), src/app/components/admin/SavingOffNotice.tsx (deleted), src/lib/firebase/auth.ts (deleted), e2e/admin-sign-in.spec.ts (deleted), e2e/admin-owner-only-access.spec.ts (deleted), e2e/owner-google-sign-in.spec.ts (modified)
+E2E tests written: E2E-01 to 09, 11 to 13, 17, 18, 19, 23, 24, 25, 28, 29, 30, 34      Passed before the change: E2E-03, 12, 18, 19, 23, 24, 25 (regression and negative guards)
+Manual checks pending: E2E-32 and E2E-33 (the owner's real Google sign-in and edit check on SIT), owned by later steps and the owner.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: high (spec Risk: high; large-diff 350 non-test lines; test-passed-before-change)
+Review: risk reviewer PASS (review 1)
+Findings: test-coverage | note | logged | the escalation for test-passed-before-change was expected; seven rows are regression guards
+NOTE: the other earlier admin specs (manage-*, preview-blog-post, manage-image-library, admin-content-panel-acceptance) are now red by design (D13); later slices replace them and retire-firebase deletes what is left.
+=====================================================================

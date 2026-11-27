@@ -1839,7 +1839,6 @@ test("E2E-28: the earlier Projects store and spec are gone, the shared files sta
   for (const path of mustNotExist) expect(fs.existsSync(path), path + " is gone").toBe(false);
   const mustExist = [
     piece("src/lib/", FIRE, "/list.ts"),
-    piece("src/lib/", FIRE, "/certifications.ts"),
     piece("src/lib/", FIRE, "/techstack.ts"),
     piece("src/lib/", FIRE, "/blogposts.ts"),
     "src/lib/admin/list.ts",

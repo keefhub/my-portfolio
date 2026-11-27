@@ -650,7 +650,7 @@ test("E2E-13: each menu item shows its own not-available notice and the menu sta
   await expect(region).toHaveText(T_OWNER, { useInnerText: true });
   const menu = page.getByRole("navigation", { name: "Admin sections" }).getByRole("button");
 
-  for (const label of LABELS.filter((l) => l !== "Profile" && l !== "Images" && l !== "Experience" && l !== "Projects")) {
+  for (const label of LABELS.filter((l) => l !== "Profile" && l !== "Images" && l !== "Experience" && l !== "Projects" && l !== "Certifications")) {
     await menu.filter({ hasText: label }).first().click();
     const status = region.getByRole("status");
     await expect(status, label).toHaveCount(1);

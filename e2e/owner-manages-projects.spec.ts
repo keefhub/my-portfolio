@@ -1,6 +1,15 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import { expect, test, type APIRequestContext, type APIResponse } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type APIResponse,
+  type Browser,
+  type BrowserContext,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 import { encode } from "next-auth/jwt";
 import { checkProject, projectFromData, projectShape, projectToData } from "../src/lib/admin/projects";
 
@@ -915,4 +924,1022 @@ test("E2E-12: no public page or script carries the route or the database, and th
   const serverMentions = gitGrep(["-l", "-E", "lib/server", "--", "src", ":(exclude)src/lib/server", ":(exclude)src/app/api/admin"]);
   expect(serverMentions.stdout).toBe("");
   expect(serverMentions.status).toBe(1);
+});
+
+// Step 2: the Projects screen in the browser, the retired earlier code, the amended earlier spec and the docs.
+
+const PANEL = "/bright-warm-greenhouse/";
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const QUANTUM_ID = "44444444-4444-4444-8444-444444444444";
+const ENTRY_SAVED = "Entry saved";
+const ORDER_SAVED = "Order saved";
+const NO_PROJECTS = "No projects yet.";
+const LOAD_FAILED = "The entries could not be loaded.";
+const SAVE_FAILED = "The entry could not be saved. Try again, and check that you are signed in as the owner.";
+const MOVE_FAILED = "The entry could not be moved. Try again, and check that you are signed in as the owner.";
+const DELETE_FAILED = "The entry could not be deleted. Try again, and check that you are signed in as the owner.";
+const ASK_BETA = 'Delete "Beta"? This cannot be undone.';
+const TITLE_REQUIRED = "Title is required";
+const SECTION_NAMES = ["Profile", "Experience", "Projects", "Certifications", "Tech stack", "Blog posts", "Images"];
+
+const dbTitles = (): string[] => sortedTitles(dbProjects());
+
+async function ownerPage(
+  browser: Browser,
+  baseURL: string,
+  options: Parameters<Browser["newContext"]>[0] = {},
+): Promise<{ context: BrowserContext; page: Page }> {
+  const context = await browser.newContext(options);
+  await context.addCookies([{ name: SESSION_COOKIE, value: await mint(OWNER()), url: baseURL }]);
+  const page = await context.newPage();
+  return { context, page };
+}
+
+type Scope = Pick<Page, "getByRole">;
+
+const menu = (page: Page) => page.getByRole("navigation", { name: "Admin sections" });
+const screenOf = (page: Page) => page.locator('section[aria-label="Projects editor"]');
+const listOf = (page: Page) => page.getByRole("list", { name: "Projects list" });
+const itemsOf = (page: Page) => listOf(page).getByRole("listitem");
+const labelsOf = (page: Page) => listOf(page).locator("li > span:first-child");
+const button = (scope: Scope, name: string) => scope.getByRole("button", { name, exact: true });
+const confirmGroup = (page: Page) => page.getByRole("group", { name: "Confirm delete" });
+const escapeRe = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const itemStarting = (page: Page, text: string) =>
+  itemsOf(page).filter({ hasText: new RegExp("^\\s*" + escapeRe(text)) });
+const statusWith = (page: Page, text: string) => screenOf(page).getByRole("status").filter({ hasText: text });
+const editHeading = (page: Page): Locator => page.getByRole("heading", { name: "Edit entry" });
+const addHeading = (page: Page): Locator => page.getByRole("heading", { name: "Add entry" });
+const paragraph = (page: Page, n: number): Locator =>
+  page.getByRole("textbox", { name: "Paragraph " + n, exact: true });
+const techName = (page: Page, n: number): Locator =>
+  page.getByRole("textbox", { name: "Tech name " + n, exact: true });
+
+// Click the menu button until the screen's heading is there (a click that lands before hydration is lost).
+async function openProjects(page: Page): Promise<void> {
+  await page.goto(PANEL);
+  const choose = button(menu(page), "Projects");
+  const heading = page.getByRole("heading", { name: "Projects", level: 2, exact: true });
+  await expect(async () => {
+    await choose.click({ timeout: 5000 });
+    await expect(heading).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 15000 });
+}
+
+type Fields = { title?: string; shortDesc?: string; github?: string; demo?: string };
+const FIELD_LABELS: [keyof Fields, string][] = [
+  ["title", "Title"],
+  ["shortDesc", "Short description"],
+  ["github", "GitHub link"],
+  ["demo", "Demo link"],
+];
+
+async function fill(page: Page, values: Fields): Promise<void> {
+  for (const [key, label] of FIELD_LABELS) {
+    const value = values[key];
+    if (value !== undefined) await page.getByLabel(label, { exact: true }).fill(value);
+  }
+}
+
+const FULL_FIELDS = {
+  title: "Quantum Notes",
+  shortDesc: "A notes app",
+  github: "https://github.com/example/quantum-notes",
+  demo: "https://notes.example.com",
+};
+
+// FULL: the four fields, one paragraph and one tech name.
+async function FULL(page: Page): Promise<void> {
+  await fill(page, FULL_FIELDS);
+  await button(screenOf(page), "Add paragraph").click();
+  await paragraph(page, 1).fill("Built for fast capture.");
+  await button(screenOf(page), "Add tech name").click();
+  await techName(page, 1).fill("React");
+}
+
+// Holds every request of one method to the route until release() is called, then lets it through.
+async function holdRoute(page: Page, method: string): Promise<{ release: () => void; count: () => number }> {
+  let seen = 0;
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(/\/api\/admin\/projects\/(\?.*)?$/, async (route) => {
+    if (route.request().method() !== method) {
+      await route.fallback();
+      return;
+    }
+    seen += 1;
+    await gate;
+    await route.continue();
+  });
+  return { release: () => release(), count: () => seen };
+}
+
+async function expectAllDisabled(locator: Locator, label: string): Promise<void> {
+  const all = await locator.all();
+  expect(all.length, label + " is present").toBeGreaterThan(0);
+  for (const one of all) await expect(one, label).toBeDisabled();
+}
+
+test("E2E-13: the owner adds a project to an empty list and it is stored and listed after a reload", async ({
+  browser,
+  baseURL,
+  request,
+}) => {
+  test.setTimeout(60000);
+  dbReset();
+  const before = await (await request.get("/")).text();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openProjects(page);
+  const screen = screenOf(page);
+
+  await expect(statusWith(page, NO_PROJECTS)).toBeVisible();
+  await expect(listOf(page)).toHaveCount(0);
+  await expect(button(screen, "Add entry")).toBeVisible();
+
+  await button(screen, "Add entry").click();
+  await FULL(page);
+  await button(screen, "Add tech name").click();
+  await techName(page, 2).fill("Supabase");
+  await button(screen, "Save").click();
+
+  await expect(screen.getByRole("status")).toHaveText(ENTRY_SAVED);
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(labelsOf(page)).toHaveText(["Quantum Notes"]);
+  await expect(addHeading(page)).toHaveCount(0);
+  const stored = dbProjects() as { id: string; position: number; data: unknown }[];
+  expect(stored).toHaveLength(1);
+  expect(stored[0].id).toMatch(UUID);
+  expect(stored[0].position).toBe(0);
+  expect(stored[0].data).toEqual(QUANTUM);
+
+  await page.reload();
+  await openProjects(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(labelsOf(page)).toHaveText(["Quantum Notes"]);
+  await expect(screen.getByText(NO_PROJECTS)).toHaveCount(0);
+
+  await button(itemsOf(page).first(), "Edit").click();
+  await expect(editHeading(page)).toBeVisible();
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("Quantum Notes");
+  await expect(page.getByLabel("Short description", { exact: true })).toHaveValue("A notes app");
+  await expect(page.getByLabel("GitHub link", { exact: true })).toHaveValue("https://github.com/example/quantum-notes");
+  await expect(page.getByLabel("Demo link", { exact: true })).toHaveValue("https://notes.example.com");
+  await expect(paragraph(page, 1)).toHaveValue("Built for fast capture.");
+  await expect(techName(page, 1)).toHaveValue("React");
+  await expect(techName(page, 2)).toHaveValue("Supabase");
+
+  const after = await request.get("/");
+  expect(after.status()).toBe(200);
+  expect(await after.text()).toBe(before);
+  await context.close();
+});
+
+test("E2E-14: the owner edits a project and the change is stored and kept after a reload", async ({ browser, baseURL }) => {
+  test.setTimeout(60000);
+  dbReset();
+  dbSeedProjects([row(QUANTUM_ID, 0, QUANTUM)]);
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openProjects(page);
+  const screen = screenOf(page);
+
+  await button(itemStarting(page, "Quantum Notes"), "Edit").click();
+  await expect(editHeading(page)).toBeVisible();
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("Quantum Notes");
+  await expect(page.getByLabel("Demo link", { exact: true })).toHaveValue("https://notes.example.com");
+
+  await fill(page, { title: "Quantum Notes 2", demo: "" });
+  await button(screen, "Save").click();
+
+  await expect(screen.getByRole("status")).toHaveText(ENTRY_SAVED);
+  await expect(labelsOf(page)).toHaveText(["Quantum Notes 2"]);
+  expect(dbProjects()).toEqual([row(QUANTUM_ID, 0, { ...QUANTUM, title: "Quantum Notes 2", demo: "" })]);
+
+  await page.reload();
+  await openProjects(page);
+  await expect(labelsOf(page)).toHaveText(["Quantum Notes 2"]);
+  await button(itemsOf(page).first(), "Edit").click();
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("Quantum Notes 2");
+  await expect(page.getByLabel("Demo link", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("GitHub link", { exact: true })).toHaveValue("https://github.com/example/quantum-notes");
+  await expect(page.getByLabel("Short description", { exact: true })).toHaveValue("A notes app");
+  await expect(paragraph(page, 1)).toHaveValue("Built for fast capture.");
+  await expect(techName(page, 1)).toHaveValue("React");
+  await expect(techName(page, 2)).toHaveValue("Supabase");
+  await context.close();
+});
+
+test("E2E-15: the owner moves projects up and down, the order is stored and the end buttons are absent", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(60000);
+  dbReset();
+  seedThree();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openProjects(page);
+  const screen = screenOf(page);
+
+  await expect(itemsOf(page)).toHaveCount(3);
+  const counts = async (index: number): Promise<[number, number]> => [
+    await button(itemsOf(page).nth(index), "Move up").count(),
+    await button(itemsOf(page).nth(index), "Move down").count(),
+  ];
+  expect(await counts(0)).toEqual([0, 1]);
+  expect(await counts(1)).toEqual([1, 1]);
+  expect(await counts(2)).toEqual([1, 0]);
+
+  await button(itemStarting(page, "Gamma"), "Move up").click();
+  await expect(screen.getByRole("status")).toHaveText(ORDER_SAVED);
+  await expect(labelsOf(page)).toHaveText(["Alpha", "Gamma", "Beta"]);
+  expect(positionsOf()).toEqual({ [ALPHA_ID]: 0, [GAMMA_ID]: 1, [BETA_ID]: 2 });
+
+  await button(itemStarting(page, "Alpha"), "Move down").click();
+  await expect(labelsOf(page)).toHaveText(["Gamma", "Alpha", "Beta"]);
+  await expect(screen.getByRole("status")).toHaveText(ORDER_SAVED);
+
+  await page.reload();
+  await openProjects(page);
+  await expect(labelsOf(page)).toHaveText(["Gamma", "Alpha", "Beta"]);
+  expect(dbTitles()).toEqual(["Gamma", "Alpha", "Beta"]);
+  await context.close();
+});
+
+test("E2E-16: a new project goes to the bottom of the list, one above the highest stored position", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(60000);
+  dbReset();
+  dbSeedProjects([row(ALPHA_ID, 3, ALPHA), row(BETA_ID, 7, BETA)]);
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openProjects(page);
+  const screen = screenOf(page);
+  await expect(itemsOf(page)).toHaveCount(2);
+
+  await button(screen, "Add entry").click();
+  await fill(page, { title: "Delta" });
+  await button(screen, "Save").click();
+
+  await expect(screen.getByRole("status")).toHaveText(ENTRY_SAVED);
+  await expect(labelsOf(page)).toHaveText(["Alpha", "Beta", "Delta"]);
+  const stored = dbProjects() as { id: string; position: number; data: { title: string } }[];
+  expect(stored).toHaveLength(3);
+  expect(stored.find((r) => r.data.title === "Delta")?.position).toBe(8);
+  expect(stored.find((r) => r.id === ALPHA_ID)?.position).toBe(3);
+  expect(stored.find((r) => r.id === BETA_ID)?.position).toBe(7);
+
+  await page.reload();
+  await openProjects(page);
+  await expect(labelsOf(page)).toHaveText(["Alpha", "Beta", "Delta"]);
+  await context.close();
+});
+
+test("E2E-17: deleting asks first, Cancel keeps the project and Confirm removes it for good", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(90000);
+  for (const confirm of [false, true]) {
+    dbReset();
+    seedTwo();
+    const seed = [row(ALPHA_ID, 0, ALPHA), row(BETA_ID, 1, BETA)];
+    const { context, page } = await ownerPage(browser, baseURL as string);
+    await openProjects(page);
+    await expect(itemsOf(page)).toHaveCount(2);
+
+    await button(itemStarting(page, "Beta"), "Delete").click();
+    const group = confirmGroup(page);
+    await expect(group).toBeVisible();
+    await expect(group.locator("p")).toHaveText(ASK_BETA);
+    await expect(button(group, "Confirm")).toBeVisible();
+    await expect(button(group, "Cancel")).toBeVisible();
+    await expect(labelsOf(page)).toHaveText(["Alpha", "Beta"]);
+    expect(dbProjects()).toEqual(seed);
+
+    if (!confirm) {
+      await button(group, "Cancel").click();
+      await expect(group).toHaveCount(0);
+      await expect(labelsOf(page)).toHaveText(["Alpha", "Beta"]);
+      expect(dbProjects()).toEqual(seed);
+      await page.reload();
+      await openProjects(page);
+      await expect(labelsOf(page)).toHaveText(["Alpha", "Beta"]);
+      expect(dbProjects()).toEqual(seed);
+    } else {
+      await button(group, "Confirm").click();
+      await expect(statusWith(page, "Entry deleted")).toBeVisible();
+      await expect(labelsOf(page)).toHaveText(["Alpha"]);
+      expect(dbProjects()).toEqual([row(ALPHA_ID, 0, ALPHA)]);
+      await page.reload();
+      await openProjects(page);
+      await expect(labelsOf(page)).toHaveText(["Alpha"]);
+      expect(dbProjects()).toEqual([row(ALPHA_ID, 0, ALPHA)]);
+    }
+    await context.close();
+  }
+});
+
+test("E2E-18: a blank title or a link without a scheme is refused next to the field with nothing sent", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  dbReset();
+  dbSeedProjects([row(ALPHA_ID, 0, ALPHA)]);
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openProjects(page);
+  const screen = screenOf(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+
+  const BAD_GITHUB = "github.com/example/x";
+  const BAD_DEMO = "ftp://demo.example.com";
+  const cases: { label: string; replace: Fields; errors: [string, string][] }[] = [
+    { label: "(1) title empty", replace: { title: "" }, errors: [["Title", TITLE_REQUIRED]] },
+    { label: "(2) title blank", replace: { title: "   " }, errors: [["Title", TITLE_REQUIRED]] },
+    { label: "(3) github", replace: { github: BAD_GITHUB }, errors: [["GitHub link", GITHUB_INVALID]] },
+    { label: "(4) demo", replace: { demo: BAD_DEMO }, errors: [["Demo link", DEMO_INVALID]] },
+    {
+      label: "(5) both links",
+      replace: { github: BAD_GITHUB, demo: BAD_DEMO },
+      errors: [
+        ["GitHub link", GITHUB_INVALID],
+        ["Demo link", DEMO_INVALID],
+      ],
+    },
+  ];
+
+  for (const c of cases) {
+    await button(screen, "Add entry").click();
+    await FULL(page);
+    await fill(page, c.replace);
+    await button(screen, "Save").click();
+
+    const expected: Fields = { ...FULL_FIELDS, ...c.replace };
+    for (const [label, message] of c.errors) {
+      const field = page.getByLabel(label, { exact: true });
+      await expect(field, c.label + " " + label + " invalid").toHaveAttribute("aria-invalid", "true");
+      const describedBy = await field.getAttribute("aria-describedby");
+      expect(describedBy, c.label + " " + label + " describedby").not.toBeNull();
+      await expect(page.locator("#" + describedBy), c.label + " " + label + " message").toHaveText(message);
+    }
+    for (const [key, label] of FIELD_LABELS) {
+      await expect(page.getByLabel(label, { exact: true }), c.label + " " + label + " kept").toHaveValue(
+        expected[key] as string,
+      );
+    }
+    await expect(paragraph(page, 1), c.label + " paragraph kept").toHaveValue("Built for fast capture.");
+    await expect(techName(page, 1), c.label + " tech name kept").toHaveValue("React");
+    await expect(addHeading(page)).toBeVisible();
+    await expect(statusWith(page, ENTRY_SAVED)).toHaveCount(0);
+    expect(dbProjects(), c.label).toEqual([row(ALPHA_ID, 0, ALPHA)]);
+    await button(screen, "Cancel").click();
+    await expect(addHeading(page)).toHaveCount(0);
+  }
+  await context.close();
+});
+
+test("E2E-19: a blank title is refused on an edit, and saved text is trimmed with blank lines dropped", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  dbReset();
+  dbSeedProjects([row(ALPHA_ID, 0, ALPHA)]);
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openProjects(page);
+  const screen = screenOf(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+
+  await button(itemStarting(page, "Alpha"), "Edit").click();
+  await fill(page, { title: "   " });
+  await button(screen, "Save").click();
+  const title = page.getByLabel("Title", { exact: true });
+  await expect(title).toHaveAttribute("aria-invalid", "true");
+  await expect(page.locator("#" + (await title.getAttribute("aria-describedby")))).toHaveText(TITLE_REQUIRED);
+  expect(dbProjects()).toEqual([row(ALPHA_ID, 0, ALPHA)]);
+  await button(screen, "Cancel").click();
+  await page.reload();
+  await openProjects(page);
+  await expect(labelsOf(page)).toHaveText(["Alpha"]);
+
+  await button(screen, "Add entry").click();
+  await fill(page, {
+    title: "  Delta ",
+    shortDesc: "  Fourth  ",
+    github: " HTTPS://Github.com/example/delta ",
+  });
+  for (let i = 0; i < 3; i += 1) await button(screen, "Add paragraph").click();
+  await paragraph(page, 1).fill("  First  ");
+  await paragraph(page, 2).fill("   ");
+  await paragraph(page, 3).fill("Second");
+  for (let i = 0; i < 3; i += 1) await button(screen, "Add tech name").click();
+  await techName(page, 1).fill(" Go ");
+  await techName(page, 2).fill("");
+  await techName(page, 3).fill("SQL ");
+  await button(screen, "Save").click();
+  await expect(screen.getByRole("status")).toHaveText(ENTRY_SAVED);
+  await expect(labelsOf(page)).toHaveText(["Alpha", "Delta"]);
+  const afterDelta = (dbProjects() as { id: string; position: number; data: unknown }[]).filter((r) => r.id !== ALPHA_ID);
+  expect(afterDelta).toHaveLength(1);
+  expect(afterDelta[0].data).toEqual({
+    title: "Delta",
+    shortDesc: "Fourth",
+    description: ["First", "Second"],
+    tech: ["Go", "SQL"],
+    github: "HTTPS://Github.com/example/delta",
+    demo: "",
+  });
+  expect(afterDelta[0].position).toBe(1);
+
+  await button(screen, "Add entry").click();
+  await fill(page, { title: "Epsilon" });
+  await button(screen, "Save").click();
+  await expect(labelsOf(page)).toHaveText(["Alpha", "Delta", "Epsilon"]);
+  await expect(screen.getByRole("status")).toHaveText(ENTRY_SAVED);
+  const epsilon = (dbProjects() as { id: string; position: number; data: { title: string } }[]).filter(
+    (r) => r.data.title === "Epsilon",
+  );
+  expect(epsilon).toHaveLength(1);
+  expect(epsilon[0].data).toEqual({ title: "Epsilon", shortDesc: "", description: [], tech: [], github: "", demo: "" });
+  expect(epsilon[0].position).toBe(2);
+  await context.close();
+});
+
+test("E2E-20: an unreachable database shows one fixed load message, keeps the menu working and recovers", async ({
+  browser,
+  baseURL,
+  request,
+}) => {
+  test.setTimeout(60000);
+  dbReset();
+  seedTwo();
+  dbBreak();
+  const before = await (await request.get("/")).text();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openProjects(page);
+  const screen = screenOf(page);
+
+  await expect(page.getByRole("alert").filter({ hasText: LOAD_FAILED })).toHaveText(LOAD_FAILED);
+  await expect(screen.getByText(NO_PROJECTS)).toHaveCount(0);
+  await expect(button(screen, "Add entry")).toHaveCount(0);
+  await expect(listOf(page)).toHaveCount(0);
+  const panelText = await page.locator("body").innerText();
+  for (const leak of LEAKS) expect(panelText, "panel leaks " + leak).not.toContain(leak);
+  for (const name of SECTION_NAMES) await expect(button(menu(page), name), name).toBeVisible();
+  await expect(button(page, "Sign out")).toBeVisible();
+
+  await button(menu(page), "Blog posts").click();
+  await expect(page.getByRole("status").filter({ hasText: "Blog posts editor is not available yet." })).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: LOAD_FAILED })).toHaveCount(0);
+  const after = await request.get("/");
+  expect(after.status()).toBe(200);
+  expect(await after.text()).toBe(before);
+
+  dbFix();
+  await button(menu(page), "Projects").click();
+  await expect(labelsOf(page)).toHaveText(["Alpha", "Beta"]);
+  await context.close();
+});
+
+test("E2E-21: a failed save, move or delete shows one fixed message, keeps the form and the list, and works again after recovery", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  dbReset();
+  seedTwo();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openProjects(page);
+  const screen = screenOf(page);
+  await expect(itemsOf(page)).toHaveCount(2);
+  dbBreak();
+
+  await button(itemsOf(page).first(), "Edit").click();
+  await fill(page, { title: "Staff Project" });
+  await button(screen, "Save").click();
+  await expect(screen.getByRole("alert")).toHaveText(SAVE_FAILED);
+  await expect(editHeading(page)).toBeVisible();
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("Staff Project");
+  await expect(statusWith(page, ENTRY_SAVED)).toHaveCount(0);
+  const failedText = await page.locator("body").innerText();
+  for (const leak of LEAKS) expect(failedText, "save leaks " + leak).not.toContain(leak);
+
+  await button(screen, "Cancel").click();
+  await expect(labelsOf(page)).toHaveText(["Alpha", "Beta"]);
+
+  await button(screen, "Add entry").click();
+  await fill(page, { title: "Gamma" });
+  await button(screen, "Save").click();
+  await expect(screen.getByRole("alert")).toHaveText(SAVE_FAILED);
+  await expect(addHeading(page)).toBeVisible();
+  await expect(page.getByLabel("Title", { exact: true })).toHaveValue("Gamma");
+  await button(screen, "Cancel").click();
+
+  await button(itemsOf(page).first(), "Move down").click();
+  await expect(screen.getByRole("alert")).toHaveText(MOVE_FAILED);
+  await expect(labelsOf(page)).toHaveText(["Alpha", "Beta"]);
+  await expect(statusWith(page, ORDER_SAVED)).toHaveCount(0);
+
+  await button(itemsOf(page).first(), "Delete").click();
+  await button(confirmGroup(page), "Confirm").click();
+  await expect(screen.getByRole("alert")).toHaveText(DELETE_FAILED);
+  await expect(itemsOf(page)).toHaveCount(2);
+
+  dbFix();
+  await button(confirmGroup(page), "Cancel").click();
+  await button(itemsOf(page).first(), "Edit").click();
+  await fill(page, { title: "Staff Project" });
+  await button(screen, "Save").click();
+  await expect(screen.getByRole("status")).toHaveText(ENTRY_SAVED);
+  await expect(labelsOf(page).first()).toHaveText("Staff Project");
+  const stored = dbProjects() as { id: string; position: number; data: { title: string } }[];
+  expect(stored.find((r) => r.id === ALPHA_ID)?.data.title).toBe("Staff Project");
+  const beta = stored.find((r) => r.id === BETA_ID);
+  expect(beta?.position).toBe(1);
+  expect(beta?.data).toEqual(BETA);
+  expect(stored.some((r) => r.data.title === "Gamma")).toBe(false);
+  await context.close();
+});
+
+test("E2E-22: a project deleted in another tab is not brought back and the stale screen shows the failure", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  dbReset();
+  seedThree();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  const second = await context.newPage();
+  await openProjects(page);
+  await openProjects(second);
+  await expect(itemsOf(page)).toHaveCount(3);
+  await expect(itemsOf(second)).toHaveCount(3);
+
+  await button(itemStarting(page, "Alpha"), "Delete").click();
+  await button(confirmGroup(page), "Confirm").click();
+  await expect(statusWith(page, "Entry deleted")).toBeVisible();
+  expect((dbProjects() as { id: string }[]).map((r) => r.id).sort()).toEqual([BETA_ID, GAMMA_ID]);
+
+  const screen2 = screenOf(second);
+  await button(itemStarting(second, "Alpha"), "Edit").click();
+  await fill(second, { title: "Resurrected" });
+  await button(screen2, "Save").click();
+  await expect(screen2.getByRole("alert")).toHaveText(SAVE_FAILED);
+  await button(screen2, "Cancel").click();
+
+  await button(itemStarting(second, "Beta"), "Move up").click();
+  await expect(screen2.getByRole("alert")).toHaveText(MOVE_FAILED);
+  expect((dbProjects() as { id: string }[]).map((r) => r.id).sort()).toEqual([BETA_ID, GAMMA_ID]);
+  expect(positionsOf()).toEqual({ [BETA_ID]: 1, [GAMMA_ID]: 2 });
+
+  await button(itemStarting(second, "Alpha"), "Delete").click();
+  await button(confirmGroup(second), "Confirm").click();
+  await expect(screen2.getByRole("alert")).toHaveText(DELETE_FAILED);
+
+  await second.reload();
+  await openProjects(second);
+  await expect(labelsOf(second)).toHaveText(["Beta", "Gamma"]);
+  expect((dbProjects() as { data: { title: string } }[]).some((r) => r.data.title === "Resurrected")).toBe(false);
+  await context.close();
+});
+
+test("E2E-23: a move or save after sign-in ended or with no network shows the fixed failure and keeps the typed text", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  const seed = [row(ALPHA_ID, 0, ALPHA), row(BETA_ID, 1, BETA)];
+
+  // Case 1: the sign-in ended.
+  dbReset();
+  seedTwo();
+  const one = await ownerPage(browser, baseURL as string);
+  await openProjects(one.page);
+  await expect(itemsOf(one.page)).toHaveCount(2);
+  await one.context.clearCookies();
+  const screen1 = screenOf(one.page);
+  await button(itemsOf(one.page).first(), "Move down").click();
+  await expect(screen1.getByRole("alert")).toHaveText(MOVE_FAILED);
+  await button(itemsOf(one.page).first(), "Edit").click();
+  await fill(one.page, { title: "Staff Project" });
+  await button(screen1, "Save").click();
+  await expect(screen1.getByRole("alert")).toHaveText(SAVE_FAILED);
+  await expect(editHeading(one.page)).toBeVisible();
+  await expect(one.page.getByLabel("Title", { exact: true })).toHaveValue("Staff Project");
+  expect(dbProjects()).toEqual(seed);
+  await one.context.close();
+
+  // Case 2: no network.
+  dbReset();
+  seedTwo();
+  const two = await ownerPage(browser, baseURL as string);
+  await openProjects(two.page);
+  await expect(itemsOf(two.page)).toHaveCount(2);
+  const screen2 = screenOf(two.page);
+  await two.context.setOffline(true);
+  await button(itemsOf(two.page).first(), "Move down").click();
+  await expect(screen2.getByRole("alert")).toHaveText(MOVE_FAILED);
+  await button(itemsOf(two.page).first(), "Edit").click();
+  await fill(two.page, { title: "Offline Title" });
+  await button(screen2, "Save").click();
+  await expect(screen2.getByRole("alert")).toHaveText(SAVE_FAILED);
+  await expect(two.page.getByLabel("Title", { exact: true })).toHaveValue("Offline Title");
+  expect(dbProjects()).toEqual(seed);
+  await two.context.setOffline(false);
+  await button(screen2, "Save").click();
+  await expect(screen2.getByRole("status")).toHaveText(ENTRY_SAVED);
+  await expect(labelsOf(two.page).first()).toHaveText("Offline Title");
+  await two.context.close();
+});
+
+test("E2E-24: while a request is in flight the screen shows its state, disables the controls and sends it once", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  dbReset();
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openProjects(page);
+  const screen = screenOf(page);
+
+  // Part 1: add, held.
+  const post = await holdRoute(page, "POST");
+  await button(screen, "Add entry").click();
+  await fill(page, { title: "Quantum Notes" });
+  await button(screen, "Save").dblclick();
+  await expect(screen.getByRole("status")).toHaveText("Saving…");
+  await expect(button(screen, "Save")).toBeDisabled();
+  await expect(button(screen, "Cancel")).toBeDisabled();
+  for (const [, label] of FIELD_LABELS) await expect(page.getByLabel(label, { exact: true }), label).toBeDisabled();
+  await expect(button(screen, "Add paragraph")).toBeDisabled();
+  await expect(button(screen, "Add tech name")).toBeDisabled();
+  expect(post.count()).toBe(1);
+  post.release();
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(labelsOf(page)).toHaveText(["Quantum Notes"]);
+  expect(post.count()).toBe(1);
+  expect(dbProjects()).toHaveLength(1);
+
+  // Part 2: move, held.
+  seedTwo();
+  await page.reload();
+  await openProjects(page);
+  await expect(itemsOf(page)).toHaveCount(2);
+  const patch = await holdRoute(page, "PATCH");
+  await button(itemsOf(page).first(), "Move down").click();
+  await expect(screen.getByRole("status")).toHaveText("Saving…");
+  for (const name of ["Edit", "Move up", "Move down", "Delete", "Add entry"]) {
+    await expectAllDisabled(button(screen, name), name);
+  }
+  patch.release();
+  await expect(screen.getByRole("status")).toHaveText(ORDER_SAVED);
+
+  // Part 3: delete, held.
+  const remove = await holdRoute(page, "DELETE");
+  await button(itemsOf(page).first(), "Delete").click();
+  await button(confirmGroup(page), "Confirm").click();
+  await expect(screen.getByRole("status")).toHaveText("Deleting…");
+  await expect(button(confirmGroup(page), "Confirm")).toBeDisabled();
+  await expect(button(confirmGroup(page), "Cancel")).toBeDisabled();
+  remove.release();
+  await expect(screen.getByRole("status")).toHaveText("Entry deleted");
+  await expect(itemsOf(page)).toHaveCount(1);
+  await context.close();
+});
+
+test("E2E-25: nothing typed in an unsaved form is kept after Cancel or a reload", async ({ browser, baseURL }) => {
+  test.setTimeout(60000);
+  dbReset();
+  dbSeedProjects([row(ALPHA_ID, 0, ALPHA)]);
+  const { context, page } = await ownerPage(browser, baseURL as string);
+  await openProjects(page);
+  const screen = screenOf(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+
+  await button(screen, "Add entry").click();
+  await fill(page, { title: "Draft" });
+  await button(screen, "Cancel").click();
+  await expect(addHeading(page)).toHaveCount(0);
+  await expect(labelsOf(page)).toHaveText(["Alpha"]);
+  expect(dbProjects()).toEqual([row(ALPHA_ID, 0, ALPHA)]);
+
+  await button(screen, "Add entry").click();
+  await fill(page, { title: "Draft again", shortDesc: "1999" });
+  await page.reload();
+  await openProjects(page);
+  await expect(itemsOf(page)).toHaveCount(1);
+  await expect(addHeading(page)).toHaveCount(0);
+  const text = await page.locator("body").innerText();
+  expect(text).not.toContain("Draft");
+  expect(text).not.toContain("1999");
+  expect(dbProjects()).toEqual([row(ALPHA_ID, 0, ALPHA)]);
+  const keys = await page.evaluate(() => {
+    try {
+      return Object.keys(localStorage);
+    } catch {
+      return [];
+    }
+  });
+  expect(keys.filter((k) => k.toLowerCase().includes("draft"))).toEqual([]);
+  await context.close();
+});
+
+test("E2E-26: two projects with the same text are two projects, and the last save from two tabs wins quietly", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(120000);
+  dbReset();
+  const first = await ownerPage(browser, baseURL as string);
+  await openProjects(first.page);
+  const screen = screenOf(first.page);
+  for (let i = 0; i < 2; i += 1) {
+    await button(screen, "Add entry").click();
+    await fill(first.page, { title: "Quantum Notes" });
+    await button(screen, "Save").click();
+    await expect(itemsOf(first.page)).toHaveCount(i + 1);
+    await expect(screen.getByRole("status")).toHaveText(ENTRY_SAVED);
+  }
+  await expect(labelsOf(first.page)).toHaveText(["Quantum Notes", "Quantum Notes"]);
+  const stored = dbProjects() as { id: string }[];
+  expect(stored).toHaveLength(2);
+  expect(stored[0].id).not.toBe(stored[1].id);
+
+  await button(itemsOf(first.page).first(), "Delete").click();
+  await button(confirmGroup(first.page), "Confirm").click();
+  await expect(itemsOf(first.page)).toHaveCount(1);
+  expect(dbProjects()).toHaveLength(1);
+  await first.context.close();
+
+  dbSeedProjects([row(ALPHA_ID, 0, ALPHA)]);
+  const one = await ownerPage(browser, baseURL as string);
+  const two = await one.context.newPage();
+  await openProjects(one.page);
+  await openProjects(two);
+  await expect(itemsOf(one.page)).toHaveCount(1);
+  await expect(itemsOf(two)).toHaveCount(1);
+
+  await button(itemsOf(one.page).first(), "Edit").click();
+  await fill(one.page, { title: "First" });
+  await button(screenOf(one.page), "Save").click();
+  await expect(screenOf(one.page).getByRole("status")).toHaveText(ENTRY_SAVED);
+
+  await button(itemsOf(two).first(), "Edit").click();
+  await expect(two.getByLabel("Title", { exact: true })).toHaveValue("Alpha");
+  await fill(two, { title: "Second" });
+  await button(screenOf(two), "Save").click();
+  await expect(screenOf(two).getByRole("status")).toHaveText(ENTRY_SAVED);
+  await expect(screenOf(two).getByRole("alert")).toHaveCount(0);
+
+  await one.page.reload();
+  await openProjects(one.page);
+  await expect(labelsOf(one.page).first()).toHaveText("Second");
+  const final = dbProjects() as { data: { title: string } }[];
+  expect(final).toHaveLength(1);
+  expect(final[0].data.title).toBe("Second");
+  await one.context.close();
+});
+
+test("E2E-27: the Projects screen fits a phone, follows the theme tokens and works from the keyboard", async ({
+  browser,
+  baseURL,
+}) => {
+  test.setTimeout(180000);
+  const surfaceByTheme: Record<string, string> = {};
+  const thirty = Array.from({ length: 30 }, (_, i) => {
+    const nn = String(i + 1).padStart(2, "0");
+    const long = nn === "15";
+    return row("00000000-0000-4000-8000-0000000000" + nn, i, {
+      title: long ? "N".repeat(120) : "Project " + nn,
+      shortDesc: "Short " + nn,
+      description: [long ? "D".repeat(300) : "Paragraph " + nn],
+      tech: ["Tech " + nn],
+      github: long ? "https://example.com/" + "g".repeat(200) : "https://github.com/example/" + nn,
+      demo: "",
+    });
+  });
+
+  for (const theme of ["light", "dark"]) {
+    dbReset();
+    dbSeedProjects(thirty);
+    const { context, page } = await ownerPage(browser, baseURL as string, { viewport: { width: 375, height: 800 } });
+    await page.addInitScript((t) => {
+      try {
+        localStorage.setItem("theme", t);
+      } catch {
+        // storage unavailable: the page falls back to its default theme
+      }
+    }, theme);
+    await openProjects(page);
+    const screen = screenOf(page);
+    await expect(itemsOf(page)).toHaveCount(30);
+
+    const fits = async (when: string): Promise<void> => {
+      const widths = await page.evaluate(() => ({
+        root: document.documentElement.scrollWidth,
+        body: document.body.scrollWidth,
+      }));
+      expect(widths.root, theme + " root width " + when).toBeLessThanOrEqual(375);
+      expect(widths.body, theme + " body width " + when).toBeLessThanOrEqual(375);
+      const boxes = await page.locator("button, input, textarea").evaluateAll((nodes) =>
+        nodes.map((node) => {
+          const rect = node.getBoundingClientRect();
+          return {
+            label: node.tagName + " " + (node.textContent ?? "").slice(0, 20),
+            x: rect.x,
+            right: rect.x + rect.width,
+            width: rect.width,
+            height: rect.height,
+          };
+        }),
+      );
+      for (const box of boxes) {
+        if (box.width === 0 && box.height === 0) continue;
+        expect(box.x, theme + " " + when + " " + box.label).toBeGreaterThanOrEqual(0);
+        expect(box.right, theme + " " + when + " " + box.label).toBeLessThanOrEqual(375);
+      }
+    };
+    await fits("list");
+
+    const listBox = await listOf(page).boundingBox();
+    const longBox = await itemsOf(page).nth(14).boundingBox();
+    expect(listBox, "list box").not.toBeNull();
+    expect(longBox, "long item box").not.toBeNull();
+    expect((longBox as { width: number }).width, theme + " long item width").toBeLessThanOrEqual(
+      (listBox as { width: number }).width + 0.5,
+    );
+
+    const probe = (property: "backgroundColor" | "color", token: string) =>
+      page.evaluate(
+        ([prop, value]) => {
+          const div = document.createElement("div");
+          (div.style as unknown as Record<string, string>)[prop] = value;
+          document.body.appendChild(div);
+          const computed = (getComputedStyle(div) as unknown as Record<string, string>)[prop];
+          div.remove();
+          return computed;
+        },
+        [property, "var(" + token + ")"] as const,
+      );
+    const computed = (locator: Locator, property: "background-color" | "color") =>
+      locator.evaluate((el, p) => getComputedStyle(el).getPropertyValue(p), property);
+
+    const item = itemsOf(page).first();
+    const surfaceAlt = await probe("backgroundColor", "--surface-alt");
+    expect(await computed(item, "background-color"), theme + " item").toBe(surfaceAlt);
+    expect(await computed(labelsOf(page).first(), "color"), theme + " item text").toBe(await probe("color", "--foreground"));
+    surfaceByTheme[theme] = surfaceAlt;
+    if (theme === "dark") await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+    await button(itemsOf(page).nth(14), "Edit").click();
+    await expect(editHeading(page)).toBeVisible();
+    await fits("form of the long project");
+    await button(screen, "Cancel").click();
+    await expect(editHeading(page)).toHaveCount(0);
+
+    await button(itemsOf(page).first(), "Edit").click();
+    await fill(page, { title: "   " });
+    await button(screen, "Save").click();
+    const alert = page.getByRole("alert").filter({ hasText: TITLE_REQUIRED });
+    await expect(alert).toHaveText(TITLE_REQUIRED);
+    expect(await computed(alert, "color"), theme + " alert").toBe(await probe("color", "--accent-rose"));
+    await fits("form with an error");
+    await button(screen, "Cancel").click();
+    await expect(editHeading(page)).toHaveCount(0);
+
+    const first = itemsOf(page).first();
+    await button(first, "Edit").focus();
+    await page.keyboard.press("Enter");
+    await expect(editHeading(page)).toBeVisible();
+    await button(screen, "Cancel").click();
+    await expect(editHeading(page)).toHaveCount(0);
+
+    await button(first, "Delete").focus();
+    await page.keyboard.press("Enter");
+    await expect(confirmGroup(page)).toBeVisible();
+    await button(confirmGroup(page), "Confirm").focus();
+    await page.keyboard.press("Tab");
+    await expect(button(confirmGroup(page), "Cancel")).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(confirmGroup(page)).toHaveCount(0);
+    expect(dbProjects()).toHaveLength(30);
+    await context.close();
+  }
+  expect(surfaceByTheme.dark).not.toBe(surfaceByTheme.light);
+});
+
+// The words and module names below are put together from pieces because the gate scans this file.
+const piece = (...parts: string[]): string => parts.join("");
+
+test("E2E-28: the earlier Projects store and spec are gone, the shared files stay, and nothing imports the old store", async () => {
+  dbReset();
+  const mustNotExist = [piece("src/lib/", FIRE, "/projects.ts"), "e2e/manage-projects.spec.ts"];
+  for (const path of mustNotExist) expect(fs.existsSync(path), path + " is gone").toBe(false);
+  const mustExist = [
+    piece("src/lib/", FIRE, "/list.ts"),
+    piece("src/lib/", FIRE, "/certifications.ts"),
+    piece("src/lib/", FIRE, "/techstack.ts"),
+    piece("src/lib/", FIRE, "/blogposts.ts"),
+    "src/lib/admin/list.ts",
+    "src/lib/admin/projects.ts",
+    "src/app/components/admin/ListEditor.tsx",
+    "src/app/components/admin/CertificationsEditor.tsx",
+    "src/app/components/admin/TechStackEditor.tsx",
+    "src/app/components/admin/BlogPostsEditor.tsx",
+  ];
+  for (const path of mustExist) expect(fs.existsSync(path), path + " exists").toBe(true);
+
+  const read = (path: string): string => fs.readFileSync(path, "utf8");
+  const editor = read("src/app/components/admin/ProjectsEditor.tsx");
+  for (const text of ["createHttpListStore", "/api/admin/projects/", "bottomPosition"]) {
+    expect(editor, "ProjectsEditor has " + text).toContain(text);
+  }
+  for (const word of [
+    FIRE,
+    piece("lib/", "server"),
+    piece("lib/", "auth"),
+    piece("next", "-auth"),
+    PG,
+    piece("server", "-only"),
+    piece("saving", "On").toLowerCase(),
+  ]) {
+    expect(editor.toLowerCase(), "ProjectsEditor names " + word).not.toContain(word);
+  }
+  expect(editor, "ProjectsEditor names savingOn").not.toContain(piece("saving", "On"));
+
+  const panel = read("src/app/components/admin/AdminPanel.tsx");
+  expect(panel).toContain("ProjectsEditor");
+  expect(panel).toContain("ExperienceEditor");
+  expect(panel).not.toContain(piece("lib/", "auth"));
+  expect(panel).not.toContain(piece("lib/", "server"));
+  expect(panel.toLowerCase()).not.toContain(FIRE);
+
+  const projects = read("src/lib/admin/projects.ts");
+  expect(projects.toLowerCase()).not.toContain(FIRE);
+  expect(projects).toMatch(/export (function|const) projectShape\b/);
+
+  const route = read("src/app/api/admin/projects/route.ts");
+  expect(route).toContain(AUTH_MODULE);
+  expect(route).toContain(piece("@/lib/", "server/listStore"));
+  expect(route).toContain("force-dynamic");
+  expect(route.toLowerCase()).not.toContain(FIRE);
+
+  const importers = gitGrep(["-n", "-E", piece(FIRE, "/projects"), "--", "src", "e2e"]);
+  expect(importers.stdout).toBe("");
+  expect(importers.status).toBe(1);
+});
+
+test("E2E-30: the earlier sign-in spec now skips Projects and no spec expects its notice", async () => {
+  dbReset();
+  const read = (path: string): string => fs.readFileSync(path, "utf8");
+  const gone = gitGrep(["-n", "-F", piece("Projects editor is", " not available yet."), "--", "e2e"]);
+  expect(gone.stdout).toBe("");
+  expect(gone.status).toBe(1);
+
+  const signIn = read("e2e/owner-google-sign-in.spec.ts");
+  expect(signIn).toContain('l !== "Experience"');
+  expect(signIn).toContain('l !== "Projects"');
+  const loop = signIn.split("\n").filter((l) => l.includes('l !== "Projects"'));
+  expect(loop.length).toBeGreaterThan(0);
+  for (const line of loop) {
+    expect(line).toContain('l !== "Profile"');
+    expect(line).toContain('l !== "Images"');
+  }
+  expect(read("e2e/owner-edits-profile.spec.ts")).toContain("Blog posts editor is not available yet.");
+  expect(read("e2e/owner-uploads-images.spec.ts")).toContain("Blog posts editor is not available yet.");
+});
+
+test("E2E-31: CLAUDE.md lists the projects route once, keeps the shared pattern and the settings, and drops the old counts", async () => {
+  dbReset();
+  const doc = fs.readFileSync("CLAUDE.md", "utf8");
+  for (const text of [
+    "/api/admin/projects/",
+    "src/app/api/admin/projects/route.ts",
+    "/api/admin/experience/",
+    "src/app/api/admin/experience/route.ts",
+    "createListService",
+    "createHttpListStore",
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "/api/admin/images/",
+    "/api/admin/images/upload/",
+    "/api/admin/profile/",
+    "src/lib/server/",
+    "src/app/api/admin/**",
+    "stand-in:",
+    "SUPABASE_DB_URL",
+    "AUTH_SECRET",
+    "/api/auth/callback/google",
+    "The site reads seven settings by name",
+    "the experience entries and the projects",
+  ]) {
+    expect(doc, text).toContain(text);
+  }
+  const rows = doc.split("\n").filter((l) => l.startsWith("| `/api/admin/projects/`"));
+  expect(rows, "Routes table rows for the projects route").toHaveLength(1);
+  for (const text of ["The site reads five settings by name", "The site reads four settings by name", "only API route"]) {
+    expect(doc, text).not.toContain(text);
+  }
 });

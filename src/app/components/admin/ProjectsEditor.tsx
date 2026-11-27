@@ -4,11 +4,13 @@ import {
   PROJECT_MESSAGES,
   checkProject,
   emptyProject,
+  projectFromData,
   projectLabel,
+  projectToData,
   type ProjectContent,
 } from "@/lib/admin/projects";
 import { bottomPosition } from "@/lib/admin/list";
-import { projectsStore } from "@/lib/firebase/projects";
+import { createHttpListStore } from "@/lib/admin/listClient";
 import ListEditor, { type ListFieldsProps } from "./ListEditor";
 import {
   FieldError,
@@ -21,6 +23,12 @@ import {
   listStyle,
   textareaStyle,
 } from "./formParts";
+
+const store = createHttpListStore<ProjectContent>(
+  "/api/admin/projects/",
+  projectFromData,
+  projectToData,
+);
 
 type TextKey = "title" | "shortDesc" | "github" | "demo";
 
@@ -150,12 +158,11 @@ function renderFields(props: ListFieldsProps<ProjectContent>): React.ReactNode {
   );
 }
 
-export default function ProjectsEditor(props: { savingOn: boolean }): React.JSX.Element {
+export default function ProjectsEditor(): React.JSX.Element {
   return (
     <ListEditor<ProjectContent>
       heading="Projects"
-      savingOn={props.savingOn}
-      store={projectsStore}
+      store={store}
       label={projectLabel}
       emptyContent={emptyProject}
       check={checkProject}

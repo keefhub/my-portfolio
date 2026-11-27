@@ -61,6 +61,7 @@ Every public route is prerendered at build time. Only the admin panel, `/api/aut
 | `/api/admin/experience/` | [src/app/api/admin/experience/route.ts](src/app/api/admin/experience/route.ts) — the owner-only experience list (GET, POST, PUT?id=, PATCH, DELETE?id=); the owner check and the entry-id pattern run before any database call, and the list logic is the generic service in `src/lib/server/listStore.ts` |
 | `/api/admin/projects/` | [src/app/api/admin/projects/route.ts](src/app/api/admin/projects/route.ts) — the owner-only projects list (GET, POST, PUT?id=, PATCH, DELETE?id=); the owner check and the entry-id pattern run before any database call, and the list logic is the generic service in `src/lib/server/listStore.ts` |
 | `/api/admin/certifications/` | [src/app/api/admin/certifications/route.ts](src/app/api/admin/certifications/route.ts) — the owner-only certifications list (GET, POST, PUT?id=, PATCH, DELETE?id=); the owner check and the entry-id pattern run before any database call, and the list logic is the generic service in `src/lib/server/listStore.ts` |
+| `/api/admin/tech-stack/` | [src/app/api/admin/tech-stack/route.ts](src/app/api/admin/tech-stack/route.ts) — the owner-only tech stack list (GET, POST, PUT?id=, PATCH, DELETE?id=); each category is one record that holds its items, the owner check and the entry-id pattern run before any database call, and the list logic is the generic service in `src/lib/server/listStore.ts` |
 
 The landing page (`/`) is a multi-section scroll with anchor nav — Hero, About,
 Experience, TechStack, Projects, Certifications. It is not routed; the sections
@@ -142,9 +143,7 @@ profile store, the storage module and the image store); `SUPABASE_URL` and `SUPA
 in one file there (`src/lib/server/storage.ts`). It is imported only by `src/app/api/admin/**`, never by a
 client component, a public page or a layout. The owner decision stays in `src/lib/admin/access.ts` and `src/lib/auth.ts`. The shared list pattern is `ListEditor.tsx` with the browser store `createHttpListStore` (`src/lib/admin/listClient.ts`), the server `createListService` (`src/lib/server/listStore.ts`) and the list SQL (`src/lib/server/listSql.ts`); each later list slice adds its table name, a route file and an editor.
 
-**Leftover rules.** The profile, the images, the experience entries and the projects are now stored in Supabase and their Firebase stores are gone. The certifications are stored in Supabase the same way and their Firebase store is gone. The other Firebase
-stores and the two rules files ([firestore.rules](firestore.rules), [storage.rules](storage.rules)) stay until
-the slice that replaces each one; retire-firebase removes what is left.
+**Leftover rules.** The profile, the images, the experience entries and the projects are now stored in Supabase and their Firebase stores are gone. The certifications are stored in Supabase the same way and their Firebase store is gone. The tech stack is stored in Supabase the same way and its Firebase store is gone. The one remaining Firebase store, the blog posts, and the two rules files ([firestore.rules](firestore.rules), [storage.rules](storage.rules)) stay until the slice that replaces it; retire-firebase removes what is left.
 
 **Settings.** The site reads seven settings by name: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
 `ADMIN_EMAIL`, `SUPABASE_DB_URL`, `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The owner sets them in Vercel for Production and SIT; they are never in the repo.

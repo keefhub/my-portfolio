@@ -10,6 +10,7 @@ import ExperienceEditor from "./ExperienceEditor";
 import ImageLibrary from "./ImageLibrary";
 import ProfileEditor from "./ProfileEditor";
 import ProjectsEditor from "./ProjectsEditor";
+import TechStackEditor from "./TechStackEditor";
 
 const buttonStyle: React.CSSProperties = {
   width: "100%",
@@ -112,12 +113,14 @@ export default function AdminPanel(props: {
         {section && section.id === "experience" && <ExperienceEditor />}
         {section && section.id === "projects" && <ProjectsEditor />}
         {section && section.id === "certifications" && <CertificationsEditor />}
+        {section && section.id === "tech-stack" && <TechStackEditor />}
         {section &&
           section.id !== "profile" &&
           section.id !== "images" &&
           section.id !== "experience" &&
           section.id !== "projects" &&
-          section.id !== "certifications" && (
+          section.id !== "certifications" &&
+          section.id !== "tech-stack" && (
           <p role="status" style={{ margin: 0, color: "var(--muted)" }}>
             {section.label} editor is not available yet.
           </p>

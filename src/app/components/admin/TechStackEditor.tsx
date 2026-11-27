@@ -10,14 +10,16 @@ import {
   techDeleteText,
   techItemDeleteText,
   techItemLine,
+  techFromData,
   techLabel,
+  techToData,
   type TechCategoryContent,
 } from "@/lib/admin/techstack";
 import { bottomPosition } from "@/lib/admin/list";
 import { photoSelection } from "@/lib/admin/profile";
 import type { UploadedImage } from "@/lib/admin/images";
-import { techStore } from "@/lib/firebase/techstack";
 import { listImages } from "@/lib/admin/imagesClient";
+import { createHttpListStore } from "@/lib/admin/listClient";
 import ListEditor, { type ListFieldsProps } from "./ListEditor";
 import {
   FieldError,
@@ -31,6 +33,12 @@ import {
 } from "./formParts";
 
 type ImagesState = { images: UploadedImage[]; failed: boolean };
+
+const store = createHttpListStore<TechCategoryContent>(
+  "/api/admin/tech-stack/",
+  techFromData,
+  techToData,
+);
 
 const rowStyle: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 8 };
 
@@ -231,7 +239,7 @@ function TechFields({ fields, images, failed }: FieldsProps): React.JSX.Element 
   );
 }
 
-export default function TechStackEditor(props: { savingOn: boolean }): React.JSX.Element {
+export default function TechStackEditor(): React.JSX.Element {
   const [loaded, setLoaded] = useState<ImagesState>({ images: [], failed: false });
 
   useEffect(() => {
@@ -257,8 +265,7 @@ export default function TechStackEditor(props: { savingOn: boolean }): React.JSX
   return (
     <ListEditor<TechCategoryContent>
       heading="Tech stack"
-      savingOn={props.savingOn}
-      store={techStore}
+      store={store}
       label={techLabel}
       emptyContent={emptyTechCategory}
       check={checkTechCategory}

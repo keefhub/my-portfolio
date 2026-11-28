@@ -52,3 +52,16 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+=====================================================================
+Completion
+Completed: 2026-11-28
+
+Built: server-only tech stack read with the build guard, tolerant view rules, the page hiding the shared Experience block and its menu link when both lists are empty, the earlier checks and documents brought in line.
+Removed content (D-13): the hard-coded tech stack categories were removed in b61ba7b; the owner re-enters them from its parent (b61ba7b^:src/app/components/techstack.tsx). The nine public/icons files stay and remain valid icon paths.
+Deviations from the spec: None.
+[auto] decisions in the spec: 18 lines (D-04..D-21).
+Feature review: PASS
+Findings: edge-case | note | logged | ICON_PATH accepts a backslash-led path that may resolve protocol-relative; the panel refuses it on save; tighten in both copies if revisited
+Final verification: npm run build ok; e2e/owner-publishes-tech-stack.spec.ts 14 passed, 0 failed.
+Manual checks pending: None.
+=====================================================================

@@ -27,6 +27,7 @@ sweep confirms a decision that later features would otherwise reopen.
 5. Superseded in part by item 6 (hosting, sign-in and storage). Owner ruling, 2026-11-26 (`docs/requirements/admin-content-panel-intent.md`): item 2 is superseded in stages. A private owner-only admin panel at `/bright-warm-greenhouse/` edits all content (blog posts as markdown); until the phase-2 migration ships, the public site still renders from the repo (`content/blog/*.md` and component data).
 6. Owner ruling, 2026-11-27 (`docs/requirements/hosting-and-backend-migration-intent.md`): hosting is Vercel (free plan), the owner signs in with Auth.js using their own Google account, and editable content and uploaded images move to Supabase (free plan); the earlier backend is removed. The static-export ruling is lifted for sign-in and the panel only, and public pages stay prebuilt; `trailingSlash: true` stays consistent across `next.config.ts`, `vercel.json` and `absoluteUrl()`. This supersedes the panel parts of items 1, 4 and 5. Only the owner's verified Google email (held in a setting, never committed) is allowed, and no secret value or owner email is committed. [human: intent §2.4, §4, §5]
 7. Owner ruling, 2026-11-27 (`docs/requirements/hosting-and-backend-migration-intent.md`): uploaded images are PNG, JPEG, WebP or SVG, at most 5 MB each, and live in Supabase Storage. Anyone may open an uploaded image by its address. Only the owner may upload or delete one, and the server refuses any other request, including one sent without the panel. A delete asks for confirmation and is permanent. [human: intent §2.4, §5]
+8. Owner ruling (`docs/requirements/public-site-reads-database-intent.md`): public pages read their content from Supabase on the server and Vercel keeps the last good copy, renewed only when the owner presses Publish in the panel or at a code deploy; content lives only in Supabase. This supersedes the prerender-at-build part of item 1 and the repo-content parts of items 2 and 5. No deploy hook, dependency or setting is added. [human: intent §4]
 
 ## 3. Assumptions to Confirm
 
@@ -61,3 +62,12 @@ One row per feature, appended by `/help-discover-this` Mode B and `/agentic-disc
 | Owner manages blog posts | [owner-manages-blog-posts](owner-manages-blog-posts/story.md) |
 | Owner previews blog post | [owner-previews-blog-post](owner-previews-blog-post/story.md) |
 | Retire Firebase and document the new stack | [retire-firebase](retire-firebase/story.md) |
+| Owner publishes profile | [owner-publishes-profile](owner-publishes-profile/story.md) |
+| Owner publishes experience | [owner-publishes-experience](owner-publishes-experience/story.md) |
+| Owner publishes tech stack | [owner-publishes-tech-stack](owner-publishes-tech-stack/story.md) |
+| Owner publishes projects | [owner-publishes-projects](owner-publishes-projects/story.md) |
+| Owner publishes certifications | [owner-publishes-certifications](owner-publishes-certifications/story.md) |
+| Owner publishes blog posts | [owner-publishes-blog-posts](owner-publishes-blog-posts/story.md) |
+| Owner publishes posts to RSS and the sitemap | [owner-publishes-posts-to-feeds](owner-publishes-posts-to-feeds/story.md) |
+| Visitors keep seeing published content during a database outage | [site-survives-database-outage](site-survives-database-outage/story.md) |
+| Retire the repo copy of the content and amend the standing docs | [retire-repo-content](retire-repo-content/story.md) |

@@ -323,6 +323,15 @@ Populated by `/help-discover-this` and `/agentic-discover` as features are added
 | 18 | [owner-manages-blog-posts](docs/features/owner-manages-blog-posts/story.md) | Most rules (unique slug, draft, status list, public read of published posts); cover uses the picker |
 | 19 | [owner-previews-blog-post](docs/features/owner-previews-blog-post/story.md) | Needs the post editor to preview from |
 | 20 | [retire-firebase](docs/features/retire-firebase/story.md) | Last, because every other slice removes only what it replaces; this one deletes what is left and checks the whole |
+| 21 | [owner-publishes-profile](docs/features/owner-publishes-profile/story.md) | First, because it carries what every later slice reuses: the Publish button and its owner-only endpoint, the public read with its kept copy, the hidden-when-empty rule with the menu link, and the amendment of the rules the switch makes false |
+| 22 | [owner-publishes-experience](docs/features/owner-publishes-experience/story.md) | First list section; reuses Publish and the kept copy, settles how an ordered list reaches a public component |
+| 23 | [owner-publishes-tech-stack](docs/features/owner-publishes-tech-stack/story.md) | Shares the Experience section's page block (Decision 5); nested items and icons from the image library |
+| 24 | [owner-publishes-projects](docs/features/owner-publishes-projects/story.md) | Reuses the list pattern; no menu rule of its own beyond the shared one |
+| 25 | [owner-publishes-certifications](docs/features/owner-publishes-certifications/story.md) | Reuses the list pattern; proves the whole section and its menu link disappear (§6 line 5) |
+| 26 | [owner-publishes-blog-posts](docs/features/owner-publishes-blog-posts/story.md) | Most rules (draft, unknown address, new addresses without a build); the rendered body comes from the database |
+| 27 | [owner-publishes-posts-to-feeds](docs/features/owner-publishes-posts-to-feeds/story.md) | Needs published posts to read; small and separately demonstrable |
+| 28 | [site-survives-database-outage](docs/features/site-survives-database-outage/story.md) | Needs every public page to read the database first; hardens and proves the kept copy across all of them |
+| 29 | [retire-repo-content](docs/features/retire-repo-content/story.md) | Last, because every other slice removes only what it replaces; this one checks that nothing is left and amends the remaining docs |
 
 Do not reorder or skip features without an explicit user request. Do not implement scenarios beyond what's written.
 

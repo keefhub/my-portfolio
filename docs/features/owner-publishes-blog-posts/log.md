@@ -34,3 +34,21 @@ Tier: high (test-passed-before-change)
 Review: risk reviewer PASS (review 1)
 Findings: None.
 =====================================================================
+=====================================================================
+Task 3 — The repository's posts and their loader are removed
+Completed: 2026-11-28      Commit: 7a142c7   (this commit deletes content/blog/hello-world.md and content/blog/building-portfolio-nextjs.md; the owner re-enters them from its parent, D-16)
+
+Summary: The two Markdown posts and src/lib/blog/posts.ts are deleted; the barrel no longer exports the loader; RSS and the sitemap list no posts until owner-publishes-posts-to-feeds.
+Decisions: sitemap keeps an empty typed posts array; rss passes an empty typed array.
+Deviations: Locked E2E-21 forbade any "@/lib/blog" substring, contradicting the Step's import of the RSS builder; a fresh test-author dispatch narrowed it to the exact barrel import, and the rss route imports @/lib/blog/rss.
+Files changed: content/blog/hello-world.md, content/blog/building-portfolio-nextjs.md, src/lib/blog/posts.ts (deleted); src/lib/blog/index.ts, src/app/rss.xml/route.ts, src/app/sitemap.ts (modified); e2e/owner-publishes-blog-posts.spec.ts (modified)
+E2E tests written: E2E-21      Passed before the change: None.
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: high (large-diff, implementer-deviation)
+Review: risk reviewer PASS (review 1)
+Findings: spec-defect | note | logged | the Step's "imports from @/lib/blog" wording contradicts E2E-21; implementation uses @/lib/blog/rss
+=====================================================================

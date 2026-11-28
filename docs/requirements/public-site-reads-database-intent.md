@@ -93,6 +93,7 @@ missing after the switch.
 - No secret value, database address or owner email is sent to the browser, committed or logged.
 - No database code is loaded in visitors' browsers.
 - After this goal, the repo contains no hard-coded section content and no `content/blog/*.md` posts.
+- SIT and live use different databases: SIT's pages and panel read and write only the SIT database, live's only the live database, and a publish on one never changes what the other shows.
 - No new dependency, setting, external or paid service is added.
 - The existing rules still hold: `trailingSlash` consistent in all three places, dates formatted in UTC, one site origin constant, images unoptimised, theme tokens only, the panel owner-only.
 
@@ -105,6 +106,7 @@ missing after the switch.
 - [ ] With every certification deleted and Publish pressed, the Certifications section and its menu link are gone and the rest of the page renders normally.
 - [ ] With the database unreachable, every public page still shows its last published content, and pressing Publish shows a failure message in the panel.
 - [ ] A publish attempt while signed out or signed in as another Google account is refused and changes nothing.
+- [ ] Publishing a change on SIT leaves the live site unchanged.
 - [ ] The repo holds no hard-coded profile, experience, tech stack, projects or certifications content and no posts in `content/blog/`.
 
 ## 7. Human-only items

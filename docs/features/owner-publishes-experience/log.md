@@ -17,3 +17,21 @@ Review: risk reviewer PASS (review 1)
 Findings: nit | note | logged | CSS bullet deviation acceptable
 Findings: nit | note | logged | narrowed E2E-02 absence check acceptable
 =====================================================================
+=====================================================================
+Task 2 — The success message and the earlier checks follow the change
+Completed: 2026-11-28      Commit: 75f7d07
+
+Summary: The Publish success message now names "the changes"; the earlier profile spec's expected text and the two pre-migration source lists were updated (experienceTimeLine.tsx removed).
+Decisions: None.
+Deviations: None.
+Files changed: src/lib/admin/publish.ts (modified); e2e/owner-publishes-experience.spec.ts, e2e/owner-publishes-profile.spec.ts, e2e/retire-firebase.spec.ts, e2e/hosting-and-backend-migration-acceptance.spec.ts (modified)
+E2E tests written: E2E-12, E2E-15      Passed before the change: None.
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

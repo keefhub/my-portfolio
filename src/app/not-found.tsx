@@ -12,6 +12,9 @@ export default function NotFound() {
       <Link href="/" className="underline" style={{ color: "var(--accent-blue)" }}>
         Back to the site
       </Link>
+      <Link href="/blog/" className="underline" style={{ color: "var(--accent-blue)" }}>
+        Back to the blog
+      </Link>
     </main>
   );
 }

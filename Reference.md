@@ -37,7 +37,7 @@ The public routes are static pages kept by Vercel (the landing page reads the pu
 | `/bright-warm-greenhouse/` | `src/app/bright-warm-greenhouse/page.tsx` | Owner-only admin panel; `noindex`; renders `AdminPanel` |
 | `/api/auth/*`   | `src/app/api/auth/[...nextauth]/route.ts` | The Auth.js handlers; dynamic.    |
 | `/api/admin/*`  | `src/app/api/admin/**`        | The owner-only JSON routes and the one public published-posts read; dynamic. |
-| `/api/admin/publish/` | `src/app/api/admin/publish/route.ts` | Owner-only Publish (POST): owner check, a profile read as reachability probe, then `revalidatePath("/")`; dynamic. |
+| `/api/admin/publish/` | `src/app/api/admin/publish/route.ts` | Owner-only Publish (POST): owner check, a profile read as reachability probe, then `refreshPublishedSite()` marks every kept read stale (`keptRead`, stale-while-revalidate); dynamic. |
 
 ### Landing Page (`/`)
 
@@ -76,7 +76,7 @@ User toggles theme → ThemeContext → localStorage + data-theme attr on <html>
 
 - **Landing page is anchor-scrolled, the blog is routed**: `/` is one page of sections; `/blog` and `/blog/<slug>` are real routes
 - **Mixed server/client components**: 8 of 17 are `"use client"`. The landing-page sections are client (animation + state); the blog tree and metadata routes are server components
-- **Kept-copy public pages**: public pages read Supabase on the server and Vercel keeps the last good copy (`revalidate = false`); only the owner's Publish (`/api/admin/publish/`, `revalidatePath("/")`) or a deploy renews it. No middleware, no timer. The blog pages read the published posts through `src/lib/server/publicPosts.ts` (one kept read, expired by Publish with `revalidateTag`, the `/blog` layout renewed with `revalidatePath`); a post address is rendered on its first visit and kept. Public route handlers stay `dynamic = "force-static"`. Only sign-in (`/api/auth/*`) and the panel (`/api/admin/*` and the panel page) are dynamic
+- **Kept-copy public pages**: public pages read Supabase on the server and Vercel keeps the last good copy (`revalidate = false`); only the owner's Publish (`/api/admin/publish/`, which marks the `keptRead` reads stale, stale-while-revalidate) or a deploy renews it. No middleware, no timer. The blog pages read the published posts through `src/lib/server/publicPosts.ts` (read through `keptRead` and marked stale by Publish with `revalidateTag`); a post address is rendered on its first visit and kept. Public route handlers stay `dynamic = "force-static"`. Only sign-in (`/api/auth/*`) and the panel (`/api/admin/*` and the panel page) are dynamic
 - **`trailingSlash: true`**: Each route is emitted as a directory (`blog/<slug>/`) and the host redirects the unslashed form to the slashed one. Coupled to `vercel.json` and `absoluteUrl()` in `src/lib/site.ts` — change all three together
 - **Published-posts pipeline**: posts are saved in the panel, stored in Supabase, and read by `src/lib/server/publicPosts.ts`; the Markdown is rendered on the server and kept until Publish
 - **CSS variables for theming**: Light/dark tokens in `:root` / `[data-theme="dark"]`

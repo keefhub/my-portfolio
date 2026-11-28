@@ -519,3 +519,55 @@ test("E2E-10: the earlier publish checks follow the new refresh", async () => {
     expect(text, file).toContain("refreshPublishedSite");
   }
 });
+
+test("E2E-07: an address that was never a post shows the not-found page with a way back to the blog while the database is unreachable", async ({ browser }) => {
+  const base = baseUrlOf();
+  const started = Date.now();
+  await full(base);
+  await ownerPublish(base);
+  await whileBroken(base, async () => {
+    const addresses = ["/blog/never-was-a-post-" + started + "/", "/blog/never-was-a-post-b-" + Date.now() + "/"];
+    for (const address of addresses) {
+      const v = await visit(browser, base, address);
+      try {
+        expect(v.status, address).toBe(404);
+        await expect(v.page.getByRole("heading", { level: 1, name: "404", exact: true })).toBeVisible();
+        await expect(v.page.getByRole("heading", { level: 2, name: "This page could not be found.", exact: true })).toBeVisible();
+        const blogLink = v.page.getByRole("link", { name: "Back to the blog", exact: true });
+        await expect(blogLink).toBeVisible();
+        await expect(blogLink).toHaveAttribute("href", "/blog/");
+        const siteLink = v.page.getByRole("link", { name: "Back to the site", exact: true });
+        await expect(siteLink).toBeVisible();
+        await expect(siteLink).toHaveAttribute("href", "/");
+        const text = await bodyText(v.page);
+        expect(text).not.toContain("Internal Server Error");
+        expect(text).not.toContain("Application error");
+      } finally {
+        await v.context.close();
+      }
+    }
+  });
+});
+
+test("E2E-11: the standing documents describe the stale-while-revalidate renewal", async () => {
+  const read = (file: string): string => fs.readFileSync(path.join(process.cwd(), file), "utf8");
+  const claude = read("CLAUDE.md");
+  for (const word of [
+    "src/lib/server/keptRead.ts",
+    "stale-while-revalidate",
+    "previous copy",
+    "revalidateTag",
+    "revalidatePath",
+    "last good copy",
+    "src/lib/server/publicPosts.ts",
+  ]) {
+    expect(claude, "CLAUDE.md contains " + word).toContain(word);
+  }
+  expect(claude).not.toContain("which calls `revalidatePath`");
+  expect(claude).not.toContain("the `/blog` layout renewed with `revalidatePath`");
+
+  const reference = read("Reference.md");
+  expect(reference).toContain("keptRead");
+  expect(reference).toContain("stale-while-revalidate");
+  expect(reference).not.toContain('revalidatePath("/")');
+});

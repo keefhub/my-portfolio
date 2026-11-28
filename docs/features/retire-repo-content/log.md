@@ -36,3 +36,21 @@ Findings: test-coverage | note | logged | E2E-10's email-domain filter has no pl
 Findings: test-coverage | note | logged | E2E-06's front-matter sub-check has no planted control (the planted file sits outside src)
 Note: Task 1's test file e2e/retire-repo-content.spec.ts landed in the spec revision commit (staged tests were included when that commit was made); not amended, per the no-amend rule.
 =====================================================================
+=====================================================================
+Task 3 — Add the site checks and cite the manual rows
+Completed: 2026-11-28      Commit: c9d8832
+
+Summary: E2E-12 to E2E-18 check the built site end to end (empty site, full publish across landing, blog, feed and sitemap, drafts, kept pages with no secret, UTC dates, the photo, Publish refusals); the file runs serially.
+Decisions: test.describe.configure({ mode: "serial" }) and a 150 s timeout apply to the whole file, as the Step requires.
+Deviations: None.
+Files changed: e2e/retire-repo-content.spec.ts (modified)
+E2E tests written: E2E-12 to E2E-18      Passed before the change: all seven (expected, spec D-11)
+Manual checks pending: E2E-19 (the real pull request description shows "Standing rules rewritten"), E2E-20 (the build log prints no setting value)
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: high (test-passed-before-change)
+Review: risk reviewer PASS (review 1)
+Findings: None.
+=====================================================================

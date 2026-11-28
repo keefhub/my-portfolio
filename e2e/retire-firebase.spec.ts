@@ -57,7 +57,6 @@ const PUBLIC_SOURCES = [
   "src/app/rss.xml",
   "src/app/blog/page.tsx",
   "src/app/blog/layout.tsx",
-  "src/app/components/experienceTimeLine.tsx",
   "src/app/components/techstack.tsx",
   "src/app/components/project.tsx",
   "src/app/components/certifications.tsx",

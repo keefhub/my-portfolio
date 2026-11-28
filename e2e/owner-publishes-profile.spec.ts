@@ -487,7 +487,7 @@ test("E2E-21: the landing page sources hold no old content and keep the kept-cop
 // ---- Step 3: the Publish button in the panel ----
 
 const PANEL = "/bright-warm-greenhouse/";
-const PUBLISHED_TEXT = "Published. Visitors will see the profile within a minute.";
+const PUBLISHED_TEXT = "Published. Visitors will see the changes within a minute.";
 const FAILED_TEXT = "The site could not be published because the database could not be reached. Try again later.";
 
 function readDbFile(): Record<string, unknown> {

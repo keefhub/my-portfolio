@@ -612,3 +612,35 @@ test("E2E-18: a card opens and closes from the keyboard", async ({ baseURL, brow
     await context.close();
   }
 });
+
+test("E2E-12: the success message names the changes, not the profile", async ({ baseURL, browser }) => {
+  const base = String(baseURL);
+  await blank(base);
+  await addEntry(base, SENIOR, 0);
+  const { context, page } = await openPanel(browser, base);
+  try {
+    await publishButton(page).click();
+    const status = page.getByRole("status").filter({ hasText: /Published/ });
+    await expect(status).toBeVisible();
+    await expect(status).toHaveText("Published. Visitors will see the changes within a minute.");
+    await expect(page.getByRole("alert").filter({ hasText: /\S/ })).toHaveCount(0);
+  } finally {
+    await context.close();
+  }
+});
+
+test("E2E-15: the earlier checks and the message constant follow the change", async () => {
+  const message = "Published. Visitors will see the changes within a minute.";
+  const old = "will see the profile within a minute";
+  const profileSpec = readText("e2e/owner-publishes-profile.spec.ts");
+  expect(profileSpec).toContain(message);
+  expect(profileSpec).not.toContain(old);
+  const publishSource = readText("src/lib/admin/publish.ts");
+  expect(publishSource).toContain(message);
+  expect(publishSource).not.toContain(old);
+  for (const file of ["e2e/retire-firebase.spec.ts", "e2e/hosting-and-backend-migration-acceptance.spec.ts"]) {
+    const text = readText(file);
+    expect(text, file + " must not list experienceTimeLine.tsx").not.toContain("src/app/components/experienceTimeLine.tsx");
+    expect(text, file + " must still list techstack.tsx").toContain("src/app/components/techstack.tsx");
+  }
+});

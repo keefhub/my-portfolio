@@ -16,3 +16,21 @@ Tier: high (spec Risk: high, implementer-deviation)
 Review: risk reviewer PASS (review 1)
 Findings: nit | note | logged | E2E-09 narrowing justified
 =====================================================================
+=====================================================================
+Task 2 — The list and the post page show the cover and wrap long text
+Completed: 2026-11-28      Commit: 97aa5db
+
+Summary: BlogCard and BlogArticle show the cover through next/image when one is saved, and wrap long text (min-w-0 [overflow-wrap:anywhere]).
+Decisions: image h-auto w-full; card link min-w-0; cover only when coverImage is a non-empty string.
+Deviations: None.
+Files changed: src/app/components/blog/BlogCard.tsx, src/app/components/blog/BlogArticle.tsx (modified); e2e/owner-publishes-blog-posts.spec.ts (modified)
+E2E tests written: E2E-16..E2E-19      Passed before the change: E2E-18, E2E-19 (regression guards)
+Manual checks pending: E2E-20 (dark theme)
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: high (test-passed-before-change)
+Review: risk reviewer PASS (review 1)
+Findings: None.
+=====================================================================

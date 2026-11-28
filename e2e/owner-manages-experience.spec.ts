@@ -562,7 +562,7 @@ test("E2E-04: the list SQL is exactly the proven text, the server files are mark
   const mentioning = mentions.stdout.split("\n").filter(Boolean);
   expect(mentioning.length).toBeGreaterThan(0);
   for (const file of mentioning) {
-    expect(file.startsWith("src/app/api/admin/") || file.startsWith("src/lib/server/") || file === "src/app/page.tsx" || file === "src/app/blog/page.tsx" || file === "src/app/blog/[slug]/page.tsx", file).toBe(true);
+    expect(file.startsWith("src/app/api/admin/") || file.startsWith("src/lib/server/") || file === "src/app/page.tsx" || file === "src/app/blog/page.tsx" || file === "src/app/blog/[slug]/page.tsx" || file === "src/app/rss.xml/route.ts" || file === "src/app/sitemap.ts", file).toBe(true);
   }
 
   const importers = gitGrep(["-l", "-E", "[\"']" + PG + "[\"']", "--", "src"]);
@@ -1018,7 +1018,7 @@ test("E2E-13: no public page or script carries the route or the database, and th
     ).toBe(true);
   }
 
-  const serverMentions = gitGrep(["-l", "-E", "lib/server", "--", "src", ":(exclude)src/lib/server", ":(exclude)src/app/api/admin", ":(exclude)src/app/page.tsx", ":(exclude,literal)src/app/blog/page.tsx", ":(exclude,literal)src/app/blog/[slug]/page.tsx"]);
+  const serverMentions = gitGrep(["-l", "-E", "lib/server", "--", "src", ":(exclude)src/lib/server", ":(exclude)src/app/api/admin", ":(exclude)src/app/page.tsx", ":(exclude,literal)src/app/blog/page.tsx", ":(exclude,literal)src/app/blog/[slug]/page.tsx", ":(exclude,literal)src/app/rss.xml/route.ts", ":(exclude,literal)src/app/sitemap.ts"]);
   expect(serverMentions.stdout).toBe("");
   expect(serverMentions.status).toBe(1);
 });

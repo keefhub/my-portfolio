@@ -269,10 +269,12 @@ test("E2E-44: every public page and file answers with its content", async ({ pag
   expect(sitemap.status()).toBe(200);
   const sitemapBody = await sitemap.text();
   expect(sitemapBody).toContain("<urlset");
-  expect([...sitemapBody.matchAll(/<loc>([^<]*)<\/loc>/g)].map((match) => match[1])).toEqual([
-    "https://thegoldenpothos.xyz/",
-    "https://thegoldenpothos.xyz/blog/",
-  ]);
+  const sitemapLocs = [...sitemapBody.matchAll(/<loc>([^<]*)<\/loc>/g)].map((match) => match[1]);
+  expect(sitemapLocs).toContain("https://thegoldenpothos.xyz/");
+  expect(sitemapLocs).toContain("https://thegoldenpothos.xyz/blog/");
+  for (const loc of sitemapLocs.filter((value) => value !== "https://thegoldenpothos.xyz/" && value !== "https://thegoldenpothos.xyz/blog/")) {
+    expect(loc.startsWith("https://thegoldenpothos.xyz/blog/"), loc).toBe(true);
+  }
 
   const robots = await request.get("/robots.txt");
   expect(robots.status()).toBe(200);

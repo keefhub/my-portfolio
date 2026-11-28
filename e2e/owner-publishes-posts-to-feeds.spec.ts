@@ -542,3 +542,43 @@ test("E2E-15: both feeds are kept copies with no timer", async () => {
     expect(Object.keys(manifest.dynamicRoutes)).not.toContain(key);
   }
 });
+
+test("E2E-16: the earlier specs follow the feeds", async () => {
+  const read = (file: string): string => fs.readFileSync(path.join(process.cwd(), file), "utf8");
+  const ruleFiles = [
+    "e2e/hosting-and-backend-migration-acceptance.spec.ts",
+    "e2e/owner-edits-profile.spec.ts",
+    "e2e/owner-uploads-images.spec.ts",
+    "e2e/owner-manages-experience.spec.ts",
+    "e2e/owner-manages-projects.spec.ts",
+    "e2e/owner-manages-certifications.spec.ts",
+    "e2e/owner-manages-tech-stack.spec.ts",
+    "e2e/owner-manages-blog-posts.spec.ts",
+  ];
+  for (const file of ruleFiles) {
+    const lines = read(file).split("\n");
+    let rules = 0;
+    lines.forEach((line, i) => {
+      const isRule = (line.includes('startsWith("src/app/api/admin/")') || line.includes(':(exclude)src/app/api/admin"')) && (line.includes("lib/server") || line.includes("SERVER_PATH"));
+      if (!isRule) return;
+      rules += 1;
+      const near = lines.slice(Math.max(0, i - 3), i + 4).join("\n");
+      expect(near, `${file}:${i + 1} lacks the route file`).toContain("src/app/rss.xml/route.ts");
+      expect(near, `${file}:${i + 1} lacks the sitemap file`).toContain("src/app/sitemap.ts");
+    });
+    expect(rules, `${file} holds no server-folder mention rule`).toBeGreaterThan(0);
+  }
+
+  const gone: [string, string[]][] = [
+    ["e2e/owner-publishes-blog-posts.spec.ts", ['expect(feed.split("<item>").length - 1).toBe(0);', 'expect(locs).toEqual(["https://thegoldenpothos.xyz/", "https://thegoldenpothos.xyz/blog/"]);']],
+    ["e2e/retire-" + "fire" + "base.spec.ts", [".map((match) => match[1])).toEqual(["]],
+    [
+      "e2e/hosting-and-backend-migration-acceptance.spec.ts",
+      [".map((m) => m[1]).sort()).toEqual(", "expect(items).toHaveLength(posts.length);", 'for (const address of ["/", "/blog/", "/rss.xml", "/sitemap.xml"]) {'],
+    ],
+  ];
+  for (const [file, needles] of gone) {
+    const text = read(file);
+    for (const needle of needles) expect(text, `${file} still holds ${needle}`).not.toContain(needle);
+  }
+});

@@ -625,7 +625,7 @@ test("E2E-12: the SQL is exactly the proven text, the server files are marked se
     encoding: "utf8",
   });
   for (const file of (mentions.stdout ?? "").split("\n").filter(Boolean)) {
-    expect(file.startsWith("src/app/api/admin/") || file.startsWith("src/lib/server/") || file === "src/app/page.tsx" || file === "src/app/blog/page.tsx" || file === "src/app/blog/[slug]/page.tsx", file).toBe(true);
+    expect(file.startsWith("src/app/api/admin/") || file.startsWith("src/lib/server/") || file === "src/app/page.tsx" || file === "src/app/blog/page.tsx" || file === "src/app/blog/[slug]/page.tsx" || file === "src/app/rss.xml/route.ts" || file === "src/app/sitemap.ts", file).toBe(true);
   }
 
   // (4) only the database module imports the library

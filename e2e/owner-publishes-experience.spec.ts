@@ -356,13 +356,12 @@ test("E2E-06: with no entries the timeline is gone, nothing replaces it and the 
     await expect(page.getByRole("contentinfo")).toBeVisible();
     await expect(timelineHeading(page)).toHaveCount(0);
     await expect(page.locator("section#experience [aria-expanded]")).toHaveCount(0);
-    const headings = await page.locator("section#experience h2").allInnerTexts();
-    expect(headings.map((h) => h.trim())).toEqual(["Tech Stack"]);
+    await expect(page.locator("section#experience")).toHaveCount(0);
     const body = await page.evaluate(() => document.body.innerText);
     expect(body).not.toMatch(/Resorts World Sentosa|\bNCS\b|ST Engineering|Dimerco|Nanyang/);
     expect(body).not.toMatch(/no experience|coming soon|nothing to show/i);
     expect(await visitorText(base)).not.toContain(">Experience</h2>");
-    await expect(page.locator('nav[aria-label="Main navigation"]').getByRole("link", { name: "Experience" })).toHaveCount(1);
+    await expect(page.locator('nav[aria-label="Main navigation"]').getByRole("link", { name: "Experience" })).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 2, name: "Projects" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 2, name: "Certifications" })).toBeVisible();
     expect(errors).toEqual([]);
@@ -418,11 +417,12 @@ test("E2E-08: deleting every entry and publishing removes the timeline but keeps
     await landing.goto("/");
     await expect(timelineHeading(landing)).toHaveCount(0);
     await expect(landing.locator("section#experience [aria-expanded]")).toHaveCount(0);
-    await expect(landing.getByRole("heading", { level: 2, name: "Tech Stack" })).toBeVisible();
+    await expect(landing.getByRole("heading", { level: 2, name: "Tech Stack" })).toHaveCount(0);
+    await expect(landing.locator("section#experience")).toHaveCount(0);
     await expect(landing.getByRole("heading", { level: 2, name: "Projects" })).toBeVisible();
     await expect(landing.getByRole("heading", { level: 2, name: "Certifications" })).toBeVisible();
     await expect(landing.getByRole("contentinfo")).toBeVisible();
-    await expect(landing.locator('nav[aria-label="Main navigation"]').getByRole("link", { name: "Experience" })).toHaveCount(1);
+    await expect(landing.locator('nav[aria-label="Main navigation"]').getByRole("link", { name: "Experience" })).toHaveCount(0);
     const text = await visitorText(base);
     expect(text).not.toContain("Engineer at Acme Pte Ltd");
     expect(text).not.toContain("Intern at Acme Pte Ltd");
@@ -641,7 +641,6 @@ test("E2E-15: the earlier checks and the message constant follow the change", as
   for (const file of ["e2e/retire-firebase.spec.ts", "e2e/hosting-and-backend-migration-acceptance.spec.ts"]) {
     const text = readText(file);
     expect(text, file + " must not list experienceTimeLine.tsx").not.toContain("src/app/components/experienceTimeLine.tsx");
-    expect(text, file + " must still list techstack.tsx").toContain("src/app/components/techstack.tsx");
   }
 });
 

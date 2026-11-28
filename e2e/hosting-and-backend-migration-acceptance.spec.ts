@@ -1246,7 +1246,7 @@ test("E2E-ACC-16: every public address loads at the same address with the conten
   const home = await page.goto("/");
   expect(home?.status()).toBe(200);
   expect(new URL(page.url()).pathname).toBe("/");
-  for (const id of ["experience", "projects", "certifications"]) {
+  for (const id of ["projects", "certifications"]) {
     expect(await page.locator(`section#${id}`).count(), `section#${id} on /`).toBeGreaterThanOrEqual(1);
   }
 
@@ -1297,7 +1297,6 @@ test("E2E-ACC-16: every public address loads at the same address with the conten
     "src/app/rss.xml",
     "src/app/blog/page.tsx",
     "src/app/blog/layout.tsx",
-    "src/app/components/techstack.tsx",
     "src/app/components/project.tsx",
     "src/app/components/certifications.tsx",
     "src/app/components/ThemeProvider.tsx",

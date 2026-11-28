@@ -57,7 +57,6 @@ const PUBLIC_SOURCES = [
   "src/app/rss.xml",
   "src/app/blog/page.tsx",
   "src/app/blog/layout.tsx",
-  "src/app/components/techstack.tsx",
   "src/app/components/project.tsx",
   "src/app/components/certifications.tsx",
   "src/app/components/ThemeProvider.tsx",
@@ -262,7 +261,7 @@ test("E2E-44: every public page and file answers with its content", async ({ pag
   const home = await page.goto("/");
   expect(home?.status()).toBe(200);
   expect(new URL(page.url()).pathname).toBe("/");
-  for (const selector of ["section#experience", "section#projects", "section#certifications"]) {
+  for (const selector of ["section#projects", "section#certifications"]) {
     expect(await page.locator(selector).count(), `${selector} on /`).toBeGreaterThanOrEqual(1);
   }
 

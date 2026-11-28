@@ -564,3 +564,17 @@ test("E2E-15: the new files keep the server and browser boundaries", async () =>
     }
   }
 });
+
+test("E2E-13: the earlier checks follow the switch", async () => {
+  const retire = readText("e2e/retire-firebase.spec.ts");
+  const hosting = readText("e2e/hosting-and-backend-migration-acceptance.spec.ts");
+  const profileSpec = readText("e2e/owner-publishes-profile.spec.ts");
+  const experienceSpec = readText("e2e/owner-publishes-experience.spec.ts");
+  expect(retire).not.toContain("src/app/components/techstack.tsx");
+  expect(hosting).not.toContain("src/app/components/techstack.tsx");
+  expect(retire).not.toContain('"section#experience"');
+  expect(hosting).not.toContain('for (const id of ["experience"');
+  expect(profileSpec).not.toContain('for (const id of ["experience"');
+  expect(experienceSpec).not.toContain("must still list techstack.tsx");
+  expect(experienceSpec).not.toContain('toEqual(["Tech Stack"])');
+});

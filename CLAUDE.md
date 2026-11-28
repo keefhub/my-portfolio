@@ -47,7 +47,7 @@ Every public route is a static page kept by Vercel (the landing page reads the p
 
 | URL             | Source                                                       |
 | --------------- | ------------------------------------------------------------ |
-| `/`             | [src/app/page.tsx](src/app/page.tsx) — single-page scroll; a static page that reads the published profile through `src/lib/server/publicProfile.ts` and the published Experience entries through `src/lib/server/publicExperience.ts` (`revalidate = false`) |
+| `/`             | [src/app/page.tsx](src/app/page.tsx) — single-page scroll; a static page that reads the published profile through `src/lib/server/publicProfile.ts` and the published Experience entries through `src/lib/server/publicExperience.ts` and the published tech stack through `src/lib/server/publicTechStack.ts` (`revalidate = false`) |
 | `/blog/`        | [src/app/blog/page.tsx](src/app/blog/page.tsx)                |
 | `/blog/<slug>/` | [src/app/blog/[slug]/page.tsx](src/app/blog/[slug]/page.tsx)  |
 | `/rss.xml`      | [src/app/rss.xml/route.ts](src/app/rss.xml/route.ts)          |
@@ -75,7 +75,7 @@ are components on one page.
 ## Invariants — breaking these breaks the site
 
 **1. Public pages are static pages that keep the last good copy; only sign-in, the panel and Publish run on a server.**
-`next.config.ts` has no `output`. A public page reads Supabase on the server through `src/lib/server/publicProfile.ts` (the profile) and `src/lib/server/publicExperience.ts` (the Experience entries); each later slice adds its own read and declares `export const revalidate = false`, so Vercel keeps the last good copy and only the owner's Publish (`/api/admin/publish/`, which calls `revalidatePath`) or a code deploy renews it. There is no timer and no middleware. The panel page is dynamic, and the API routes are two families only: `/api/auth/*` and
+`next.config.ts` has no `output`. A public page reads Supabase on the server through `src/lib/server/publicProfile.ts` (the profile), `src/lib/server/publicExperience.ts` (the Experience entries) and `src/lib/server/publicTechStack.ts` (the tech stack); each later slice adds its own read and declares `export const revalidate = false`, so Vercel keeps the last good copy and only the owner's Publish (`/api/admin/publish/`, which calls `revalidatePath`) or a code deploy renews it. There is no timer and no middleware. The panel page is dynamic, and the API routes are two families only: `/api/auth/*` and
 `/api/admin/*`. A public page, layout or metadata route never calls `auth()`
 or reads cookies or headers (it would silently stop being a kept page). Only
 `src/app/bright-warm-greenhouse/**`, `src/app/api/auth/**` and `src/app/api/admin/**` import `@/lib/auth`. Blog pages stay build-time with `generateStaticParams` and `dynamicParams = false`, and are never passed to `revalidatePath` while that holds. Public route handlers stay
@@ -140,7 +140,7 @@ decided on the server by `src/lib/admin/access.ts` and `src/lib/auth.ts`; the pa
 depends on database rules.
 `src/lib/server/` holds the server-only modules (the SQL text, the database connection, the stand-in, the
 profile store, the storage module and the image store); `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are read
-in one file there (`src/lib/server/storage.ts`). It is imported by `src/app/api/admin/**` and, for `publicProfile.ts` and `publicExperience.ts` only, by `src/app/page.tsx`; never by a
+in one file there (`src/lib/server/storage.ts`). It is imported by `src/app/api/admin/**` and, for `publicProfile.ts`, `publicExperience.ts` and `publicTechStack.ts` only, by `src/app/page.tsx`; never by a
 client component, a layout or any other public file. The owner decision stays in `src/lib/admin/access.ts` and `src/lib/auth.ts`. The shared list pattern is `ListEditor.tsx` with the browser store `createHttpListStore` (`src/lib/admin/listClient.ts`), the server `createListService` (`src/lib/server/listStore.ts`) and the list SQL (`src/lib/server/listSql.ts`); each later list slice adds its table name, a route file and an editor.
 
 **Content storage.** The profile, the images, the experience entries and the projects are stored in Supabase. The certifications are stored in Supabase the same way. The tech stack is stored in Supabase the same way. The blog posts are stored in Supabase the same way; a post is keyed by its slug. The landing page shows the published profile. Nothing else holds the panel's content and no second backend exists.

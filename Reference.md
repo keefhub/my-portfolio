@@ -96,7 +96,7 @@ RootLayout
     ├── Skip-to-content link (<a href="#main-content">)
     ├── Header
     │   ├── Brand logo (🌿 thegoldenpothos)
-    │   ├── Desktop nav links [About, Experience, Projects, Certifications]
+    │   ├── Desktop nav links [About, Experience, Projects, Certifications] (About and Experience each shown only when it has published content)
     │   ├── Dark mode toggle button (Sun/Moon icon)
     │   └── Mobile hamburger → AnimatePresence drawer
     ├── Hero
@@ -112,7 +112,7 @@ RootLayout
     │   ├── Vertical gradient line (blue→rose→blue)
     │   └── Each card: front (summary) / back (details) via flip
     ├── TechStack
-    │   └── 4-column category grid: Frontend, Backend, Database, Languages
+    │   └── Category cards from the published tech stack (hidden when empty)
     ├── Projects
     │   └── 3-column flip-card grid (responsive: 1→2→3 cols)
     ├── Certifications
@@ -203,7 +203,7 @@ Portfolio data is embedded as TypeScript constants in each component file:
 
 - `projects[]` in `project.tsx`
 - the Experience entries come from the saved list (`publicExperience.ts`, read by `page.tsx`)
-- `techStack[]` in `techstack.tsx`
+- the tech stack comes from the saved list (`publicTechStack.ts`, read by `page.tsx`)
 - `certifications[]` in `certifications.tsx`
 - the social links in `hero.tsx` and `footer.tsx` come from the saved profile (`publicProfile.ts`)
 
@@ -432,16 +432,7 @@ Edit `certifications[]` in `src/app/components/certifications.tsx`:
 
 ### Adding a New Tech Stack Category
 
-Edit `techStack[]` in `src/app/components/techstack.tsx`:
-
-```typescript
-{
-  category: "DevOps",
-  tools: [
-    { name: "Docker", icon: "/icons/docker.png" },  // place PNG in public/icons/
-  ],
-}
-```
+Add the category in the admin panel's Tech stack section, then press Publish.
 
 ### Adding a New Experience Entry
 

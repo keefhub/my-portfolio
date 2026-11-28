@@ -578,3 +578,16 @@ test("E2E-13: the earlier checks follow the switch", async () => {
   expect(experienceSpec).not.toContain("must still list techstack.tsx");
   expect(experienceSpec).not.toContain('toEqual(["Tech Stack"])');
 });
+
+test("E2E-14: the standing documents describe the tech stack as read from the database", async () => {
+  const reference = readText("Reference.md");
+  expect(reference).toContain("publicTechStack");
+  expect(reference).not.toContain("techStack[]");
+  expect(reference).not.toContain("Edit `techStack[]`");
+  const claude = readText("CLAUDE.md");
+  expect(claude).toContain("src/lib/server/publicTechStack.ts");
+  expect(claude).toContain("publicTechStack.ts");
+  expect(claude).toContain("the experience entries and the projects");
+  expect(claude).toContain("last good copy");
+  expect(claude).toContain("revalidatePath");
+});

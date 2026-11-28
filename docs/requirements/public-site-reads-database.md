@@ -91,15 +91,15 @@ earliest first.
 
 | # | Slug | Why here | Status |
 | --- | --- | --- | --- |
-| 21 | `owner-publishes-profile` | First, because it carries what every later slice reuses: the Publish button and its owner-only endpoint, the public read with its kept copy, the hidden-when-empty rule with the menu link, and the amendment of the rules the switch makes false | pending |
-| 22 | `owner-publishes-experience` | First list section; reuses Publish and the kept copy, settles how an ordered list reaches a public component | pending |
-| 23 | `owner-publishes-tech-stack` | Shares the Experience section's page block (Decision 5); nested items and icons from the image library | pending |
-| 24 | `owner-publishes-projects` | Reuses the list pattern; no menu rule of its own beyond the shared one | pending |
-| 25 | `owner-publishes-certifications` | Reuses the list pattern; proves the whole section and its menu link disappear (§6 line 5) | pending |
-| 26 | `owner-publishes-blog-posts` | Most rules (draft, unknown address, new addresses without a build); the rendered body comes from the database | pending |
-| 27 | `owner-publishes-posts-to-feeds` | Needs published posts to read; small and separately demonstrable | pending |
-| 28 | `site-survives-database-outage` | Needs every public page to read the database first; hardens and proves the kept copy across all of them | pending |
-| 29 | `retire-repo-content` | Last, because every other slice removes only what it replaces; this one checks that nothing is left and amends the remaining docs | pending |
+| 21 | `owner-publishes-profile` | First, because it carries what every later slice reuses: the Publish button and its owner-only endpoint, the public read with its kept copy, the hidden-when-empty rule with the menu link, and the amendment of the rules the switch makes false | written |
+| 22 | `owner-publishes-experience` | First list section; reuses Publish and the kept copy, settles how an ordered list reaches a public component | written |
+| 23 | `owner-publishes-tech-stack` | Shares the Experience section's page block (Decision 5); nested items and icons from the image library | written |
+| 24 | `owner-publishes-projects` | Reuses the list pattern; no menu rule of its own beyond the shared one | written |
+| 25 | `owner-publishes-certifications` | Reuses the list pattern; proves the whole section and its menu link disappear (§6 line 5) | written |
+| 26 | `owner-publishes-blog-posts` | Most rules (draft, unknown address, new addresses without a build); the rendered body comes from the database | written |
+| 27 | `owner-publishes-posts-to-feeds` | Needs published posts to read; small and separately demonstrable | written |
+| 28 | `site-survives-database-outage` | Needs every public page to read the database first; hardens and proves the kept copy across all of them | written |
+| 29 | `retire-repo-content` | Last, because every other slice removes only what it replaces; this one checks that nothing is left and amends the remaining docs | written |
 
 ## Coverage of the intent
 

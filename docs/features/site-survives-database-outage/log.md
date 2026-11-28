@@ -69,3 +69,12 @@ excludes the framework-set NEXT_PHASE from owner settings).
 Result: fresh build, then each of the 11 specs alone: all pass; owner-google-sign-in E2E-09 is intermittently flaky
 (stand-in call count lags the second click), unrelated to these files, recorded as known flake.
 Findings file: .run-logs/site-survives-database-outage/regress-findings.md (F1–F5)
+=====================================================================
+Completion
+Completed: 2026-11-28
+Completion run: build ok; e2e/site-survives-database-outage.spec.ts 11 passed, 0 failed (.run-logs/site-survives-database-outage/completion.txt)
+Feature review: PASS. Notes: (1) keptRead also tags the shared `site` tag beyond D-03's "site-" + key (regression fix, harmless widening);
+(2) the test-only blank() renews /rss.xml and /sitemap.xml beyond the spec's BLANK definition (test-run artefact).
+Manual checks pending: E2E-12 (a real paused SIT project), E2E-13 (Vercel's own keeping; a never-opened post address during an outage)
+Known flake: owner-google-sign-in E2E-09 (intermittent, unrelated to this slice)
+=====================================================================

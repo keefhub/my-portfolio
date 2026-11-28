@@ -71,3 +71,21 @@ Review: risk reviewer PASS (review 1)
 Findings: edge-case | note | logged | hosting E2E-ACC-16-area link list and retire E2E-44 hrefs assume no published post in the shared stand-in; can flake if a parallel spec publishes; filter to the expected set if it does
 Findings: nit | note | logged | blankPublished is skipped when a preview test fails midway; try/finally would be sturdier
 =====================================================================
+=====================================================================
+Task 5 — The standing documents describe the published blog posts
+Completed: 2026-11-28      Commit: d5b05ec
+
+Summary: CLAUDE.md (summary, routes, invariants, blog authoring), Reference.md (list vs detail, modules table, pipeline) and OVERVIEW §1 describe blog posts read from the database and renewed by Publish.
+Decisions: Reference.md "Build-time content pipeline" renamed "Published-posts pipeline"; modules table lists both publicPosts modules.
+Deviations: None.
+Files changed: CLAUDE.md, Reference.md, docs/features/OVERVIEW.md (modified); e2e/owner-publishes-blog-posts.spec.ts (modified)
+E2E tests written: E2E-23      Passed before the change: None.
+Manual checks pending: E2E-24 (a real publish on SIT)
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

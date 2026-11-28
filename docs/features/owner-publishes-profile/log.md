@@ -72,3 +72,18 @@ Tier: high (implementer-deviation)
 Review: risk reviewer PASS (review 1)
 Findings: nit | note | fixed | CLAUDE.md listed /api/admin/publish/ twice; folded into one row
 =====================================================================
+=====================================================================
+Completion
+Completed: 2026-11-28
+
+Built: the owner-only Publish route (/api/admin/publish/), the server-only public profile read, the client-safe view rules, the landing page reading the published profile with a kept copy (revalidate = false), the panel's Publish button, and the earlier specs and standing documents brought in line with the kept-copy rule.
+Deviations from the spec: About text entry animation x -> y; overflow-x-clip on <main> (Experience cards overflow at 375px); footer brand wrapping; four locked-test defects fixed by fresh test-author dispatches with assertions kept (E2E-05 disposed response, E2E-01/06/15 route-announcer alert, E2E-19 metadata name); clone unshallowed for the baseline commit. Correction to the Task 4 entry: CLAUDE.md already held exactly one /api/admin/publish/ row at commit time; no duplicate was removed.
+[auto] decisions in the spec: 21 lines (D-05..D-25; D-24 and D-25 added during the build: E2E-03 moved to Step 3; build-only/manual rows not named in a spec-file bullet and Verify commands literal).
+Feature review: PASS
+Findings: edge-case | note | logged | a mailto social link with an empty label gets an empty accessible name (hostname "" is not nullish); use || link.url
+Findings: edge-case | note | logged | a photo starting with // passes the leading-slash rule; next/image may throw on it
+Findings: nit | note | logged | footer.tsx ICONS const sits between imports
+Final verification: npm run build ok; e2e/owner-publishes-profile.spec.ts 22 passed, 0 failed.
+Manual checks pending: E2E-08 (publishing on one deployment leaves the other unchanged; needs two databases).
+Follow-ups: the two edge-case notes above; blog pages show no profile until the blog slice (D-08).
+=====================================================================

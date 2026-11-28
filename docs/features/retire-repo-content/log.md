@@ -54,3 +54,11 @@ Tier: high (test-passed-before-change)
 Review: risk reviewer PASS (review 1)
 Findings: None.
 =====================================================================
+=====================================================================
+Completion
+Completed: 2026-11-28
+Completion run: build ok; e2e/retire-repo-content.spec.ts 18 passed, 0 failed (.run-logs/retire-repo-content/completion.txt)
+Regression of earlier doc-scanning specs: retire-firebase 27/27, hosting-and-backend-migration-acceptance 37/37, owner-publishes-blog-posts 22/22, site-survives-database-outage 11/11, owner-google-sign-in 32/33 (E2E-09, the known intermittent flake)
+Feature review: PASS. Notes: E2E-10's email filter and E2E-06's front-matter sub-check lack their own planted controls; Task 1's test file landed in the spec revision commit.
+Manual checks pending: E2E-19 (the real pull request description), E2E-20 (the build log prints no setting value)
+=====================================================================

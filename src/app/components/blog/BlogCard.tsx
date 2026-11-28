@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { BlogPostLite } from "@/lib/blog/types";
 import { formatDate } from "@/lib/blog/types";
@@ -10,22 +11,31 @@ interface BlogCardProps {
 export default function BlogCard({ post, featured }: BlogCardProps) {
   return (
     <article
-      className={`group relative rounded-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] transition-all duration-300 hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5 ${
+      className={`group relative min-w-0 [overflow-wrap:anywhere] rounded-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] transition-all duration-300 hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5 ${
         featured ? "ring-2 ring-[var(--accent-blue)]/30" : ""
       }`}
     >
       <Link
         href={`/blog/${post.slug}`}
-        className="block p-6 sm:p-8"
+        className="block min-w-0 p-6 sm:p-8"
         aria-label={`Read "${post.title}"`}
       >
+        {post.coverImage ? (
+          <Image
+            src={post.coverImage}
+            alt={post.coverAlt ?? ""}
+            width={640}
+            height={336}
+            className="mb-4 h-auto w-full rounded-[var(--radius-lg)]"
+          />
+        ) : null}
         {/* Tags */}
         {post.tags && post.tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-3">
             {post.tags.map((tag) => (
               <span
                 key={tag}
-                className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]"
+                className="min-w-0 [overflow-wrap:anywhere] text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]"
               >
                 {tag}
               </span>
@@ -39,12 +49,12 @@ export default function BlogCard({ post, featured }: BlogCardProps) {
         )}
 
         {/* Title */}
-        <h2 className="text-xl sm:text-2xl font-bold text-[var(--foreground)] mb-2 group-hover:text-[var(--accent-blue)] transition-colors duration-300">
+        <h2 className="min-w-0 [overflow-wrap:anywhere] text-xl sm:text-2xl font-bold text-[var(--foreground)] mb-2 group-hover:text-[var(--accent-blue)] transition-colors duration-300">
           {post.title}
         </h2>
 
         {/* Excerpt */}
-        <p className="text-[var(--muted)] text-sm sm:text-base leading-relaxed mb-4 line-clamp-3">
+        <p className="min-w-0 [overflow-wrap:anywhere] text-[var(--muted)] text-sm sm:text-base leading-relaxed mb-4 line-clamp-3">
           {post.excerpt}
         </p>
 

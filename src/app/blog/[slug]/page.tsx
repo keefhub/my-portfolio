@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getPublishedPosts, getPostBySlug, markdownToHtml } from "@/lib/blog";
+import { markdownToHtml } from "@/lib/markdown";
+import { loadPublishedPosts } from "@/lib/server/publicPosts";
 import { absoluteUrl, SITE_NAME } from "@/lib/site";
 import BlogArticle from "../../components/blog/BlogArticle";
 import { notFound } from "next/navigation";
@@ -8,14 +9,10 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-/* ------------------------------------------------------------------ */
-/*  Static paths; unknown slugs answer the 404 page without running   */
-/*  this page (dynamicParams = false)                                  */
-/* ------------------------------------------------------------------ */
-export const dynamicParams = false;
+export const revalidate = false;
 
-export async function generateStaticParams() {
-  return getPublishedPosts().map((p) => ({ slug: p.slug }));
+export async function generateStaticParams(): Promise<{ slug: string }[]> {
+  return [];
 }
 
 /* ------------------------------------------------------------------ */
@@ -25,7 +22,7 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const post = getPostBySlug(slug);
+  const post = (await loadPublishedPosts()).find((p) => p.slug === slug);
   if (!post) return { title: "Post Not Found" };
 
   return {
@@ -38,7 +35,6 @@ export async function generateMetadata({
       url: absoluteUrl(`/blog/${slug}`),
       type: "article",
       publishedTime: post.date,
-      modifiedTime: post.updated,
       tags: post.tags,
     },
     twitter: {
@@ -58,7 +54,7 @@ export async function generateMetadata({
 /* ------------------------------------------------------------------ */
 export default async function BlogArticlePage({ params }: PageProps) {
   const { slug } = await params;
-  const post = getPostBySlug(slug);
+  const post = (await loadPublishedPosts()).find((p) => p.slug === slug);
   if (!post) notFound();
 
   const htmlContent = await markdownToHtml(post.content);

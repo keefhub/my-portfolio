@@ -6,8 +6,22 @@ import TechStack from "./components/techstack";
 import Certifications from "./components/certifications";
 import Projects from "./components/project";
 import AboutMe from "./components/aboutme";
+import { loadPublishedProfile } from "@/lib/server/publicProfile";
+import { loadPublishedExperience } from "@/lib/server/publicExperience";
+import { loadPublishedTechStack } from "@/lib/server/publicTechStack";
+import { loadPublishedProjects } from "@/lib/server/publicProjects";
+import { loadPublishedCertifications } from "@/lib/server/publicCertifications";
+import { contactLinks, showsAbout } from "@/lib/publicProfile";
 
-export default function Home() {
+export const revalidate = false;
+
+export default async function Home() {
+  const profile = await loadPublishedProfile();
+  const entries = await loadPublishedExperience();
+  const categories = await loadPublishedTechStack();
+  const projects = await loadPublishedProjects();
+  const certifications = await loadPublishedCertifications();
+  const about = profile !== null && showsAbout(profile);
   return (
     <>
       {/* Skip-to-content for keyboard users */}
@@ -15,29 +29,45 @@ export default function Home() {
         Skip to content
       </a>
 
-      <Header />
-      <Hero />
+      <Header
+        showAbout={about}
+        showExperience={entries.length > 0 || categories.length > 0}
+        showProjects={projects.length > 0}
+        showCertifications={certifications.length > 0}
+      />
+      {profile && <Hero profile={profile} hasAbout={about} />}
 
-      <main id="main-content" className="bg-[var(--background)]">
-        <section id="about" className="py-24 md:py-32 section-divider">
-          <AboutMe />
-        </section>
+      <main id="main-content" className="bg-[var(--background)] overflow-x-clip">
+        {about && profile && (
+          <section id="about" className="py-24 md:py-32 section-divider">
+            <AboutMe profile={profile} />
+          </section>
+        )}
 
-        <section id="experience" className="py-24 md:py-32 section-divider">
-          <ExperienceTimeline />
-          <TechStack />
-        </section>
+        {(entries.length > 0 || categories.length > 0) && (
+          <section id="experience" className="py-24 md:py-32 section-divider">
+            {entries.length > 0 && <ExperienceTimeline entries={entries} />}
+            {categories.length > 0 && <TechStack categories={categories} />}
+          </section>
+        )}
 
-        <section id="projects" className="py-24 md:py-32 section-divider">
-          <Projects />
-        </section>
+        {projects.length > 0 && (
+          <section id="projects" className="py-24 md:py-32 section-divider">
+            <Projects projects={projects} />
+          </section>
+        )}
 
-        <section id="certifications" className="py-24 md:py-32">
-          <Certifications />
-        </section>
+        {certifications.length > 0 && (
+          <section id="certifications" className="py-24 md:py-32">
+            <Certifications entries={certifications} />
+          </section>
+        )}
       </main>
 
-      <Footer />
+      <Footer
+        name={profile?.name}
+        links={profile ? contactLinks(profile, false) : []}
+      />
     </>
   );
 }

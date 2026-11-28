@@ -1,5 +1,9 @@
 import { absoluteUrl } from "../site";
 
+function cdata(text: string): string {
+  return text.split("]]>").join("]]]]><![CDATA[>");
+}
+
 /**
  * Generate an RSS 2.0 XML string for published blog posts.
  * Rendered by the static /rss.xml route handler at build time.
@@ -20,8 +24,8 @@ export function generateRssFeed(
     .map((p) => {
       const url = absoluteUrl(`/blog/${p.slug}`);
       return `    <item>
-      <title><![CDATA[${p.title}]]></title>
-      <description><![CDATA[${p.excerpt}]]></description>
+      <title><![CDATA[${cdata(p.title)}]]></title>
+      <description><![CDATA[${cdata(p.excerpt)}]]></description>
       <link>${url}</link>
       <guid isPermaLink="true">${url}</guid>
       <pubDate>${new Date(p.date).toUTCString()}</pubDate>

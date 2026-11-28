@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getPublishedPosts, getFeaturedPosts } from "@/lib/blog";
+import { loadPublishedPosts } from "@/lib/server/publicPosts";
 import { absoluteUrl, SITE_NAME } from "@/lib/site";
 import BlogIndex from "../components/blog/BlogIndex";
 
@@ -21,9 +21,10 @@ export const metadata: Metadata = {
   },
 };
 
-export default function BlogPage() {
-  const allPosts = getPublishedPosts();
-  const featuredPosts = getFeaturedPosts();
+export const revalidate = false;
 
-  return <BlogIndex posts={allPosts} featuredPosts={featuredPosts} />;
+export default async function BlogPage() {
+  const posts = await loadPublishedPosts();
+
+  return <BlogIndex posts={posts} featuredPosts={posts.filter((p) => p.featured)} />;
 }

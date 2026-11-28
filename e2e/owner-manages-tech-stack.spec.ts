@@ -632,7 +632,7 @@ test("E2E-03: the list SQL is exactly the proven text for the four tables, the s
   const mentioning = mentions.stdout.split("\n").filter(Boolean);
   expect(mentioning.length).toBeGreaterThan(0);
   for (const file of mentioning) {
-    expect(file.startsWith("src/app/api/admin/") || file.startsWith(SERVER_PATH + "/"), file).toBe(true);
+    expect(file.startsWith("src/app/api/admin/") || file.startsWith(SERVER_PATH + "/") || file === "src/app/page.tsx" || file === "src/app/blog/page.tsx" || file === "src/app/blog/[slug]/page.tsx" || file === "src/app/rss.xml/route.ts" || file === "src/app/sitemap.ts", file).toBe(true);
   }
 
   const importers = gitGrep(["-l", "-E", "[\"']" + PG + "[\"']", "--", "src"]);
@@ -1197,7 +1197,7 @@ test("E2E-12: no public page or script carries the route or the database, and th
   };
   const keys = Object.keys(manifest.routes);
   expect(keys.filter((k) => k.startsWith("/api/admin"))).toEqual([]);
-  for (const key of ["/", "/blog", "/blog/hello-world", "/blog/building-portfolio-nextjs", "/robots.txt", "/rss.xml", "/sitemap.xml"]) {
+  for (const key of ["/", "/blog", "/robots.txt", "/rss.xml", "/sitemap.xml"]) {
     expect(keys, key).toContain(key);
   }
 
@@ -1211,7 +1211,7 @@ test("E2E-12: no public page or script carries the route or the database, and th
     "DatabaseUnavailable",
   ];
   let fetched = 0;
-  for (const path of ["/", "/blog/", "/blog/hello-world/", "/blog/building-portfolio-nextjs/"]) {
+  for (const path of ["/", "/blog/"]) {
     const page = await request.get(path);
     expect(page.status(), path).toBe(200);
     const html = await page.text();
@@ -1240,7 +1240,7 @@ test("E2E-12: no public page or script carries the route or the database, and th
     ).toBe(true);
   }
 
-  const serverMentions = gitGrep(["-l", "-E", SERVER_DIR, "--", "src", ":(exclude)" + SERVER_PATH, ":(exclude)src/app/api/admin"]);
+  const serverMentions = gitGrep(["-l", "-E", SERVER_DIR, "--", "src", ":(exclude)" + SERVER_PATH, ":(exclude)src/app/api/admin", ":(exclude)src/app/page.tsx", ":(exclude,literal)src/app/blog/page.tsx", ":(exclude,literal)src/app/blog/[slug]/page.tsx", ":(exclude,literal)src/app/rss.xml/route.ts", ":(exclude,literal)src/app/sitemap.ts"]);
   expect(serverMentions.stdout).toBe("");
   expect(serverMentions.status).toBe(1);
 });

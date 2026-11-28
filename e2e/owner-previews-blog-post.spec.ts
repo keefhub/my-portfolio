@@ -152,6 +152,50 @@ function gitGrep(args: string[]): { stdout: string; status: number | null } {
 
 const readRepo = (path: string): string => fs.readFileSync(path, "utf8");
 
+function publishedPost(slug: string, title: string, body: string): StoredPost {
+  return {
+    slug,
+    status: "published",
+    data: { title, excerpt: "probe", date: "2026-05-15", tags: [], featured: false, coverImage: "", coverAlt: "", body },
+  };
+}
+
+// The owner's Publish through the context's own request; the public blog pages show the post only after it.
+async function publishAs(context: BrowserContext): Promise<void> {
+  const response = await context.request.post("/api/admin/publish/");
+  expect(response.status(), "publish status").toBe(200);
+}
+
+// Leaves no published post behind: the kept blog pages are renewed from an empty database, so later checks see none.
+async function blankPublished(context: BrowserContext): Promise<void> {
+  dbReset();
+  await publishAs(context);
+  const probe = await context.newPage();
+  await expect
+    .poll(
+      async () => {
+        await probe.goto("/blog/");
+        return await probe.locator("main#main-content").innerText();
+      },
+      { timeout: 60000, message: "the blog list is blank again" },
+    )
+    .toContain("No posts yet");
+  await probe.close();
+}
+
+async function openPublished(context: BrowserContext, address: string): Promise<Page> {
+  const blog = await context.newPage();
+  await expect
+    .poll(async () => (await blog.goto(address))?.status(), { timeout: 60000, message: address + " status" })
+    .toBe(200);
+  return blog;
+}
+
+const MARKUP_ONE =
+  "# Markup one\n\nA paragraph with **bold**, *italic*, a [link](https://example.com) and ~~old~~ text.\n\n## Second heading\n\n- first item\n- second item\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n> A quoted line.\n\n```javascript\nconst answer = 42;\nfunction add(a, b) {\n  return a + b;\n}\n```\n\n<mark>raw html line</mark>\n\nMore words to make the markup long enough for the length check.\n";
+const MARKUP_TWO =
+  "## Markup two\n\nAnother paragraph with `inline code`, a second [link](https://example.org) and **strong** words.\n\n1. one\n2. two\n3. three\n\n```javascript\nconst list = [1, 2, 3].map((n) => n * 2);\nconsole.log(list);\n```\n\n### Third heading\n\nClosing paragraph with some extra text so that the markup is comfortably longer than the five hundred characters the test requires of both sides, repeated: closing paragraph with some extra text so that the markup is comfortably longer than the five hundred characters.\n";
+
 test("E2E-01: the preview shows the body as the blog would, and nothing else", async ({ browser, baseURL }) => {
   test.setTimeout(90000);
   dbReset();
@@ -209,10 +253,11 @@ test("E2E-01: the preview shows the body as the blog would, and nothing else", a
 });
 
 test("E2E-02: the preview has the blog's markup details and its code colours", async ({ browser, baseURL }) => {
-  test.setTimeout(90000);
+  test.setTimeout(120000);
   dbReset();
-  dbSeedWith([], []);
+  dbSeedWith([], [publishedPost("colour-probe", "Colour probe", "```javascript\nconst answer = 42;\n```\n")]);
   const { context, page } = await ownerPage(browser, baseURL as string);
+  await publishAs(context);
   await openBlog(page);
   await button(page, "Add post").click();
   const body = [
@@ -248,8 +293,7 @@ test("E2E-02: the preview has the blog's markup details and its code colours", a
   const previewNumber = await colorOf(code.locator("span.hljs-number").first());
   const previewParagraph = await colorOf(preview.locator("p").first());
 
-  const blog = await context.newPage();
-  await blog.goto("/blog/building-portfolio-nextjs/");
+  const blog = await openPublished(context, "/blog/colour-probe/");
   const blogKeyword = blog.locator("pre code span.hljs-keyword").first();
   await expect(blogKeyword).toBeVisible();
   const blogColor = await colorOf(blogKeyword);
@@ -257,6 +301,7 @@ test("E2E-02: the preview has the blog's markup details and its code colours", a
   expect(previewKeyword).toBe(blogColor);
   expect(previewKeyword).not.toBe(previewNumber);
   expect(previewKeyword).not.toBe(previewParagraph);
+  await blankPublished(context);
   await context.close();
 });
 
@@ -264,12 +309,17 @@ test("E2E-03: the preview's markup equals the public article's for both reposito
   browser,
   baseURL,
 }) => {
-  test.setTimeout(90000);
+  test.setTimeout(120000);
   dbReset();
-  dbSeedWith([], []);
+  const bodies: Record<string, string> = { "markup-one": MARKUP_ONE, "markup-two": MARKUP_TWO };
+  dbSeedWith([], [
+    publishedPost("markup-one", "Markup one", MARKUP_ONE),
+    publishedPost("markup-two", "Markup two", MARKUP_TWO),
+  ]);
   const { context, page } = await ownerPage(browser, baseURL as string);
-  for (const slug of ["building-portfolio-nextjs", "hello-world"]) {
-    const text = readRepo("content/blog/" + slug + ".md").replace(/^---\n[\s\S]*?\n---\n/, "");
+  await publishAs(context);
+  for (const slug of ["markup-one", "markup-two"]) {
+    const text = bodies[slug];
     await openBlog(page);
     await button(page, "Add post").click();
     await field(page, "Body").fill(text);
@@ -281,8 +331,7 @@ test("E2E-03: the preview's markup equals the public article's for both reposito
     const previewHtml = await prose.innerHTML();
     const previewClass = await prose.getAttribute("class");
 
-    const blog = await context.newPage();
-    await blog.goto("/blog/" + slug + "/");
+    const blog = await openPublished(context, "/blog/" + slug + "/");
     const article = blog.locator("article > div.prose").first();
     await expect(article).toBeVisible();
     const articleHtml = await article.innerHTML();
@@ -295,6 +344,7 @@ test("E2E-03: the preview's markup equals the public article's for both reposito
     expect(previewClass, slug + " preview class").toBe(PROSE_CLASS);
     expect(articleClass, slug + " article class").toBe(PROSE_CLASS);
   }
+  await blankPublished(context);
   await context.close();
 });
 
@@ -798,7 +848,7 @@ test("E2E-15: the preview's code is in the panel's scripts and in no public page
     return { scripts: bodies.length, joined: bodies.join("\n") + "\n" + html };
   };
 
-  for (const address of ["/", "/blog/", "/blog/hello-world/", "/blog/building-portfolio-nextjs/"]) {
+  for (const address of ["/", "/blog/"]) {
     const found = await collect(address);
     expect(found.scripts, address + " scripts").toBeGreaterThan(0);
     expect(found.joined.includes(NOTHING), address + " has the notice text").toBe(false);

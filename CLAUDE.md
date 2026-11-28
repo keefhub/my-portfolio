@@ -3,7 +3,7 @@
 Personal portfolio + blog for Keith Lim — `https://thegoldenpothos.xyz`.
 
 Next.js 16.2.6 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS v4 ·
-Framer Motion · public site prerendered; only sign-in (Auth.js, `next-auth` v5) and the admin panel run on the server · served by Vercel · the panel's content lives in Supabase PostgreSQL, reached with `postgres` · uploaded images live in Supabase Storage, reached with `fetch`.
+Framer Motion · public pages are static pages that read Supabase on the server and keep the last good copy until the owner publishes; only sign-in (Auth.js, `next-auth` v5) and the admin panel run on the server · served by Vercel · the panel's content lives in Supabase PostgreSQL, reached with `postgres` · uploaded images live in Supabase Storage, reached with `fetch`.
 
 Import alias: `@/*` → `./src/*`.
 
@@ -18,7 +18,7 @@ summary; that one is the on-demand detail.
 | Command             | Purpose                                              |
 | ------------------- | ---------------------------------------------------- |
 | `npm run dev`       | Dev server (Turbopack)                               |
-| `npm run build`     | Production build; public pages prerendered, the panel and sign-in routes dynamic |
+| `npm run build`     | Production build; public pages static (kept copy), the panel and sign-in routes dynamic |
 | `npm run typecheck` | `tsc --noEmit`                                       |
 | `npm run lint`      | `eslint .`                                           |
 | `npm run lint:new`  | ESLint minus the known `ThemeProvider.tsx:25` error; the pipeline's lint gate |
@@ -43,15 +43,15 @@ passing does not mean the site builds.
 
 ## Routes
 
-Every public route is prerendered at build time. Only the admin panel, `/api/auth/*` and `/api/admin/*` run on the server.
+Every public route is a static page kept by Vercel (the landing page reads the published profile; the blog list and each post read the published posts). Only the admin panel, `/api/auth/*` and `/api/admin/*` run on the server.
 
 | URL             | Source                                                       |
 | --------------- | ------------------------------------------------------------ |
-| `/`             | [src/app/page.tsx](src/app/page.tsx) — single-page scroll     |
-| `/blog/`        | [src/app/blog/page.tsx](src/app/blog/page.tsx)                |
-| `/blog/<slug>/` | [src/app/blog/[slug]/page.tsx](src/app/blog/[slug]/page.tsx)  |
-| `/rss.xml`      | [src/app/rss.xml/route.ts](src/app/rss.xml/route.ts)          |
-| `/sitemap.xml`  | [src/app/sitemap.ts](src/app/sitemap.ts)                      |
+| `/`             | [src/app/page.tsx](src/app/page.tsx) — single-page scroll; a static page that reads the published profile through `src/lib/server/publicProfile.ts` and the published Experience entries through `src/lib/server/publicExperience.ts` and the published tech stack through `src/lib/server/publicTechStack.ts` and the published projects through `src/lib/server/publicProjects.ts` and the published certifications through `src/lib/server/publicCertifications.ts` (`revalidate = false`) |
+| `/blog/`        | [src/app/blog/page.tsx](src/app/blog/page.tsx) — a static page that reads the published posts through `src/lib/server/publicPosts.ts` (`revalidate = false`) |
+| `/blog/<slug>/` | [src/app/blog/[slug]/page.tsx](src/app/blog/[slug]/page.tsx) — a static page that reads the published posts through `src/lib/server/publicPosts.ts` (`revalidate = false`); a post address is rendered on its first visit and kept, so a new slug needs no build |
+| `/rss.xml`      | [src/app/rss.xml/route.ts](src/app/rss.xml/route.ts) — a static page that reads the published posts through `src/lib/server/publicPosts.ts` (renewed by Publish, `force-static`, drafts never listed) |
+| `/sitemap.xml`  | [src/app/sitemap.ts](src/app/sitemap.ts) — a static page that reads the published posts through `src/lib/server/publicPosts.ts` (renewed by Publish, `force-static`, drafts never listed) |
 | `/robots.txt`   | [src/app/robots.ts](src/app/robots.ts)                        |
 | `/bright-warm-greenhouse/` | [src/app/bright-warm-greenhouse/page.tsx](src/app/bright-warm-greenhouse/page.tsx) — owner-only admin panel (`AdminPanel`, client component), dynamic; `noindex`, not in the sitemap or `robots.txt` |
 | `/api/auth/*` | [src/app/api/auth/[...nextauth]/route.ts](src/app/api/auth/[...nextauth]/route.ts) — the Auth.js handlers, including the Google return address `/api/auth/callback/google`, registered without a trailing slash; dynamic, with `/api/admin/*` and the admin panel the only other server routes |
@@ -64,6 +64,7 @@ Every public route is prerendered at build time. Only the admin panel, `/api/aut
 | `/api/admin/tech-stack/` | [src/app/api/admin/tech-stack/route.ts](src/app/api/admin/tech-stack/route.ts) — the owner-only tech stack list (GET, POST, PUT?id=, PATCH, DELETE?id=); each category is one record that holds its items, the owner check and the entry-id pattern run before any database call, and the list logic is the generic service in `src/lib/server/listStore.ts` |
 | `/api/admin/blog-posts/` | [src/app/api/admin/blog-posts/route.ts](src/app/api/admin/blog-posts/route.ts) — the owner-only blog posts store (GET, GET?slug=, POST, PUT?id=, DELETE?id=); a post is keyed by its unique slug, drafts are returned only here, the owner check runs before any body or database call, and the logic is the post service in `src/lib/server/postStore.ts` |
 | `/api/admin/blog-posts/published/` | [src/app/api/admin/blog-posts/published/route.ts](src/app/api/admin/blog-posts/published/route.ts) — the one public read (GET, GET?slug=): published posts only, no sign-in, no cookie read, dynamic; no public page calls it yet; it sits under `src/app/api/admin/` because the mechanical gate allows no other new route path |
+| `/api/admin/publish/` | [src/app/api/admin/publish/route.ts](src/app/api/admin/publish/route.ts) — the owner-only Publish (POST, no body); the owner check runs first, then one profile read, then every kept read is marked stale with `revalidateTag` (stale-while-revalidate, `src/lib/server/keptRead.ts`); a failed read replies 503 and refreshes nothing; dynamic |
 
 The landing page (`/`) is a multi-section scroll with anchor nav — Hero, About,
 Experience, TechStack, Projects, Certifications. It is not routed; the sections
@@ -73,12 +74,11 @@ are components on one page.
 
 ## Invariants — breaking these breaks the site
 
-**1. Public pages are prerendered; only sign-in and the panel run on a server.**
-`next.config.ts` has no `output`. The panel page is dynamic, and the API routes are two families only: `/api/auth/*` and
-`/api/admin/*`. No middleware, no ISR. A public page, layout or metadata route never calls `auth()`
-or reads cookies or headers (it would silently stop being static). Only
-`src/app/bright-warm-greenhouse/**`, `src/app/api/auth/**` and `src/app/api/admin/**` import `@/lib/auth`. Every dynamic
-public route keeps `generateStaticParams` and `dynamicParams = false`. Public route handlers stay
+**1. Public pages are static pages that keep the last good copy; only sign-in, the panel and Publish run on a server.**
+`next.config.ts` has no `output`. A public page reads Supabase on the server through `src/lib/server/publicProfile.ts` (the profile), `src/lib/server/publicExperience.ts` (the Experience entries), `src/lib/server/publicTechStack.ts` (the tech stack), `src/lib/server/publicProjects.ts` (the Projects) and `src/lib/server/publicCertifications.ts` (the certifications); each later slice adds its own read and declares `export const revalidate = false`, so Vercel keeps the last good copy and only the owner's Publish (`/api/admin/publish/`, which marks the kept reads stale) or a code deploy renews it. Every public read goes through `src/lib/server/keptRead.ts`: Publish, after the owner check and one profile read, marks it stale with `revalidateTag(tag, "max")` (stale-while-revalidate), so a page whose renewal cannot read the database keeps serving the previous copy and the last good copy is never lost; Publish never uses `revalidatePath`, which would expire a page at once. There is no timer and no middleware. The panel page is dynamic, and the API routes are two families only: `/api/auth/*` and
+`/api/admin/*`. A public page, layout or metadata route never calls `auth()`
+or reads cookies or headers (it would silently stop being a kept page). Only
+`src/app/bright-warm-greenhouse/**`, `src/app/api/auth/**` and `src/app/api/admin/**` import `@/lib/auth`. The blog pages read the published posts through `src/lib/server/publicPosts.ts` (read through `src/lib/server/keptRead.ts` and marked stale by Publish with `revalidateTag`); `generateStaticParams` returns none and `dynamicParams` is left at its default, and the Publish route renews them. `/rss.xml` and `/sitemap.xml` read the same kept read, and Publish marks them stale the same way. Public route handlers stay
 `export const dynamic = "force-static"`; the Auth.js handler at `/api/auth/[...nextauth]` and the
 `/api/admin/*` entry points are the dynamic handlers. `/api/admin/*` is called at its slashed address.
 
@@ -92,20 +92,16 @@ redirect to its slashed form and Auth.js accepts it. Do not change it in one fil
 catch-all rewrite, so an unknown URL reaches the framework's 404 page.
 
 **3. Never import the blog barrel from a client component.**
-[src/lib/blog/posts.ts](src/lib/blog/posts.ts) is `import "server-only"` and
-reads the filesystem. The barrel [src/lib/blog/index.ts](src/lib/blog/index.ts)
-re-exports it.
+Blog data is read only on the server, through `src/lib/server/publicPosts.ts`; `src/lib/blog/posts.ts` no longer exists,
+and the barrel [src/lib/blog/index.ts](src/lib/blog/index.ts) no longer touches the filesystem.
 
-- Client components import types from `@/lib/blog/types` — **that path only**.
+- Client components import types from `@/lib/blog/types` — **that path only** (the gate's barrel check stays).
 - Server components may use `@/lib/blog`.
-
-Importing `@/lib/blog` from a `"use client"` file pulls `fs` into the browser
-bundle and fails the build.
 
 **4. Format dates with `timeZone: "UTC"`.**
 Use `formatDate()` from [src/lib/blog/types.ts](src/lib/blog/types.ts). `"2026-05-15"`
 parses as UTC midnight, so formatting in a local zone renders a different day on
-either side of UTC — the HTML baked at build time then disagrees with the client
+either side of UTC — the kept page's HTML then disagrees with the client
 re-render and React reports a hydration mismatch.
 
 **5. The origin lives in one constant.**
@@ -140,10 +136,10 @@ decided on the server by `src/lib/admin/access.ts` and `src/lib/auth.ts`; the pa
 depends on database rules.
 `src/lib/server/` holds the server-only modules (the SQL text, the database connection, the stand-in, the
 profile store, the storage module and the image store); `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are read
-in one file there (`src/lib/server/storage.ts`). It is imported only by `src/app/api/admin/**`, never by a
-client component, a public page or a layout. The owner decision stays in `src/lib/admin/access.ts` and `src/lib/auth.ts`. The shared list pattern is `ListEditor.tsx` with the browser store `createHttpListStore` (`src/lib/admin/listClient.ts`), the server `createListService` (`src/lib/server/listStore.ts`) and the list SQL (`src/lib/server/listSql.ts`); each later list slice adds its table name, a route file and an editor.
+in one file there (`src/lib/server/storage.ts`). It is imported by `src/app/api/admin/**` and, for `publicProfile.ts`, `publicExperience.ts`, `publicTechStack.ts`, `publicProjects.ts` and `publicCertifications.ts` only, by `src/app/page.tsx`, and, for `publicPosts.ts` only, by `src/app/blog/page.tsx` and `src/app/blog/[slug]/page.tsx`, `src/app/rss.xml/route.ts` and `src/app/sitemap.ts`; never by a
+client component, a layout or any other public file. The owner decision stays in `src/lib/admin/access.ts` and `src/lib/auth.ts`. The shared list pattern is `ListEditor.tsx` with the browser store `createHttpListStore` (`src/lib/admin/listClient.ts`), the server `createListService` (`src/lib/server/listStore.ts`) and the list SQL (`src/lib/server/listSql.ts`); each later list slice adds its table name, a route file and an editor.
 
-**Content storage.** The profile, the images, the experience entries and the projects are stored in Supabase. The certifications are stored in Supabase the same way. The tech stack is stored in Supabase the same way. The blog posts are stored in Supabase the same way; a post is keyed by its slug. Nothing else holds the panel's content and no second backend exists.
+**Content storage.** The profile, the images, the experience entries and the projects are stored in Supabase. The certifications are stored in Supabase the same way. The tech stack is stored in Supabase the same way. The blog posts are stored in Supabase the same way; a post is keyed by its slug. The landing page shows the published profile, and the blog pages show the published posts. Nothing else holds the panel's content and no second backend exists. Content lives only in the database and is refreshed on the public site when the owner presses Publish; the repository holds no copy of the profile, experience, tech stack, projects, certifications or posts.
 
 **Settings.** The site reads seven settings by name: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
 `ADMIN_EMAIL`, `SUPABASE_DB_URL`, `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The owner sets them in Vercel for Production and SIT; they are never in the repo.
@@ -168,21 +164,12 @@ sign-in app lists three return addresses: `https://thegoldenpothos.xyz/api/auth/
 
 ## Blog authoring
 
-Posts are `content/blog/<slug>.md`, loaded and validated at build time.
-
-Required frontmatter — `title`, `excerpt`, `date` (`YYYY-MM-DD`), `slug`.
-Optional — `updated`, `tags`, `draft`, `featured`, `coverImage`, `coverAlt`,
-`readingTime`.
-
-The build **fails loudly** on a missing/empty required field, an unparseable
-date, or a duplicate slug. `readingTime` is computed from the body when omitted —
-prefer omitting it so it cannot drift. `draft: true` hides a post from listings,
-detail pages, RSS, and the sitemap.
+Posts are written and saved in the admin panel (Blog posts) and a post is shown on `/blog/` and its own address after the owner presses Publish. A draft is never public. The repository holds no post files.
 
 Markdown runs through unified: remark-parse → remark-gfm → remark-rehype →
 rehype-raw → rehype-slug → rehype-autolink-headings → rehype-highlight
 ([src/lib/markdown.ts](src/lib/markdown.ts), re-exported by `src/lib/blog/markdown.ts`; client-safe, so the admin preview imports `@/lib/markdown` directly). Raw HTML in posts is
-parsed as real elements and **is trusted** — content is authored in this repo.
+parsed as real elements and **is trusted** because only the owner writes posts.
 If untrusted markdown is ever rendered, add `rehype-sanitize` after
 `rehype-raw`.
 
@@ -224,7 +211,7 @@ uses `docs/` instead and never touches them.
 
 ## Never violate (feature pipeline reviewers enforce these)
 
-- The six **Invariants** above — public pages prerendered with only sign-in and the panel on a server, `trailingSlash` in three places, no `@/lib/blog` barrel in client components, UTC date formatting, one `SITE_URL`, unoptimized images.
+- The six **Invariants** above — public pages are static kept copies renewed only by Publish or a deploy, with only sign-in, the panel and Publish on a server, `trailingSlash` in three places, no `@/lib/blog` barrel in client components, UTC date formatting, one `SITE_URL`, unoptimized images.
 - **Style against the CSS tokens in `globals.css`.** No raw colour values, no Tailwind `dark:` variants.
 - **Never `git add -A`, `git add .`, or `git commit -a`.** Stage explicit paths.
 - **Playwright is the only test runner.** Specs live in `e2e/` and run against the built site (`next start`). Don't add Vitest, Jest or another runner without asking.
@@ -323,6 +310,15 @@ Populated by `/help-discover-this` and `/agentic-discover` as features are added
 | 18 | [owner-manages-blog-posts](docs/features/owner-manages-blog-posts/story.md) | Most rules (unique slug, draft, status list, public read of published posts); cover uses the picker |
 | 19 | [owner-previews-blog-post](docs/features/owner-previews-blog-post/story.md) | Needs the post editor to preview from |
 | 20 | [retire-firebase](docs/features/retire-firebase/story.md) | Last, because every other slice removes only what it replaces; this one deletes what is left and checks the whole |
+| 21 | [owner-publishes-profile](docs/features/owner-publishes-profile/story.md) | First, because it carries what every later slice reuses: the Publish button and its owner-only endpoint, the public read with its kept copy, the hidden-when-empty rule with the menu link, and the amendment of the rules the switch makes false |
+| 22 | [owner-publishes-experience](docs/features/owner-publishes-experience/story.md) | First list section; reuses Publish and the kept copy, settles how an ordered list reaches a public component |
+| 23 | [owner-publishes-tech-stack](docs/features/owner-publishes-tech-stack/story.md) | Shares the Experience section's page block (Decision 5); nested items and icons from the image library |
+| 24 | [owner-publishes-projects](docs/features/owner-publishes-projects/story.md) | Reuses the list pattern; no menu rule of its own beyond the shared one |
+| 25 | [owner-publishes-certifications](docs/features/owner-publishes-certifications/story.md) | Reuses the list pattern; proves the whole section and its menu link disappear (§6 line 5) |
+| 26 | [owner-publishes-blog-posts](docs/features/owner-publishes-blog-posts/story.md) | Most rules (draft, unknown address, new addresses without a build); the rendered body comes from the database |
+| 27 | [owner-publishes-posts-to-feeds](docs/features/owner-publishes-posts-to-feeds/story.md) | Needs published posts to read; small and separately demonstrable |
+| 28 | [site-survives-database-outage](docs/features/site-survives-database-outage/story.md) | Needs every public page to read the database first; hardens and proves the kept copy across all of them |
+| 29 | [retire-repo-content](docs/features/retire-repo-content/story.md) | Last, because every other slice removes only what it replaces; this one checks that nothing is left and amends the remaining docs |
 
 Do not reorder or skip features without an explicit user request. Do not implement scenarios beyond what's written.
 

@@ -14,7 +14,7 @@ const SELF = `e2e/retire-${OLD}.spec.ts`;
 
 const BASE_COMMIT = "7dce05138ee7cd0447ecb5e24bfdb4e46143c209";
 const PANEL = "/bright-warm-greenhouse/";
-const HTML_PAGES = ["/", "/blog/", "/blog/hello-world/", "/blog/building-portfolio-nextjs/", "/no-such-page/"];
+const HTML_PAGES = ["/", "/blog/", "/no-such-page/"];
 const FILE_PAGES = ["/rss.xml", "/sitemap.xml", "/robots.txt"];
 const ADMIN_ROUTES = [
   "/api/admin/profile/",
@@ -30,11 +30,9 @@ const ADMIN_ROUTES = [
 const PAGE_WRITE_ADDRESSES = [
   "/",
   "/blog/",
-  "/blog/hello-world/",
   "/rss.xml",
   "/sitemap.xml",
   "/robots.txt",
-  "/blog/building-portfolio-nextjs/",
 ];
 const WRITE_METHODS = ["POST", "PUT", "PATCH", "DELETE"] as const;
 const SETTINGS = [
@@ -48,27 +46,12 @@ const SETTINGS = [
 ];
 const PER_RUN_VALUES = ["AUTH_SECRET", "AUTH_GOOGLE_ID", "AUTH_GOOGLE_SECRET", "ADMIN_EMAIL", "SUPABASE_DB_URL", "SUPABASE_URL"];
 const PUBLIC_SOURCES = [
-  "content/blog",
   "public",
-  "src/app/page.tsx",
   "src/app/layout.tsx",
   "src/app/globals.css",
   "src/app/robots.ts",
-  "src/app/sitemap.ts",
-  "src/app/rss.xml",
-  "src/app/blog/page.tsx",
   "src/app/blog/layout.tsx",
-  "src/app/components/hero.tsx",
-  "src/app/components/aboutme.tsx",
-  "src/app/components/experienceTimeLine.tsx",
-  "src/app/components/techstack.tsx",
-  "src/app/components/project.tsx",
-  "src/app/components/certifications.tsx",
-  "src/app/components/footer.tsx",
-  "src/app/components/header.tsx",
   "src/app/components/ThemeProvider.tsx",
-  "src/app/components/blog",
-  "src/lib/blog",
   "src/lib/site.ts",
   "src/lib/markdown.ts",
 ];
@@ -268,10 +251,6 @@ test("E2E-44: every public page and file answers with its content", async ({ pag
   const home = await page.goto("/");
   expect(home?.status()).toBe(200);
   expect(new URL(page.url()).pathname).toBe("/");
-  await expect(page.getByRole("heading", { level: 1, name: "Keith Lim", exact: true })).toBeVisible();
-  for (const selector of ["section#hero", "section#about", "section#experience", "section#tech", "section#projects", "section#certifications"]) {
-    expect(await page.locator(selector).count(), `${selector} on /`).toBeGreaterThanOrEqual(1);
-  }
 
   const index = await page.goto("/blog/");
   expect(index?.status()).toBe(200);
@@ -279,37 +258,23 @@ test("E2E-44: every public page and file answers with its content", async ({ pag
   const hrefs = await page
     .locator('a[href^="/blog/"]')
     .evaluateAll((anchors) => [...new Set(anchors.map((anchor) => anchor.getAttribute("href") ?? ""))].sort());
-  expect(hrefs).toEqual(["/blog/", "/blog/building-portfolio-nextjs/", "/blog/hello-world/"]);
-
-  const hello = await page.goto("/blog/hello-world/");
-  expect(hello?.status()).toBe(200);
-  expect(new URL(page.url()).pathname).toBe("/blog/hello-world/");
-  await expect(page.getByRole("heading", { level: 1, name: "Hello, World — Welcome to My Blog", exact: true })).toBeVisible();
-
-  const building = await page.goto("/blog/building-portfolio-nextjs/");
-  expect(building?.status()).toBe(200);
-  expect(new URL(page.url()).pathname.endsWith("/blog/building-portfolio-nextjs/")).toBe(true);
-  await expect(
-    page.getByRole("heading", { level: 1, name: "Building a Portfolio with Next.js and Tailwind CSS", exact: true }),
-  ).toBeVisible();
+  expect(hrefs).toEqual(["/blog/"]);
 
   const rss = await request.get("/rss.xml");
   expect(rss.status()).toBe(200);
   const rssBody = await rss.text();
   expect(rssBody).toContain('<rss version="2.0"');
-  expect(rssBody).toContain("https://thegoldenpothos.xyz/blog/hello-world/");
-  expect(rssBody).toContain("https://thegoldenpothos.xyz/blog/building-portfolio-nextjs/");
 
   const sitemap = await request.get("/sitemap.xml");
   expect(sitemap.status()).toBe(200);
   const sitemapBody = await sitemap.text();
   expect(sitemapBody).toContain("<urlset");
-  expect([...sitemapBody.matchAll(/<loc>([^<]*)<\/loc>/g)].map((match) => match[1])).toEqual([
-    "https://thegoldenpothos.xyz/",
-    "https://thegoldenpothos.xyz/blog/",
-    "https://thegoldenpothos.xyz/blog/building-portfolio-nextjs/",
-    "https://thegoldenpothos.xyz/blog/hello-world/",
-  ]);
+  const sitemapLocs = [...sitemapBody.matchAll(/<loc>([^<]*)<\/loc>/g)].map((match) => match[1]);
+  expect(sitemapLocs).toContain("https://thegoldenpothos.xyz/");
+  expect(sitemapLocs).toContain("https://thegoldenpothos.xyz/blog/");
+  for (const loc of sitemapLocs.filter((value) => value !== "https://thegoldenpothos.xyz/" && value !== "https://thegoldenpothos.xyz/blog/")) {
+    expect(loc.startsWith("https://thegoldenpothos.xyz/blog/"), loc).toBe(true);
+  }
 
   const robots = await request.get("/robots.txt");
   expect(robots.status()).toBe(200);
@@ -389,7 +354,7 @@ test("E2E-51: public pages are served from the prebuilt copy and the panel is no
   }
   const manifest = JSON.parse(fs.readFileSync(".next/prerender-manifest.json", "utf8")) as { routes: Record<string, unknown> };
   const routes = Object.keys(manifest.routes);
-  for (const route of ["/", "/blog", "/blog/building-portfolio-nextjs", "/blog/hello-world", "/robots.txt", "/rss.xml", "/sitemap.xml"]) {
+  for (const route of ["/", "/blog", "/robots.txt", "/rss.xml", "/sitemap.xml"]) {
     expect(routes, `the prerender manifest lacks ${route}`).toContain(route);
   }
   expect(routes).not.toContain("/bright-warm-greenhouse");
@@ -726,7 +691,7 @@ test("E2E-63: the standing documents describe the new stack and keep the strings
 // ---- Step 4: the search of the whole repository and the pull request template --------------------------------------
 
 const ALLOWED_RECORD_PATHS = [/^docs\/features\/[a-z0-9-]+\/(story|spec|impact|log)\.md$/, /^docs\/requirements\/[A-Za-z0-9._-]+\.md$/];
-const ALLOWED_PUBLIC_PATHS = ["content/blog/building-portfolio-nextjs.md", "src/app/components/project.tsx"];
+const ALLOWED_PUBLIC_PATHS = ["e2e/owner-publishes-experience.spec.ts", "e2e/owner-publishes-profile.spec.ts", "e2e/owner-publishes-projects.spec.ts", "e2e/owner-publishes-tech-stack.spec.ts"];
 const OVERVIEW_INDEX_ROW = `| retire ${OLD} and document the new stack | [retire-${OLD}](retire-${OLD}/story.md) |`;
 
 type Search = { raw: string[]; leftovers: string[] };
@@ -771,7 +736,7 @@ test("E2E-64: no file or path outside the earlier records and the public content
 
   const found = searchBothNames(process.cwd());
   const rawFiles = new Set(found.raw.map((entry) => entry.slice(0, entry.indexOf(":"))));
-  for (const named of ["docs/features/admin-sign-in/spec.md", "content/blog/building-portfolio-nextjs.md", "src/app/components/project.tsx"]) {
+  for (const named of ["docs/features/admin-sign-in/spec.md", "e2e/owner-publishes-profile.spec.ts"]) {
     expect(rawFiles.has(named), `the search cannot see ${named}`).toBe(true);
   }
   expect(found.leftovers, "leftover path:line and path entries").toEqual([]);

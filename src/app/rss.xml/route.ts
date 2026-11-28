@@ -1,26 +1,30 @@
-import { getPublishedPosts, generateRssFeed } from "@/lib/blog";
+import { generateRssFeed } from "@/lib/blog/rss";
+import { loadPublishedPosts } from "@/lib/server/publicPosts";
 import { SITE_URL } from "@/lib/site";
 
 /**
- * Statically generated at build time and emitted as /rss.xml by the export.
- *
- * This replaces an earlier approach that wrote public/rss.xml as a side effect
- * of importing the blog page module — that mutated the source tree on every dev
- * compile and depended on build step ordering to land in the output.
+ * A kept static copy of the feed. It lists the published posts from the same
+ * snapshot the blog page uses, and is renewed only by Publish or a deploy.
  */
 export const dynamic = "force-static";
 
-export function GET() {
-  const posts = getPublishedPosts().map((p) => ({
-    title: p.title,
-    excerpt: p.excerpt,
-    date: p.date,
-    slug: p.slug,
-  }));
+export async function GET(): Promise<Response> {
+  const posts = await loadPublishedPosts();
 
-  return new Response(generateRssFeed(posts, SITE_URL), {
-    headers: {
-      "Content-Type": "application/rss+xml; charset=utf-8",
+  return new Response(
+    generateRssFeed(
+      posts.map((p) => ({
+        title: p.title,
+        excerpt: p.excerpt,
+        date: p.date,
+        slug: p.slug,
+      })),
+      SITE_URL,
+    ),
+    {
+      headers: {
+        "Content-Type": "application/rss+xml; charset=utf-8",
+      },
     },
-  });
+  );
 }

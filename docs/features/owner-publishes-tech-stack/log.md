@@ -16,3 +16,21 @@ Tier: high (large-diff)
 Review: risk reviewer PASS (review 1)
 Findings: edge-case | note | logged | ICON_PATH accepts "/\evil.example/x.png" (backslash may resolve protocol-relative); the panel refuses it; tighten to /^\/(?![\/\\])\S+$/ if revisited
 =====================================================================
+=====================================================================
+Task 2 — The earlier checks follow the switch
+Completed: 2026-11-28      Commit: c6fbe97
+
+Summary: Earlier specs (retire-firebase, hosting acceptance, profile, experience) no longer expect section#experience, the Experience link or techstack.tsx on a nothing-saved page; E2E-13 guards those removals.
+Decisions: None (test-only Step; no implementer dispatched).
+Deviations: None.
+Files changed: e2e/retire-firebase.spec.ts, e2e/hosting-and-backend-migration-acceptance.spec.ts, e2e/owner-publishes-profile.spec.ts, e2e/owner-publishes-experience.spec.ts, e2e/owner-publishes-tech-stack.spec.ts (modified)
+E2E tests written: E2E-13      Passed before the change: E2E-13 (reads the edited specs as text)
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: high (test-passed-before-change)
+Review: risk reviewer PASS (review 1)
+Findings: None.
+=====================================================================

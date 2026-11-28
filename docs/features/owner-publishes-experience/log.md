@@ -53,3 +53,18 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+=====================================================================
+Completion
+Completed: 2026-11-28
+
+Built: server-only experience read with the build guard, tolerant client-safe view rules, the landing page passing the entries to the timeline in the panel's order, the timeline hidden when empty, the generic Publish success message, and the earlier checks and documents brought in line.
+Removed content (D-13): the five hard-coded Experience entries were removed in 21b2aae; the owner re-enters them from its parent (21b2aae^:src/app/components/experienceTimeLine.tsx).
+Deviations from the spec: CSS bullet on the back-face li; E2E-02 absence check narrowed (site-wide metadata contains "Software Engineer"); D-17 widened for gate wording.
+[auto] decisions in the spec: 16 lines (D-04..D-19).
+Feature review: PASS (a first review ran against a wrong base commit and was discarded; the review against the correct base d56d36a passed)
+Findings: nit | note | logged | CLAUDE.md invariant 1 reads as if each slice declares revalidate = false; reword in a later docs pass
+Findings: nit | note | logged | page.tsx reads run sequentially; Promise.all optional
+Final verification: npm run build ok; e2e/owner-publishes-experience.spec.ts 17 passed, 0 failed.
+Manual checks pending: None.
+Follow-ups: OQ-1 (a failure in the experience read alone during a renewal) is the outage slice's.
+=====================================================================

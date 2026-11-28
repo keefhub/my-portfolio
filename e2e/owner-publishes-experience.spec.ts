@@ -362,7 +362,6 @@ test("E2E-06: with no entries the timeline is gone, nothing replaces it and the 
     expect(body).not.toMatch(/no experience|coming soon|nothing to show/i);
     expect(await visitorText(base)).not.toContain(">Experience</h2>");
     await expect(page.locator('nav[aria-label="Main navigation"]').getByRole("link", { name: "Experience" })).toHaveCount(0);
-    await expect(page.getByRole("heading", { level: 2, name: "Projects" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 2, name: "Certifications" })).toBeVisible();
     expect(errors).toEqual([]);
   } finally {
@@ -419,7 +418,6 @@ test("E2E-08: deleting every entry and publishing removes the timeline but keeps
     await expect(landing.locator("section#experience [aria-expanded]")).toHaveCount(0);
     await expect(landing.getByRole("heading", { level: 2, name: "Tech Stack" })).toHaveCount(0);
     await expect(landing.locator("section#experience")).toHaveCount(0);
-    await expect(landing.getByRole("heading", { level: 2, name: "Projects" })).toBeVisible();
     await expect(landing.getByRole("heading", { level: 2, name: "Certifications" })).toBeVisible();
     await expect(landing.getByRole("contentinfo")).toBeVisible();
     await expect(landing.locator('nav[aria-label="Main navigation"]').getByRole("link", { name: "Experience" })).toHaveCount(0);

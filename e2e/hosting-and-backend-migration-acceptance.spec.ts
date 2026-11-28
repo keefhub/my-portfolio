@@ -1246,7 +1246,7 @@ test("E2E-ACC-16: every public address loads at the same address with the conten
   const home = await page.goto("/");
   expect(home?.status()).toBe(200);
   expect(new URL(page.url()).pathname).toBe("/");
-  for (const id of ["projects", "certifications"]) {
+  for (const id of ["certifications"]) {
     expect(await page.locator(`section#${id}`).count(), `section#${id} on /`).toBeGreaterThanOrEqual(1);
   }
 
@@ -1297,7 +1297,6 @@ test("E2E-ACC-16: every public address loads at the same address with the conten
     "src/app/rss.xml",
     "src/app/blog/page.tsx",
     "src/app/blog/layout.tsx",
-    "src/app/components/project.tsx",
     "src/app/components/certifications.tsx",
     "src/app/components/ThemeProvider.tsx",
     "src/app/components/blog",
@@ -1382,7 +1381,7 @@ test("E2E-ACC-19: the panel address is absent from the sitemap, robots.txt, the 
 // =====================================================================================================================
 
 const ALLOWED_RECORD_PATHS = [/^docs\/features\/[a-z0-9-]+\/(story|spec|impact|log)\.md$/, /^docs\/requirements\/[A-Za-z0-9._-]+\.md$/];
-const ALLOWED_PUBLIC_PATHS = ["content/blog/building-portfolio-nextjs.md", "src/app/components/project.tsx"];
+const ALLOWED_PUBLIC_PATHS = ["content/blog/building-portfolio-nextjs.md", "e2e/owner-publishes-experience.spec.ts", "e2e/owner-publishes-profile.spec.ts", "e2e/owner-publishes-projects.spec.ts", "e2e/owner-publishes-tech-stack.spec.ts"];
 
 // Content matches of either product name, minus the earlier pipeline records and the public content (decomposition
 // decision 12), plus any file whose path names them.
@@ -1423,7 +1422,7 @@ test("E2E-ACC-20: a search of the repository finds no old-backend library, confi
   }
   const found = namesLeft(process.cwd());
   const seen = new Set(found.raw.map((entry) => entry.slice(0, entry.indexOf(":"))));
-  for (const named of ["content/blog/building-portfolio-nextjs.md", "src/app/components/project.tsx"]) {
+  for (const named of ["content/blog/building-portfolio-nextjs.md"]) {
     expect(seen.has(named), `the search cannot see ${named}`).toBe(true);
   }
   expect(found.leftovers, "files or lines outside the earlier records and the public content").toEqual([]);

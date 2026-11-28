@@ -788,3 +788,16 @@ test("E2E-15: the new files keep the server and browser boundaries", async () =>
   expect(header).toContain("showProjects");
   for (const phrase of ["@/lib/server", "@/lib/admin"]) expect(header, "header.tsx must not contain " + phrase).not.toContain(phrase);
 });
+
+test("E2E-16: the earlier checks no longer expect the written-in projects", async () => {
+  const retire = readText("e2e/retire-firebase.spec.ts");
+  const hosting = readText("e2e/hosting-and-backend-migration-acceptance.spec.ts");
+  const profile = readText("e2e/owner-publishes-profile.spec.ts");
+  const experience = readText("e2e/owner-publishes-experience.spec.ts");
+  expect(retire).not.toContain("src/app/components/project.tsx");
+  expect(hosting).not.toContain("src/app/components/project.tsx");
+  expect(retire).not.toContain('"section#projects"');
+  expect(hosting).not.toMatch(/for \(const id of \[[^\]]*"projects"/);
+  expect(profile).not.toMatch(/for \(const id of \[[^\]]*"projects"/);
+  expect(experience).not.toContain('name: "Projects"');
+});

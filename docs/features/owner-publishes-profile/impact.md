@@ -9,7 +9,7 @@ Domain: the public landing page and the panel header — entry point: `CLAUDE.md
 | Item | Status | Evidence |
 | ---- | ------ | -------- |
 | Landing page `src/app/page.tsx` renders `<Header/>`, `<Hero/>`, an `#about` wrapper around `<AboutMe/>`, then the four other sections and `<Footer/>`; no data read | exists | opened, 42 lines; no `async`, no import from `@/lib` |
-| `src/app/components/hero.tsx` ("use client") holds the name "Keith Lim" (line 99), the tagline (lines 112-113), and a literal `socialLinks` array with GitHub, LinkedIn, `mailto:limy0313@…` and `/resume.pdf` (lines 13-24) | exists | opened |
+| `src/app/components/hero.tsx` ("use client") holds the name "Keith Lim" (line 73), the tagline (lines 83-84), and a literal `socialLinks` array with GitHub, LinkedIn, `mailto:limy0313@…` and `/resume.pdf` (lines 11-24) | exists | opened |
 | `src/app/components/aboutme.tsx` ("use client") holds three hard-coded paragraphs and `/profile/placeholder.jpg` | exists | opened |
 | `src/app/components/footer.tsx` ("use client") holds "© {year} Keith Lim" and three hard-coded links (GitHub, LinkedIn, `mailto:keith@example.com`) | exists | opened, lines 36-67 |
 | `src/app/components/header.tsx` ("use client") holds `const sections = ["about","experience","projects","certifications"]` (line 15), used by the scroll-spy and by the desktop and mobile menus | exists | opened |
@@ -18,13 +18,13 @@ Domain: the public landing page and the panel header — entry point: `CLAUDE.md
 | `src/lib/server/database.ts` `run()` turns every database failure into `DatabaseUnavailableError` and logs only `databaseLogLine(stage, error)` (a code, never the message) | exists | `database.ts:104-122` |
 | `src/lib/auth.ts` exports `getPanelState(): Promise<"signed-out" \| "owner" \| "not-allowed">` | exists | `auth.ts:36` |
 | `src/app/api/admin/profile/route.ts` is the pattern for an owner-only entry point (`refusal()` first, then the work, `Cache-Control: no-store`, `export const dynamic = "force-dynamic"`) | exists | opened |
-| `src/app/components/admin/AdminPanel.tsx` renders the signed-in body (section menu, the open editor, Sign out) under `<h1>Admin</h1>` | exists | opened, lines 111-143 |
+| `src/app/components/admin/AdminPanel.tsx` renders the signed-in body (section menu, the open editor, Sign out) under `<h1>Admin</h1>` (line 151) | exists | opened, signed-in body at lines 84-122 |
 | `src/lib/admin/profile.ts` holds `ProfileContent`, `SocialLink`, `profileFromData`, `checkProfile` (name and headline required; social link addresses must be `https://…`; label may be empty) | exists | opened |
 | `src/app/api/admin/publish/` | missing | `git ls-files src/app/api/admin` lists no `publish` |
 | Playwright harness: `next start`, stand-in database file `stand-in:<tmp>.json` with `{"unreachable":true}` switch, per-run `ADMIN_EMAIL` and `AUTH_SECRET`; the build runs **without** a database setting | exists | `playwright.config.ts:12-17`; `src/lib/server/standin.ts:10-34` |
 | Earlier specs that assert the old landing page or the old import rule | exist | listed in the impact entries below |
 
-Unbuilt dependencies: none. The owner sign-in (commit series `owner-google-sign-in`), the profile editor and its route (`owner-edits-profile`, `745c208`) and the image library are built and committed; this feature reads them only.
+Unbuilt dependencies: none. The owner sign-in (commit series `owner-google-sign-in`), the profile editor and its route (`owner-edits-profile`; the files are in HEAD and first appear in `745c208`) and the image library are built and committed; this feature reads them only.
 
 ## Impact entries
 
@@ -36,16 +36,17 @@ Unbuilt dependencies: none. The owner sign-in (commit series `owner-google-sign-
 | `src/lib/admin/publish.ts` | add | path free | imported by `PublishButton.tsx` only | none | none | TS-09: the Publish messages and the browser call |
 | `src/app/components/admin/PublishButton.tsx` | add | path free | imported by `AdminPanel.tsx` only | none | none | TS-10 |
 | `e2e/owner-publishes-profile.spec.ts` | add | path free | none | the run's stand-in database file and the server's kept copy of `/` | none | The feature's own spec |
-| `src/app/page.tsx` | change | `git ls-files` ok; `git grep -n "app/page"` finds no importer (framework entry) | the framework; `e2e/site-smoke.spec.ts` E2E-01, `e2e/retire-firebase.spec.ts` E2E-44/E2E-47, `e2e/hosting-and-backend-migration-acceptance.spec.ts` E2E-ACC-16, `e2e/owner-edits-profile.spec.ts` E2E-19 load the page it renders | the kept copy of `/` | the page changes from "always the same HTML" to "HTML from the saved profile"; no stored data changes | TS-04 |
+| `src/app/page.tsx` | change | `git ls-files` ok; `git grep -n "app/page"` finds no importer (framework entry) | the framework; `e2e/site-smoke.spec.ts` E2E-01, `e2e/retire-firebase.spec.ts` E2E-44/E2E-47, `e2e/hosting-and-backend-migration-acceptance.spec.ts` E2E-ACC-16, `e2e/owner-edits-profile.spec.ts` E2E-19 load the page it renders; and, because the page now imports `@/lib/server/publicProfile`, the `lib/server` mention rule of `e2e/owner-edits-profile.spec.ts`, `owner-uploads-images`, `owner-manages-experience`, `owner-manages-projects`, `owner-manages-certifications`, `owner-manages-tech-stack`, `owner-manages-blog-posts` and `hosting-and-backend-migration-acceptance` (E2E-ACC-31) specs | the kept copy of `/` | the page changes from "always the same HTML" to "HTML from the saved profile"; no stored data changes | TS-04 |
 | `src/app/components/hero.tsx` | change | opened | importer: `src/app/page.tsx` only (`git grep -n "components/hero"`) | none | none | TS-05: removes the hard-coded name, tagline and links |
 | `src/app/components/aboutme.tsx` | change | opened | importer: `src/app/page.tsx` only | none | none | TS-06: removes the hard-coded paragraphs and photo |
 | `src/app/components/footer.tsx` | change | opened | importers: `src/app/page.tsx` and `src/app/blog/layout.tsx`; the blog call passes no props, so its props must be optional | none | none | TS-07: removes the hard-coded name and links |
 | `src/app/components/header.tsx` | change | opened | importers: `src/app/page.tsx` and `src/app/blog/layout.tsx`; the blog call passes no props, so the new prop must default to "About shown" | none | none | TS-08: hide the "About" menu link when About is hidden |
 | `src/app/components/admin/AdminPanel.tsx` | change | opened | importer: `src/app/bright-warm-greenhouse/page.tsx` (read-only); every `e2e/owner-*.spec.ts` that opens the panel | none | the panel gains one button; specs that count buttons in the signed-in panel are checked in Safety facts | TS-10 |
 | `e2e/site-smoke.spec.ts` | change | `git ls-files` ok | none | none | none | TS-11: E2E-01 asserts an `<h1>` on `/`, which is absent with no saved profile |
-| `e2e/hosting-and-backend-migration-acceptance.spec.ts` | change | `git ls-files` ok | none | none | none | TS-11: E2E-ACC-16 (landing assertions and the baseline `sources` list) and E2E-ACC-31 (the "only the panel imports `lib/server`" rule) |
+| `e2e/hosting-and-backend-migration-acceptance.spec.ts` | change | `git ls-files` ok | none | none | none | TS-11: E2E-ACC-16 (landing assertions and the baseline `sources` list) and E2E-ACC-31 (the "only the admin routes and the server folder import `lib/server`" rule at line 2032-2033) |
 | `e2e/retire-firebase.spec.ts` | change | `git ls-files` ok | none | none | none | TS-11: E2E-44 (landing assertions) and E2E-47 (`PUBLIC_SOURCES` baseline list) |
-| `e2e/owner-edits-profile.spec.ts` | change | `git ls-files` ok | none | none | none | TS-11: E2E-19 asserts the hard-coded hero and About text on `/` |
+| `e2e/owner-edits-profile.spec.ts` | change | `git ls-files` ok | none | none | none | TS-11: E2E-19 asserts the hard-coded hero and About text on `/`; its lines 622-629 allow only the admin routes and the server folder to mention `lib/server` |
+| `e2e/owner-uploads-images.spec.ts`, `e2e/owner-manages-experience.spec.ts`, `e2e/owner-manages-projects.spec.ts`, `e2e/owner-manages-certifications.spec.ts`, `e2e/owner-manages-tech-stack.spec.ts`, `e2e/owner-manages-blog-posts.spec.ts` | change | `git ls-files` ok; assertions at `owner-uploads-images:324-327,1335-1337`, `owner-manages-experience:561-565,1021`, `owner-manages-projects:408-412,923`, `owner-manages-certifications:502-506,1074`, `owner-manages-tech-stack:635,1243`, `owner-manages-blog-posts:613,1162` | none | none | none | TS-11: each allows only `src/app/api/admin/` and `src/lib/server/` to mention `lib/server`; widened by exactly `src/app/page.tsx` |
 | `CLAUDE.md` | change | `git ls-files` ok | read by every agent; asserted by `e2e/retire-firebase.spec.ts` E2E-63 and `e2e/owner-google-sign-in.spec.ts` (~line 933) | none | the required strings those specs check must stay | TS-12 |
 | `Reference.md` | change | `git ls-files` ok | read on demand; asserted by `e2e/retire-firebase.spec.ts` E2E-63 | none | as above | TS-12 |
 | `docs/features/OVERVIEW.md` | change | `git ls-files` ok | read by every spec writer | none | none | TS-12: §1 and §2 item 1 |
@@ -94,7 +95,7 @@ Per `references/blast-radius.md`. Skipped entries: `src/lib/admin/publish.ts`, `
 - `src/app/blog/layout.tsx` is unchanged: `Header` and `Footer` props are optional, so the blog call compiles and renders as before.
 - No `useSearchParams`, `cookies()` or `headers()` is added to a public file.
 - No new dependency (`lucide-react` already ships `Github`, `Linkedin`, `Mail`, `FileText` and `Link`; checked in `node_modules/lucide-react/dist/esm/icons`), no new setting, no new table.
-- Duplicate `id="about"` (the page's wrapper and `AboutMe`'s own `<section>`) predates this feature and is left alone.
+- Duplicate `id="about"` (the page's wrapper and `AboutMe`'s own `<section>`) predates this feature; Step 2 removes it from `aboutme.tsx` so `section#about` is one element.
 
 **Before merge**
 

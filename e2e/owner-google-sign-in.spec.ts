@@ -336,7 +336,7 @@ const LABELS = ["Profile", "Experience", "Projects", "Certifications", "Tech sta
 const T_OUT = "Admin Sign in with Google";
 const T_FAIL = "Admin Sign in with Google Sign-in was not completed.";
 const T_DENY = "Admin This account is not allowed to use the admin panel. Sign out";
-const T_OWNER = "Admin Profile Experience Projects Certifications Tech stack Blog posts Images Sign out";
+const T_OWNER = "Admin Publish Profile Experience Projects Certifications Tech stack Blog posts Images Sign out";
 const DENY_TEXT = "This account is not allowed to use the admin panel.";
 const SESSION_COOKIE = "authjs.session-token";
 

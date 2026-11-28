@@ -54,7 +54,7 @@ const PER_RUN = ["AUTH_SECRET", "AUTH_GOOGLE_ID", "AUTH_GOOGLE_SECRET", "ADMIN_E
 const LABELS = ["Profile", "Experience", "Projects", "Certifications", "Tech stack", "Blog posts", "Images"];
 const T_OUT = "Admin Sign in with Google";
 const T_DENY = "Admin This account is not allowed to use the admin panel. Sign out";
-const T_OWNER = "Admin Profile Experience Projects Certifications Tech stack Blog posts Images Sign out";
+const T_OWNER = "Admin Publish Profile Experience Projects Certifications Tech stack Blog posts Images Sign out";
 const DENY_TEXT = "This account is not allowed to use the admin panel.";
 
 // ---- state: the database stand-in file and the storage stand-in directory ---------------------------------------
@@ -1555,6 +1555,7 @@ test("E2E-ACC-22: the pull request template lists every setting name, and the pi
   const read = new Set<string>();
   for (const match of gitGrep(["-o", "-E"], ["process\\.env\\.[A-Z_]+"], ["src"]).stdout.matchAll(/process\.env\.([A-Z_]+)/g)) read.add(match[1]);
   read.delete("NODE_ENV");
+  read.delete("NEXT_PHASE"); // set by Next.js itself during `next build`, not an owner setting
   for (const name of read) expect(SETTINGS, `${name} is read by the site but not listed`).toContain(name);
 
   const workflow = fs.readFileSync(".github/workflows/pipeline.yml", "utf8");

@@ -86,6 +86,24 @@ async function blank(base: string): Promise<void> {
   await expect.poll(async () => /<h2[^>]*>Projects<\/h2>/.test(await visitorText(base)), { timeout: 60000 }).toBe(false);
 }
 
+// Publish marks every kept page stale; a page renews on its own first request. Wait until two consecutive visitor responses agree.
+async function settle(base: string): Promise<void> {
+  await expect.poll(async () => (await visitorText(base)) === (await visitorText(base)), { timeout: 60000 }).toBe(true);
+}
+
+// With no project the landing page keeps a visible main only if another published section is there, so these tests
+// save one certification (an empty main is hidden) and wait for it to be shown.
+async function seedCertification(base: string): Promise<void> {
+  await withOwner(base, async (request) => {
+    const cert = await request.post("/api/admin/certifications/", {
+      headers: { cookie: await cookieOf(OWNER()), "content-type": "application/json" },
+      data: JSON.stringify({ position: 0, content: { name: "Professional Scrum Developer", icon: "/certs/scrum.png", url: "https://www.credly.com/badges/example/public_url" } }),
+      maxRedirects: 0,
+    });
+    expect(cert.status()).toBe(200);
+  });
+}
+
 type Content = { title: string; shortDesc: string; description: string[]; tech: string[]; github: string; demo: string };
 
 async function addProject(base: string, content: Content, position: number): Promise<string> {
@@ -345,8 +363,11 @@ test("E2E-04: deleting every project and publishing removes the section and the 
   await blank(base);
   await addProject(base, ALPHA, 0);
   await addProject(base, BETA, 1);
+  await seedCertification(base);
   await publish(base);
   await waitFor(base, "Beta summary");
+  await waitFor(base, "Professional Scrum Developer");
+  await settle(base);
 
   const { context, page } = await openPanel(browser, base);
   try {
@@ -363,6 +384,7 @@ test("E2E-04: deleting every project and publishing removes the section and the 
     }
     await publishButton(page).click();
     await expect.poll(async () => /<h2[^>]*>Projects<\/h2>/.test(await visitorText(base)), { timeout: 60000 }).toBe(false);
+    await settle(base);
   } finally {
     await context.close();
   }
@@ -393,6 +415,10 @@ test("E2E-04: deleting every project and publishing removes the section and the 
 test("E2E-05: with no saved project the section is gone, nothing replaces it and the rest of the page works", async ({ baseURL, browser }) => {
   const base = String(baseURL);
   await blank(base);
+  await seedCertification(base);
+  await publish(base);
+  await waitFor(base, "Professional Scrum Developer");
+  await settle(base);
 
   const context = await browser.newContext({ baseURL: base });
   const page = await context.newPage();

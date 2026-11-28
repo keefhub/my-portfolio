@@ -268,6 +268,7 @@ test("E2E-03: a draft never reaches either feed", async () => {
     await seed(base, A);
     await publish(base);
     await waitHas(base, RSS, "Growing Pothos");
+    await waitHas(base, SITEMAP, "feeds-growing-pothos");
     const rss = await textOf(base, RSS);
     const sitemap = await textOf(base, SITEMAP);
     for (const secret of ["Half Written", "Not ready yet", "feeds-half-written"]) {
@@ -284,6 +285,7 @@ test("E2E-04: a saved or edited post stays out of the feeds until Publish", asyn
     await seed(base, A);
     await publish(base);
     await waitHas(base, RSS, "Growing Pothos");
+    await waitHas(base, SITEMAP, "feeds-growing-pothos");
     await seed(base, B);
     await edit(base, A.slug, { ...A, title: "Growing Pothos Revised" });
 

@@ -52,3 +52,20 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+=====================================================================
+Regression fix — earlier specs run against this slice's Publish
+Completed: 2026-11-28
+
+Summary: running every earlier slice spec, each in its own invocation after one build, found one code defect and several
+test defects caused by task 2's stale-while-revalidate Publish and by slice owner-publishes-profile's Publish button.
+Code: src/lib/server/keptRead.ts — every kept read also carries the shared tag `site`, and Publish marks it stale, so a copy
+kept under a different SUPABASE_DB_URL (same build output reused) is renewed too; the per-setting key stays in the cache key.
+Tests (locked-test defects, assertions' meaning kept): owner-publishes-profile E2E-14 (accepts HIT or STALE; compares after the
+page settles); owner-publishes-tech-stack E2E-05/06 and owner-publishes-projects E2E-04/05 (settle `/` after Publish; seed the
+other sections so "the rest of the page works" is still observable); owner-publishes-blog-posts (blank() and each Publish wait
+for each post address to settle; E2E-12 accepts HIT or STALE); owner-publishes-posts-to-feeds E2E-03/04 (wait for the sitemap
+too); owner-google-sign-in and hosting-and-backend-migration-acceptance (the Admin region text includes Publish; E2E-ACC-22
+excludes the framework-set NEXT_PHASE from owner settings).
+Result: fresh build, then each of the 11 specs alone: all pass; owner-google-sign-in E2E-09 is intermittently flaky
+(stand-in call count lags the second click), unrelated to these files, recorded as known flake.
+Findings file: .run-logs/site-survives-database-outage/regress-findings.md (F1–F5)

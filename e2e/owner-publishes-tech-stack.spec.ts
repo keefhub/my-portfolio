@@ -87,6 +87,36 @@ async function blank(base: string): Promise<void> {
   await expect.poll(async () => /<h2[^>]*>(Tech Stack|Experience)<\/h2>/.test(await visitorText(base)), { timeout: 60000 }).toBe(false);
 }
 
+// Publish marks every kept page stale; a page renews on its own first request. Wait until two consecutive visitor responses agree.
+async function settle(base: string): Promise<void> {
+  await expect.poll(async () => (await visitorText(base)) === (await visitorText(base)), { timeout: 60000 }).toBe(true);
+}
+
+// Projects and Certifications are published sections that are hidden when empty, so the tests that check "the rest of the page"
+// save one of each and wait for both to be shown.
+async function seedOtherSections(base: string): Promise<void> {
+  await withOwner(base, async (request) => {
+    const headers = { cookie: await cookieOf(OWNER()), "content-type": "application/json" };
+    const project = await request.post("/api/admin/projects/", {
+      headers,
+      data: JSON.stringify({ position: 0, content: { title: "Quantum Notes", shortDesc: "A notes app", description: ["Built for fast capture."], tech: ["React"], github: "", demo: "" } }),
+      maxRedirects: 0,
+    });
+    expect(project.status()).toBe(200);
+    const cert = await request.post("/api/admin/certifications/", {
+      headers,
+      data: JSON.stringify({ position: 0, content: { name: "Professional Scrum Developer", icon: "/certs/scrum.png", url: "https://www.credly.com/badges/example/public_url" } }),
+      maxRedirects: 0,
+    });
+    expect(cert.status()).toBe(200);
+  });
+}
+
+async function waitForOtherSections(base: string): Promise<void> {
+  await expect.poll(async () => /<h2[^>]*>Projects<\/h2>/.test(await visitorText(base)), { timeout: 60000 }).toBe(true);
+  await expect.poll(async () => /<h2[^>]*>Certifications<\/h2>/.test(await visitorText(base)), { timeout: 60000 }).toBe(true);
+}
+
 type Tool = { name: string; icon: string };
 type Category = { category: string; tools: Tool[] };
 
@@ -315,9 +345,12 @@ test("E2E-05: deleting every category and publishing removes the block but keeps
   await blank(base);
   await addEntry(base, SENIOR, 0);
   const id = await addCategory(base, REACT_ONLY, 0);
+  await seedOtherSections(base);
   await publish(base);
   await waitFor(base, "Senior Engineer");
   await waitFor(base, "React icon");
+  await waitForOtherSections(base);
+  await settle(base);
   await removeCategory(base, id);
 
   for (let i = 0; i < 2; i++) {
@@ -325,6 +358,7 @@ test("E2E-05: deleting every category and publishing removes the block but keeps
   }
   await publish(base);
   await expect.poll(async () => /<h2[^>]*>Tech Stack<\/h2>/.test(await visitorText(base)), { timeout: 60000 }).toBe(false);
+  await settle(base);
 
   const context = await browser.newContext({ baseURL: base });
   const page = await context.newPage();
@@ -348,6 +382,10 @@ test("E2E-05: deleting every category and publishing removes the block but keeps
 test("E2E-06: with nothing saved the Experience section and its link are gone and the rest of the page works", async ({ baseURL, browser }) => {
   const base = String(baseURL);
   await blank(base);
+  await seedOtherSections(base);
+  await publish(base);
+  await waitForOtherSections(base);
+  await settle(base);
 
   const context = await browser.newContext({ baseURL: base });
   const page = await context.newPage();

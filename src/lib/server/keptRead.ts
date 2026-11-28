@@ -2,6 +2,10 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { revalidateTag, unstable_cache } from "next/cache";
 
+// One tag every kept read carries whatever the setting was when it rendered,
+// so Publish renews a copy kept by a server that had a different setting.
+const ALL_SETTINGS_TAG = "site";
+
 function keyOf(setting: string | undefined): string {
   return createHash("sha256")
     .update(setting ?? "")
@@ -23,13 +27,14 @@ export function keptRead<T>(
     ? async (): Promise<T> => valueWithoutSetting
     : read;
   return unstable_cache(fn, ["kept-read", name, key], {
-    tags: ["site-" + key],
+    tags: [ALL_SETTINGS_TAG, "site-" + key],
   })();
 }
 
 export function refreshPublishedSite(): void {
   const key = keyOf(process.env.SUPABASE_DB_URL);
   const emptyKey = keyOf("");
+  revalidateTag(ALL_SETTINGS_TAG, "max");
   revalidateTag("site-" + key, "max");
   if (emptyKey !== key) revalidateTag("site-" + emptyKey, "max");
 }

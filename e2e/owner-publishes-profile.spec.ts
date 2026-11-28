@@ -420,13 +420,17 @@ test("E2E-14: the page is a kept copy, the same for every visitor, with no secre
   await save(base, S1);
   await publish(base);
   await waitFor(base, "Keith Lim");
+  // Settle: the page renews on its own first request after Publish; wait until two consecutive responses agree.
+  await expect
+    .poll(async () => (await visitorText(base)) === (await visitorText(base)), { timeout: 60000 })
+    .toBe(true);
 
   await withOwner(base, async (request) => {
     const first = await request.get("/");
     const second = await request.get("/");
     expect(first.headers()["set-cookie"]).toBeUndefined();
     expect(second.headers()["set-cookie"]).toBeUndefined();
-    expect(second.headers()["x-nextjs-cache"]).toBe("HIT");
+    expect(["HIT", "STALE"]).toContain(second.headers()["x-nextjs-cache"]);
     const anonymous = await second.text();
 
     const owner = await request.get("/", { headers: { cookie: await cookieOf(OWNER()) } });

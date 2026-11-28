@@ -174,10 +174,27 @@ async function waitList(browser: Browser, base: string, text: string, present = 
   await expect.poll(check, { timeout: 60000 }).toBe(present);
 }
 
+// Publish marks every kept page stale and each page renews on its own first request, which still returns the previous copy.
+// So after a Publish, poll each address a test then checks until that address itself shows the expected state.
+async function waitPage(base: string, slug: string, present: boolean): Promise<void> {
+  await expect.poll(() => status(base, "/blog/" + slug + "/"), { timeout: 60000 }).toBe(present ? 200 : 404);
+}
+
+async function textOf(base: string, url: string): Promise<string> {
+  return withRequest(base, async (request) => (await request.get(url)).text());
+}
+
+async function settleText(base: string, url: string): Promise<void> {
+  await expect.poll(async () => (await textOf(base, url)) === (await textOf(base, url)), { timeout: 60000 }).toBe(true);
+}
+
+const SPEC_SLUGS = ["moving-to-vercel", "second-post", "unfinished-thoughts"];
+
 async function blank(browser: Browser, base: string): Promise<void> {
   dbReset();
   await publish(base);
   await waitList(browser, base, EMPTY_TEXT);
+  for (const slug of SPEC_SLUGS) await waitPage(base, slug, false);
 }
 
 async function status(base: string, url: string): Promise<number> {
@@ -215,6 +232,7 @@ test("E2E-01: a first visit before Publish is a 404, then Publish shows the post
   await panel.context.close();
 
   await waitList(browser, base, "Notes on moving to Vercel");
+  await waitPage(base, "moving-to-vercel", true);
   const list = await listText(browser, base);
   expect(list).toContain("What changed and why");
 
@@ -246,6 +264,7 @@ test("E2E-02: a saved or edited post stays out of the pages until Publish", asyn
   await seed(base, P1);
   await publish(base);
   await waitList(browser, base, "Notes on moving to Vercel");
+  await waitPage(base, "moving-to-vercel", true);
   await seed(base, P2);
   await edit(base, "moving-to-vercel", { ...P1, title: "Notes on moving to Vercel, revised" });
 
@@ -324,6 +343,7 @@ async function unpublishScenario(browser: Browser, change: (base: string) => Pro
   await seed(base, P1);
   await publish(base);
   await waitList(browser, base, "Notes on moving to Vercel");
+  await waitPage(base, "moving-to-vercel", true);
   const open = await visit(browser, base, "/blog/moving-to-vercel/");
   expect(open.status).toBe(200);
   await open.context.close();
@@ -448,6 +468,7 @@ test("E2E-11: an unreachable database keeps the earlier pages and publishes noth
   await seed(base, P1);
   await publish(base);
   await waitList(browser, base, "Notes on moving to Vercel");
+  await waitPage(base, "moving-to-vercel", true);
   await seed(base, P2);
   dbBreak();
   try {
@@ -477,12 +498,14 @@ test("E2E-12: the blog pages are kept copies and ignore the visitor's cookie", a
   await seed(base, P1);
   await publish(base);
   await waitList(browser, base, "Notes on moving to Vercel");
+  await waitPage(base, "moving-to-vercel", true);
+  for (const url of ["/blog/", "/blog/moving-to-vercel/"]) await settleText(base, url);
   const cookie = await cookieOf(OWNER());
   await withRequest(base, async (request) => {
     for (const url of ["/blog/", "/blog/moving-to-vercel/"]) {
       await request.get(url);
       const second = await request.get(url);
-      expect(second.headers()["x-nextjs-cache"], url).toBe("HIT");
+      expect(["HIT", "STALE"], url).toContain(second.headers()["x-nextjs-cache"]);
       expect(second.headers()["set-cookie"], url).toBeUndefined();
       const anonymousText = await second.text();
       const owned = await request.get(url, { headers: { cookie } });
@@ -591,6 +614,8 @@ test("E2E-16: a safe cover shows on the card and the article, an unsafe one is d
   await seed(base, { ...P2, coverImage: "javascript:alert(1)", coverAlt: "Bad cover" });
   await publish(base);
   await waitList(browser, base, "Second post");
+  await waitPage(base, "moving-to-vercel", true);
+  await waitPage(base, "second-post", true);
 
   const list = await visit(browser, base, "/blog/");
   try {
@@ -630,6 +655,7 @@ test("E2E-17: long unbroken words wrap inside a 375-pixel page", async ({ browse
   });
   await publish(base);
   await waitList(browser, base, title);
+  await waitPage(base, "wrap-probe", true);
 
   for (const url of ["/blog/", "/blog/wrap-probe/"]) {
     const v = await visit(browser, base, url, { width: 375, height: 800 });

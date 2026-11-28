@@ -2125,9 +2125,14 @@ test("E2E-ACC-34: nothing in the repository or the pipeline selects or requires 
   const providers = ["@vercel/", "@supa" + "base/", "@sentry/", "@datadog/", "posthog", "mixpanel", "stripe", "@clerk/", "@upstash/", "@google-cloud/", "googleapis", OLD];
   for (const start of providers) expect(names.filter((n) => n.startsWith(start)), `dependencies starting ${start}`).toEqual([]);
 
-  const settings = gitGrep(["-E"], ["maxDuration", "preferredRegion", "runtime *= *[\"']edge", "export const revalidate", "unstable_cache"], ["src"]);
+  const settings = gitGrep(["-E"], ["maxDuration", "preferredRegion", "runtime *= *[\"']edge", "revalidate *= *[0-9]", "revalidate: *[0-9]"], ["src"]);
   expect(head(settings.stdout), "a function, edge or caching setting under src").toBe("");
   expect(settings.status).toBe(1);
+  const cacheFiles = gitGrep(["-l"], ["unstable_cache"], ["src"]).stdout.split("\n").filter((line) => line !== "");
+  expect(cacheFiles, "the one file that holds the kept read").toEqual(["src/lib/server/keptRead.ts"]);
+  const revalidateFiles = gitGrep(["-l"], ["export const revalidate"], ["src"]).stdout.split("\n").filter((line) => line !== "").sort();
+  expect(revalidateFiles).toEqual(["src/app/blog/[slug]/page.tsx", "src/app/blog/page.tsx", "src/app/page.tsx"]);
+  for (const file of revalidateFiles) expect(fs.readFileSync(file, "utf8"), file).toContain("export const revalidate = false");
 
   const paid = gitGrep(
     ["-i", "-E"],

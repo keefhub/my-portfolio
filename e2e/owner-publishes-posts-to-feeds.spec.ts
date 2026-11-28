@@ -507,19 +507,12 @@ test("E2E-14: the feed files stay kept pages that read only the published snapsh
   expect(route).toContain("generateRssFeed");
   expect(sitemap).toContain("absoluteUrl(");
 
-  expect(publicPosts).toContain("revalidateTag(");
-  const blogCall = publicPosts.indexOf('revalidatePath("/blog", "layout")');
-  const rssCall = publicPosts.indexOf('revalidatePath("/rss.xml", "layout")');
-  const mapCall = publicPosts.indexOf('revalidatePath("/sitemap.xml", "layout")');
-  expect(blogCall).toBeGreaterThan(-1);
-  expect(rssCall).toBeGreaterThan(-1);
-  expect(mapCall).toBeGreaterThan(-1);
-  expect(publicPosts.indexOf("revalidateTag(")).toBeLessThan(blogCall);
-  expect(blogCall).toBeLessThan(rssCall);
-  expect(rssCall).toBeLessThan(mapCall);
+  expect(read("src/lib/server/keptRead.ts")).toContain("revalidateTag(");
+  expect(publicPosts).toContain("keptRead(");
+  expect(publicPosts).not.toContain("revalidatePath(");
 
-  expect(publishRoute).toContain("refreshPublishedPosts();");
-  expect(countOf(publishRoute, "revalidatePath(")).toBe(1);
+  expect(publishRoute).toContain("refreshPublishedSite();");
+  expect(publishRoute).not.toContain("revalidatePath(");
   expect(publishRoute).not.toContain("/rss.xml");
   expect(publishRoute).not.toContain("/sitemap.xml");
 

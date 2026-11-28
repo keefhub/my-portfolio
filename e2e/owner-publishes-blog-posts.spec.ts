@@ -541,7 +541,9 @@ test("E2E-14: the blog sources follow the kept-page rules", async () => {
   const server = read("src/lib/server/publicPosts.ts");
   const firstLine = server.split("\n").find((line) => line.trim() !== "");
   expect(firstLine?.trim()).toBe('import "server-only";');
-  for (const word of ["unstable_cache(", "revalidateTag(", 'revalidatePath("/blog", "layout")', "readPostRecords(true)"]) expect(server).toContain(word);
+  for (const word of ["keptRead(", "readPostRecords(true)"]) expect(server).toContain(word);
+  const kept = read("src/lib/server/keptRead.ts");
+  for (const word of ["unstable_cache(", "revalidateTag("]) expect(kept).toContain(word);
   for (const word of ["@/lib/auth", "@/lib/admin", "cookies(", "headers(", "console.", "fetch("]) {
     expect(server.includes(word), "server/publicPosts.ts contains " + word).toBe(false);
   }
@@ -553,10 +555,8 @@ test("E2E-14: the blog sources follow the kept-page rules", async () => {
   const at = (word: string): number => route.indexOf(word);
   expect(at("getPanelState(")).toBeGreaterThanOrEqual(0);
   expect(at("getPanelState(")).toBeLessThan(at("loadProfile("));
-  expect(at("loadProfile(")).toBeLessThan(at("revalidatePath("));
-  expect(at("revalidatePath(")).toBeLessThan(at("refreshPublishedPosts("));
-  expect(count(route, "revalidatePath(")).toBe(1);
-  expect(route).toContain('revalidatePath("/")');
+  expect(at("loadProfile(")).toBeLessThan(at("refreshPublishedSite("));
+  expect(route.includes("revalidatePath(")).toBe(false);
   expect(route.includes("process.env")).toBe(false);
   expect(route.includes("fetch(")).toBe(false);
 

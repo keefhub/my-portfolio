@@ -38,16 +38,16 @@ async function ownerPost(request: APIRequestContext, options: { data?: string; j
   return request.post(PUBLISH, { headers, data: options.data, maxRedirects: 0 });
 }
 
-test("E2E-09: the publish route checks the owner first, reads once, and invalidates only the landing page", async () => {
+test("E2E-09: the publish route checks the owner first, reads once, and marks the kept pages stale once", async () => {
   const source = fs.readFileSync(path.join(process.cwd(), "src/app/api/admin/publish/route.ts"), "utf8");
 
   expect(source).toContain("export async function POST");
-  expect(source.split("revalidatePath(").length - 1).toBe(1);
-  expect(source).toContain('revalidatePath("/")');
+  expect(source).not.toContain("revalidatePath(");
+  expect(source.split("refreshPublishedSite(").length - 1).toBe(1);
 
   const panel = source.indexOf("getPanelState(");
   const load = source.indexOf("loadProfile(");
-  const revalidate = source.indexOf("revalidatePath(");
+  const revalidate = source.indexOf("refreshPublishedSite(");
   expect(panel).toBeGreaterThanOrEqual(0);
   expect(panel).toBeLessThan(load);
   expect(load).toBeLessThan(revalidate);

@@ -21,10 +21,21 @@ const allSections = [
   "certifications",
 ] as const;
 
-export default function Header({ showAbout = true }: { showAbout?: boolean }) {
+export default function Header({
+  showAbout = true,
+  showExperience = true,
+}: {
+  showAbout?: boolean;
+  showExperience?: boolean;
+}) {
   const sections = useMemo(
-    () => allSections.filter((id) => showAbout || id !== "about"),
-    [showAbout],
+    () =>
+      allSections.filter(
+        (id) =>
+          (showAbout || id !== "about") &&
+          (showExperience || id !== "experience"),
+      ),
+    [showAbout, showExperience],
   );
   const [activeSection, setActiveSection] = useState<string>("");
   const [isOpen, setIsOpen] = useState(false);

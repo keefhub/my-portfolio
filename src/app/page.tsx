@@ -8,6 +8,7 @@ import Projects from "./components/project";
 import AboutMe from "./components/aboutme";
 import { loadPublishedProfile } from "@/lib/server/publicProfile";
 import { loadPublishedExperience } from "@/lib/server/publicExperience";
+import { loadPublishedTechStack } from "@/lib/server/publicTechStack";
 import { contactLinks, showsAbout } from "@/lib/publicProfile";
 
 export const revalidate = false;
@@ -15,6 +16,7 @@ export const revalidate = false;
 export default async function Home() {
   const profile = await loadPublishedProfile();
   const entries = await loadPublishedExperience();
+  const categories = await loadPublishedTechStack();
   const about = profile !== null && showsAbout(profile);
   return (
     <>
@@ -23,7 +25,10 @@ export default async function Home() {
         Skip to content
       </a>
 
-      <Header showAbout={about} />
+      <Header
+        showAbout={about}
+        showExperience={entries.length > 0 || categories.length > 0}
+      />
       {profile && <Hero profile={profile} hasAbout={about} />}
 
       <main id="main-content" className="bg-[var(--background)] overflow-x-clip">
@@ -33,10 +38,12 @@ export default async function Home() {
           </section>
         )}
 
-        <section id="experience" className="py-24 md:py-32 section-divider">
-          {entries.length > 0 && <ExperienceTimeline entries={entries} />}
-          <TechStack />
-        </section>
+        {(entries.length > 0 || categories.length > 0) && (
+          <section id="experience" className="py-24 md:py-32 section-divider">
+            {entries.length > 0 && <ExperienceTimeline entries={entries} />}
+            {categories.length > 0 && <TechStack categories={categories} />}
+          </section>
+        )}
 
         <section id="projects" className="py-24 md:py-32 section-divider">
           <Projects />

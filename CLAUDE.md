@@ -3,7 +3,7 @@
 Personal portfolio + blog for Keith Lim — `https://thegoldenpothos.xyz`.
 
 Next.js 16.2.6 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS v4 ·
-Framer Motion · public site prerendered; only sign-in (Auth.js, `next-auth` v5) and the admin panel run on the server · served by Vercel · the panel's content lives in Supabase PostgreSQL, reached with `postgres` · uploaded images live in Supabase Storage, reached with `fetch`.
+Framer Motion · public pages are static pages that read Supabase on the server and keep the last good copy until the owner publishes; only sign-in (Auth.js, `next-auth` v5) and the admin panel run on the server · served by Vercel · the panel's content lives in Supabase PostgreSQL, reached with `postgres` · uploaded images live in Supabase Storage, reached with `fetch`.
 
 Import alias: `@/*` → `./src/*`.
 
@@ -18,7 +18,7 @@ summary; that one is the on-demand detail.
 | Command             | Purpose                                              |
 | ------------------- | ---------------------------------------------------- |
 | `npm run dev`       | Dev server (Turbopack)                               |
-| `npm run build`     | Production build; public pages prerendered, the panel and sign-in routes dynamic |
+| `npm run build`     | Production build; public pages static (kept copy), the panel and sign-in routes dynamic |
 | `npm run typecheck` | `tsc --noEmit`                                       |
 | `npm run lint`      | `eslint .`                                           |
 | `npm run lint:new`  | ESLint minus the known `ThemeProvider.tsx:25` error; the pipeline's lint gate |
@@ -43,11 +43,11 @@ passing does not mean the site builds.
 
 ## Routes
 
-Every public route is prerendered at build time. Only the admin panel, `/api/auth/*` and `/api/admin/*` run on the server.
+Every public route is a static page kept by Vercel (the landing page reads the published profile; the blog pages are built at build time). Only the admin panel, `/api/auth/*` and `/api/admin/*` run on the server.
 
 | URL             | Source                                                       |
 | --------------- | ------------------------------------------------------------ |
-| `/`             | [src/app/page.tsx](src/app/page.tsx) — single-page scroll     |
+| `/`             | [src/app/page.tsx](src/app/page.tsx) — single-page scroll; a static page that reads the published profile through `src/lib/server/publicProfile.ts` (`revalidate = false`) |
 | `/blog/`        | [src/app/blog/page.tsx](src/app/blog/page.tsx)                |
 | `/blog/<slug>/` | [src/app/blog/[slug]/page.tsx](src/app/blog/[slug]/page.tsx)  |
 | `/rss.xml`      | [src/app/rss.xml/route.ts](src/app/rss.xml/route.ts)          |
@@ -74,12 +74,11 @@ are components on one page.
 
 ## Invariants — breaking these breaks the site
 
-**1. Public pages are prerendered; only sign-in and the panel run on a server.**
-`next.config.ts` has no `output`. The panel page is dynamic, and the API routes are two families only: `/api/auth/*` and
-`/api/admin/*`. No middleware, no ISR. A public page, layout or metadata route never calls `auth()`
-or reads cookies or headers (it would silently stop being static). Only
-`src/app/bright-warm-greenhouse/**`, `src/app/api/auth/**` and `src/app/api/admin/**` import `@/lib/auth`. Every dynamic
-public route keeps `generateStaticParams` and `dynamicParams = false`. Public route handlers stay
+**1. Public pages are static pages that keep the last good copy; only sign-in, the panel and Publish run on a server.**
+`next.config.ts` has no `output`. A public page reads Supabase on the server through `src/lib/server/publicProfile.ts` (the profile today; each later slice adds its own read) and declares `export const revalidate = false`, so Vercel keeps the last good copy and only the owner's Publish (`/api/admin/publish/`, which calls `revalidatePath`) or a code deploy renews it. There is no timer and no middleware. The panel page is dynamic, and the API routes are two families only: `/api/auth/*` and
+`/api/admin/*`. A public page, layout or metadata route never calls `auth()`
+or reads cookies or headers (it would silently stop being a kept page). Only
+`src/app/bright-warm-greenhouse/**`, `src/app/api/auth/**` and `src/app/api/admin/**` import `@/lib/auth`. Blog pages stay build-time with `generateStaticParams` and `dynamicParams = false`, and are never passed to `revalidatePath` while that holds. Public route handlers stay
 `export const dynamic = "force-static"`; the Auth.js handler at `/api/auth/[...nextauth]` and the
 `/api/admin/*` entry points are the dynamic handlers. `/api/admin/*` is called at its slashed address.
 
@@ -141,10 +140,10 @@ decided on the server by `src/lib/admin/access.ts` and `src/lib/auth.ts`; the pa
 depends on database rules.
 `src/lib/server/` holds the server-only modules (the SQL text, the database connection, the stand-in, the
 profile store, the storage module and the image store); `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are read
-in one file there (`src/lib/server/storage.ts`). It is imported only by `src/app/api/admin/**`, never by a
-client component, a public page or a layout. The owner decision stays in `src/lib/admin/access.ts` and `src/lib/auth.ts`. The shared list pattern is `ListEditor.tsx` with the browser store `createHttpListStore` (`src/lib/admin/listClient.ts`), the server `createListService` (`src/lib/server/listStore.ts`) and the list SQL (`src/lib/server/listSql.ts`); each later list slice adds its table name, a route file and an editor.
+in one file there (`src/lib/server/storage.ts`). It is imported by `src/app/api/admin/**` and, for `publicProfile.ts` only, by `src/app/page.tsx`; never by a
+client component, a layout or any other public file. The owner decision stays in `src/lib/admin/access.ts` and `src/lib/auth.ts`. The shared list pattern is `ListEditor.tsx` with the browser store `createHttpListStore` (`src/lib/admin/listClient.ts`), the server `createListService` (`src/lib/server/listStore.ts`) and the list SQL (`src/lib/server/listSql.ts`); each later list slice adds its table name, a route file and an editor.
 
-**Content storage.** The profile, the images, the experience entries and the projects are stored in Supabase. The certifications are stored in Supabase the same way. The tech stack is stored in Supabase the same way. The blog posts are stored in Supabase the same way; a post is keyed by its slug. Nothing else holds the panel's content and no second backend exists.
+**Content storage.** The profile, the images, the experience entries and the projects are stored in Supabase. The certifications are stored in Supabase the same way. The tech stack is stored in Supabase the same way. The blog posts are stored in Supabase the same way; a post is keyed by its slug. The landing page shows the published profile. Nothing else holds the panel's content and no second backend exists.
 
 **Settings.** The site reads seven settings by name: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
 `ADMIN_EMAIL`, `SUPABASE_DB_URL`, `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The owner sets them in Vercel for Production and SIT; they are never in the repo.
@@ -225,7 +224,7 @@ uses `docs/` instead and never touches them.
 
 ## Never violate (feature pipeline reviewers enforce these)
 
-- The six **Invariants** above — public pages prerendered with only sign-in and the panel on a server, `trailingSlash` in three places, no `@/lib/blog` barrel in client components, UTC date formatting, one `SITE_URL`, unoptimized images.
+- The six **Invariants** above — public pages are static kept copies renewed only by Publish or a deploy, with only sign-in, the panel and Publish on a server, `trailingSlash` in three places, no `@/lib/blog` barrel in client components, UTC date formatting, one `SITE_URL`, unoptimized images.
 - **Style against the CSS tokens in `globals.css`.** No raw colour values, no Tailwind `dark:` variants.
 - **Never `git add -A`, `git add .`, or `git commit -a`.** Stage explicit paths.
 - **Playwright is the only test runner.** Specs live in `e2e/` and run against the built site (`next start`). Don't add Vitest, Jest or another runner without asking.

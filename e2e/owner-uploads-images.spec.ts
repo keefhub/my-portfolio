@@ -324,7 +324,7 @@ test("E2E-04: the image SQL is exactly the proven text, every server file is ser
   const importers = gitPaths(gitGrep(["-l", "-E", "lib/server", "--", "src"]).stdout);
   expect(importers.length).toBeGreaterThan(0);
   for (const path of importers) {
-    expect(path.startsWith("src/app/api/admin/") || path.startsWith("src/lib/server/"), path).toBe(true);
+    expect(path.startsWith("src/app/api/admin/") || path.startsWith("src/lib/server/") || path === "src/app/page.tsx", path).toBe(true);
   }
 
   // (4) who names the database library
@@ -1332,7 +1332,7 @@ test("E2E-14: the public pages stay prerendered and their pages and scripts carr
       path,
     ).toBe(true);
   }
-  const server = gitGrep(["-l", "-E", "lib/server", "--", "src", ":(exclude)src/lib/server", ":(exclude)src/app/api/admin"]);
+  const server = gitGrep(["-l", "-E", "lib/server", "--", "src", ":(exclude)src/lib/server", ":(exclude)src/app/api/admin", ":(exclude)src/app/page.tsx"]);
   expect(server.stdout).toBe("");
   expect(server.status).toBe(1);
 });

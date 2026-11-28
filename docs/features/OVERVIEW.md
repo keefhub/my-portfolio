@@ -6,13 +6,10 @@ analysis; §4 is only an index. Individual stories assume this context and don't
 ## 1. Product Overview
 
 my-portfolio is the personal portfolio and blog of Keith Lim, published at
-`https://thegoldenpothos.xyz`. The public site is prerendered Next.js
-served by Vercel, with sign-in and the owner's admin panel the only parts that run on a server: a single-page scroll landing page (Hero, About, Experience, Tech
-Stack, Projects, Certifications) plus a build-time Markdown blog with RSS, sitemap and robots.
+`https://thegoldenpothos.xyz`. The public site is Next.js served by Vercel: its pages are static pages whose content is read from Supabase on the server and kept as the last good copy until the owner publishes (the blog pages stay build-time until their own slice): a single-page scroll landing page (Hero, About, Experience, Tech Stack, Projects, Certifications) plus a Markdown blog with RSS, sitemap and robots.
 
 The one job it must do well is present Keith's professional work credibly and quickly: hiring
-managers and recruiters skim the landing page; peers and search visitors read blog posts. The
-owner (Keith) is the only author — content is committed to the repo, not entered through any UI.
+managers and recruiters skim the landing page; peers and search visitors read blog posts. The owner (Keith) is the only author and enters content in the admin panel.
 
 ## 2. Confirmed Requirements
 
@@ -20,7 +17,7 @@ Decisions the user has confirmed. Later features inherit them without re-litigat
 conflicts with anything here stops and asks. `/help-discover-this` appends to this section when a
 sweep confirms a decision that later features would otherwise reopen.
 
-1. Public pages are prerendered at build time. The server runs only sign-in and the panel (see item 6); no other feature may require a server, API route, middleware or request-time rendering.
+1. Public pages are static pages whose content is read from Supabase on the server and kept by Vercel (`last good copy`); the owner's Publish or a code deploy renews them. No middleware and no timer. See item 8.
 2. Blog content lives in `content/blog/*.md` in this repo and is trusted; there is no CMS and no user-submitted content.
 3. Theming uses CSS custom properties with a `[data-theme="dark"]` override, not Tailwind dark variants.
 4. `trailingSlash: true` stays consistent across `next.config.ts`, `vercel.json` and `absoluteUrl()`.

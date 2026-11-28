@@ -720,3 +720,126 @@ test("E2E-18: only the signed-in owner sees the Publish button, on every screen"
     await other.close();
   }
 });
+
+// ---- Step 4: earlier specs and standing documents ----
+
+const readText = (file: string): string => fs.readFileSync(path.join(process.cwd(), file), "utf8");
+
+test("E2E-22: the standing documents describe the kept-copy rule", async () => {
+  const claude = readText("CLAUDE.md");
+  const reference = readText("Reference.md");
+  const overview = readText("docs/features/OVERVIEW.md");
+
+  for (const text of [
+    "/api/admin/publish/",
+    "src/app/api/admin/publish/route.ts",
+    "last good copy",
+    "revalidatePath",
+    "The blog posts are stored in Supabase",
+    "the experience entries and the projects",
+    "The certifications are stored in Supabase",
+    "The tech stack is stored in Supabase",
+    "The site reads seven settings by name",
+    "/api/auth/callback/google",
+    "stand-in:",
+    "src/lib/server/",
+    "src/app/api/admin/**",
+    "createListService",
+    "createHttpListStore",
+    "/api/admin/images/",
+    "/api/admin/images/upload/",
+    "/api/admin/profile/",
+    ...["experience", "projects", "certifications", "tech-stack", "blog-posts", "blog-posts/published"].flatMap((route) => [
+      "/api/admin/" + route + "/",
+      "src/app/api/admin/" + route + "/route.ts",
+    ]),
+    ...[
+      "AUTH_SECRET",
+      "AUTH_GOOGLE_ID",
+      "AUTH_GOOGLE_SECRET",
+      "ADMIN_EMAIL",
+      "SUPABASE_DB_URL",
+      "SUPABASE_URL",
+      "SUPABASE_SERVICE_ROLE_KEY",
+    ],
+  ]) {
+    expect(claude, "CLAUDE.md must contain " + text).toContain(text);
+  }
+  for (const text of [
+    "Every public route is prerendered at build time",
+    "No middleware, no ISR",
+    "public pages prerendered with only sign-in and the panel on a server",
+    "Leftover rules",
+  ]) {
+    expect(claude, "CLAUDE.md must not contain " + text).not.toContain(text);
+  }
+
+  expect(reference).toContain("PublishButton");
+  expect(reference).toContain("/api/admin/publish/");
+  expect(reference).not.toContain("no middleware, no ISR");
+
+  const item1 = overview.split("\n").find((line) => line.startsWith("1. Public pages"));
+  expect(item1, "OVERVIEW section 2 item 1 line").toBeDefined();
+  expect(item1).toContain("last good copy");
+  expect(item1).not.toContain("no other feature may require a server, API route, middleware or request-time rendering");
+});
+
+test("E2E-24: the earlier specs no longer depend on the hard-coded landing page", async () => {
+  const forbidden = [
+    "Software engineer by profession, but a plant lover",
+    'getByRole("heading", { level: 1, name: "Keith Lim", exact: true })',
+  ];
+  for (const file of [
+    "e2e/site-smoke.spec.ts",
+    "e2e/hosting-and-backend-migration-acceptance.spec.ts",
+    "e2e/retire-firebase.spec.ts",
+    "e2e/owner-edits-profile.spec.ts",
+  ]) {
+    const text = readText(file);
+    for (const phrase of forbidden) expect(text, file + " must not contain " + phrase).not.toContain(phrase);
+  }
+
+  const removed = [
+    "src/app/page.tsx",
+    "src/app/components/hero.tsx",
+    "src/app/components/aboutme.tsx",
+    "src/app/components/footer.tsx",
+    "src/app/components/header.tsx",
+  ];
+  const arrayAfter = (text: string, marker: string): string => {
+    const start = text.indexOf(marker);
+    expect(start, marker + " is present").toBeGreaterThanOrEqual(0);
+    return text.slice(start, text.indexOf("];", start));
+  };
+  const sources = arrayAfter(readText("e2e/hosting-and-backend-migration-acceptance.spec.ts"), "const sources = [");
+  const publicSources = arrayAfter(readText("e2e/retire-firebase.spec.ts"), "const PUBLIC_SOURCES = [");
+  for (const entry of removed) {
+    expect(sources, "sources must not contain " + entry).not.toContain('"' + entry + '"');
+    expect(publicSources, "PUBLIC_SOURCES must not contain " + entry).not.toContain('"' + entry + '"');
+  }
+
+  for (const file of [
+    "e2e/owner-edits-profile.spec.ts",
+    "e2e/owner-uploads-images.spec.ts",
+    "e2e/owner-manages-experience.spec.ts",
+    "e2e/owner-manages-projects.spec.ts",
+    "e2e/owner-manages-certifications.spec.ts",
+    "e2e/owner-manages-tech-stack.spec.ts",
+    "e2e/owner-manages-blog-posts.spec.ts",
+    "e2e/hosting-and-backend-migration-acceptance.spec.ts",
+  ]) {
+    const lines = readText(file).split("\n");
+    const rules = lines
+      .map((line, index) => ({ line, index }))
+      .filter(
+        ({ line }) =>
+          (line.includes('startsWith("src/app/api/admin/")') || line.includes(':(exclude)src/app/api/admin"')) &&
+          (line.includes("lib/server") || line.includes("SERVER_PATH")),
+      );
+    expect(rules.length, file + " holds a lib/server mention rule").toBeGreaterThan(0);
+    for (const { index } of rules) {
+      const near = lines.slice(Math.max(0, index - 3), index + 4).join("\n");
+      expect(near, file + " line " + (index + 1) + " allows src/app/page.tsx").toContain("src/app/page.tsx");
+    }
+  }
+});

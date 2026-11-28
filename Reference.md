@@ -15,8 +15,8 @@
 | **Icons**     | lucide-react 0.503                                      |
 | **Fonts**     | Geist (sans), Geist Mono (via `next/font`)              |
 | **Content**   | Markdown blog in `content/blog/`, built by unified/remark/rehype |
-| **Deploy**    | Vercel (Git integration; public pages prerendered, sign-in and the panel on the server) |
-| **Output**    | `trailingSlash: true`; public pages prerendered, no separate export folder |
+| **Deploy**    | Vercel (Git integration; public pages are static kept copies, sign-in, the panel and Publish on the server) |
+| **Output**    | `trailingSlash: true`; public pages static (kept copy), no separate export folder |
 
 ---
 
@@ -24,7 +24,7 @@
 
 ### Route Map
 
-The public routes are prerendered at build time. The admin panel, `/api/auth/*` and `/api/admin/*` run on the server.
+The public routes are static pages kept by Vercel (the landing page reads the published profile). The admin panel, `/api/auth/*` and `/api/admin/*` run on the server.
 
 | URL             | Source                        | Notes                             |
 | --------------- | ----------------------------- | --------------------------------- |
@@ -37,19 +37,20 @@ The public routes are prerendered at build time. The admin panel, `/api/auth/*` 
 | `/bright-warm-greenhouse/` | `src/app/bright-warm-greenhouse/page.tsx` | Owner-only admin panel; `noindex`; renders `AdminPanel` |
 | `/api/auth/*`   | `src/app/api/auth/[...nextauth]/route.ts` | The Auth.js handlers; dynamic.    |
 | `/api/admin/*`  | `src/app/api/admin/**`        | The owner-only JSON routes and the one public published-posts read; dynamic. |
+| `/api/admin/publish/` | `src/app/api/admin/publish/route.ts` | Owner-only Publish (POST): owner check, a profile read as reachability probe, then `revalidatePath("/")`; dynamic. |
 
 ### Landing Page (`/`)
 
 ```
 page.tsx            ← multi-section scroll, anchor-linked (not routed)
 ├── Header          ← sticky nav + scrollspy + mobile drawer + theme toggle
-├── Hero            ← fullscreen landing with social links + CTA
-├── AboutMe         ← bio text + profile photo
+├── Hero            ← fullscreen landing; reads the published profile
+├── AboutMe         ← bio text + photo from the published profile
 ├── ExperienceTimeline ← alternating timeline with flip cards
 ├── TechStack       ← category grid of tool icons
 ├── Projects        ← project grid with flip cards
 ├── Certifications  ← link badges
-└── Footer          ← social links + back-to-top FAB
+└── Footer          ← published profile's links + back-to-top FAB
 ```
 
 ### Blog (`/blog`)
@@ -75,7 +76,7 @@ User toggles theme → ThemeContext → localStorage + data-theme attr on <html>
 
 - **Landing page is anchor-scrolled, the blog is routed**: `/` is one page of sections; `/blog` and `/blog/<slug>` are real routes
 - **Mixed server/client components**: 8 of 17 are `"use client"`. The landing-page sections are client (animation + state); the blog tree and metadata routes are server components
-- **Prerendered public pages**: no middleware, no ISR. Dynamic public routes need `generateStaticParams` and `dynamicParams = false`; public route handlers stay `dynamic = "force-static"`. Only sign-in (`/api/auth/*`) and the panel (`/api/admin/*` and the panel page) are dynamic
+- **Kept-copy public pages**: public pages read Supabase on the server and Vercel keeps the last good copy (`revalidate = false`); only the owner's Publish (`/api/admin/publish/`, `revalidatePath("/")`) or a deploy renews it. No middleware, no timer. Blog pages stay build-time and are never passed to `revalidatePath`. Dynamic public routes need `generateStaticParams` and `dynamicParams = false`; public route handlers stay `dynamic = "force-static"`. Only sign-in (`/api/auth/*`) and the panel (`/api/admin/*` and the panel page) are dynamic
 - **`trailingSlash: true`**: Each route is emitted as a directory (`blog/<slug>/`) and the host redirects the unslashed form to the slashed one. Coupled to `vercel.json` and `absoluteUrl()` in `src/lib/site.ts` — change all three together
 - **Build-time content pipeline**: Markdown in `content/blog/` is read, validated, and rendered during `next build` — never at runtime
 - **CSS variables for theming**: Light/dark tokens in `:root` / `[data-theme="dark"]`
@@ -204,7 +205,7 @@ Portfolio data is embedded as TypeScript constants in each component file:
 - `experienceData[]` in `experienceTimeLine.tsx`
 - `techStack[]` in `techstack.tsx`
 - `certifications[]` in `certifications.tsx`
-- `socialLinks[]` in `hero.tsx` and `footer.tsx`
+- the social links in `hero.tsx` and `footer.tsx` come from the saved profile (`publicProfile.ts`)
 
 Blog data comes from Markdown files in `content/blog/`, loaded at build time.
 

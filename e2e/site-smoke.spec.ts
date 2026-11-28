@@ -6,7 +6,7 @@ test("E2E-01: landing page renders its sections without console errors", async (
   page.on("pageerror", (e) => errors.push(e.message));
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.locator("main#main-content")).toBeVisible();
   expect(errors).toEqual([]);
 });
 

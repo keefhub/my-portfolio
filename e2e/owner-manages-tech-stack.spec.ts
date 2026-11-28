@@ -632,7 +632,7 @@ test("E2E-03: the list SQL is exactly the proven text for the four tables, the s
   const mentioning = mentions.stdout.split("\n").filter(Boolean);
   expect(mentioning.length).toBeGreaterThan(0);
   for (const file of mentioning) {
-    expect(file.startsWith("src/app/api/admin/") || file.startsWith(SERVER_PATH + "/"), file).toBe(true);
+    expect(file.startsWith("src/app/api/admin/") || file.startsWith(SERVER_PATH + "/") || file === "src/app/page.tsx", file).toBe(true);
   }
 
   const importers = gitGrep(["-l", "-E", "[\"']" + PG + "[\"']", "--", "src"]);
@@ -1240,7 +1240,7 @@ test("E2E-12: no public page or script carries the route or the database, and th
     ).toBe(true);
   }
 
-  const serverMentions = gitGrep(["-l", "-E", SERVER_DIR, "--", "src", ":(exclude)" + SERVER_PATH, ":(exclude)src/app/api/admin"]);
+  const serverMentions = gitGrep(["-l", "-E", SERVER_DIR, "--", "src", ":(exclude)" + SERVER_PATH, ":(exclude)src/app/api/admin", ":(exclude)src/app/page.tsx"]);
   expect(serverMentions.stdout).toBe("");
   expect(serverMentions.status).toBe(1);
 });

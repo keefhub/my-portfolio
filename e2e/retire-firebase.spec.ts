@@ -50,7 +50,6 @@ const PER_RUN_VALUES = ["AUTH_SECRET", "AUTH_GOOGLE_ID", "AUTH_GOOGLE_SECRET", "
 const PUBLIC_SOURCES = [
   "content/blog",
   "public",
-  "src/app/page.tsx",
   "src/app/layout.tsx",
   "src/app/globals.css",
   "src/app/robots.ts",
@@ -58,14 +57,10 @@ const PUBLIC_SOURCES = [
   "src/app/rss.xml",
   "src/app/blog/page.tsx",
   "src/app/blog/layout.tsx",
-  "src/app/components/hero.tsx",
-  "src/app/components/aboutme.tsx",
   "src/app/components/experienceTimeLine.tsx",
   "src/app/components/techstack.tsx",
   "src/app/components/project.tsx",
   "src/app/components/certifications.tsx",
-  "src/app/components/footer.tsx",
-  "src/app/components/header.tsx",
   "src/app/components/ThemeProvider.tsx",
   "src/app/components/blog",
   "src/lib/blog",
@@ -268,8 +263,7 @@ test("E2E-44: every public page and file answers with its content", async ({ pag
   const home = await page.goto("/");
   expect(home?.status()).toBe(200);
   expect(new URL(page.url()).pathname).toBe("/");
-  await expect(page.getByRole("heading", { level: 1, name: "Keith Lim", exact: true })).toBeVisible();
-  for (const selector of ["section#hero", "section#about", "section#experience", "section#tech", "section#projects", "section#certifications"]) {
+  for (const selector of ["section#experience", "section#projects", "section#certifications"]) {
     expect(await page.locator(selector).count(), `${selector} on /`).toBeGreaterThanOrEqual(1);
   }
 

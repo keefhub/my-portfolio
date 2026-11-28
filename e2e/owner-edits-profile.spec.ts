@@ -625,7 +625,7 @@ test("E2E-12: the SQL is exactly the proven text, the server files are marked se
     encoding: "utf8",
   });
   for (const file of (mentions.stdout ?? "").split("\n").filter(Boolean)) {
-    expect(file.startsWith("src/app/api/admin/") || file.startsWith("src/lib/server/"), file).toBe(true);
+    expect(file.startsWith("src/app/api/admin/") || file.startsWith("src/lib/server/") || file === "src/app/page.tsx", file).toBe(true);
   }
 
   // (4) only the database module imports the library
@@ -979,8 +979,11 @@ test("E2E-19: saving the profile does not change the public site", async ({ brow
   dbReset();
   const first = await request.get("/");
   const html1 = await first.text();
-  expect(html1).toContain("Keith Lim");
-  expect(html1).toContain("Software engineer by profession, but a plant lover");
+  // Site-wide metadata (layout.tsx: <head> and its copy in the script payload) legitimately names the owner;
+  // only the rendered body markup is profile content.
+  const body1 = html1.slice(html1.indexOf("</head>")).replace(/<script[\s\S]*?<\/script>/g, "");
+  expect(body1).not.toContain("Keith Lim");
+  expect(html1).not.toContain("Someone Else");
 
   const { context, page } = await openPanel(browser, baseURL as string);
   await openProfile(page);
@@ -1001,9 +1004,8 @@ test("E2E-19: saving the profile does not change the public site", async ({ brow
   expect(html2).not.toContain("Someone Else about text.");
 
   await publicPage.goto("/");
-  const about = publicPage.locator("#about").first();
-  await expect(about).toContainText("Software engineer by profession");
-  await expect(about).not.toContainText("Someone Else");
+  await expect(publicPage.locator("section#about")).toHaveCount(0);
+  await expect(publicPage.locator("body")).not.toContainText("Someone Else");
   await publicContext.close();
   await context.close();
 });

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { BlogPost } from "@/lib/blog/types";
 import { formatDate } from "@/lib/blog/types";
@@ -10,7 +11,7 @@ interface BlogArticleProps {
 
 export default function BlogArticle({ post, htmlContent }: BlogArticleProps) {
   return (
-    <article className="max-w-3xl mx-auto px-4 sm:px-6 py-16 md:py-24">
+    <article className="min-w-0 [overflow-wrap:anywhere] max-w-3xl mx-auto px-4 sm:px-6 py-16 md:py-24">
       {/* Back link */}
       <Link
         href="/blog"
@@ -41,7 +42,7 @@ export default function BlogArticle({ post, htmlContent }: BlogArticleProps) {
             {post.tags.map((tag) => (
               <span
                 key={tag}
-                className="text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]"
+                className="min-w-0 [overflow-wrap:anywhere] text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--accent-blue-subtle)] text-[var(--accent-blue)]"
               >
                 {tag}
               </span>
@@ -49,7 +50,7 @@ export default function BlogArticle({ post, htmlContent }: BlogArticleProps) {
           </div>
         )}
 
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[var(--foreground)] mb-4 leading-tight gradient-text">
+        <h1 className="min-w-0 [overflow-wrap:anywhere] text-3xl sm:text-4xl md:text-5xl font-extrabold text-[var(--foreground)] mb-4 leading-tight gradient-text">
           {post.title}
         </h1>
 
@@ -72,6 +73,16 @@ export default function BlogArticle({ post, htmlContent }: BlogArticleProps) {
           )}
         </div>
       </header>
+
+      {post.coverImage ? (
+        <Image
+          src={post.coverImage}
+          alt={post.coverAlt ?? ""}
+          width={1200}
+          height={630}
+          className="mb-10 h-auto w-full rounded-[var(--radius-lg)]"
+        />
+      ) : null}
 
       {/* Content */}
       <PostBody html={htmlContent} />

@@ -583,3 +583,105 @@ test("E2E-15: the blog list is prerendered and post addresses are not fixed at b
   expect(dynamic).toBeDefined();
   expect(dynamic?.fallback).not.toBe(false);
 });
+
+test("E2E-16: a safe cover shows on the card and the article, an unsafe one is dropped", async ({ browser }) => {
+  const base = baseUrlOf();
+  await blank(browser, base);
+  await seed(base, { ...P1, coverImage: "/images/blog/vercel.png", coverAlt: "A green leaf" });
+  await seed(base, { ...P2, coverImage: "javascript:alert(1)", coverAlt: "Bad cover" });
+  await publish(base);
+  await waitList(browser, base, "Second post");
+
+  const list = await visit(browser, base, "/blog/");
+  try {
+    await expect(list.page.locator('img[alt="A green leaf"]')).toHaveCount(1);
+    expect(await list.page.locator('img[alt="A green leaf"]').getAttribute("src")).toBe("/images/blog/vercel.png");
+    await expect(list.page.locator('img[alt="Bad cover"]')).toHaveCount(0);
+  } finally {
+    await list.context.close();
+  }
+
+  const first = await visit(browser, base, "/blog/moving-to-vercel/");
+  try {
+    await expect(first.page.locator('article img[alt="A green leaf"]')).toHaveCount(1);
+  } finally {
+    await first.context.close();
+  }
+
+  const second = await visit(browser, base, "/blog/second-post/");
+  try {
+    await expect(second.page.locator("article img")).toHaveCount(0);
+  } finally {
+    await second.context.close();
+  }
+});
+
+test("E2E-17: long unbroken words wrap inside a 375-pixel page", async ({ browser }) => {
+  const base = baseUrlOf();
+  const title = "W".repeat(120);
+  await blank(browser, base);
+  await seed(base, {
+    ...P1,
+    title,
+    excerpt: "X".repeat(150),
+    tags: ["T".repeat(60)],
+    slug: "wrap-probe",
+    body: "Y".repeat(200) + "\n\n```\n" + "Z".repeat(150) + "\n```\n",
+  });
+  await publish(base);
+  await waitList(browser, base, title);
+
+  for (const url of ["/blog/", "/blog/wrap-probe/"]) {
+    const v = await visit(browser, base, url, { width: 375, height: 800 });
+    try {
+      await v.page.waitForLoadState("load");
+      const fits = await v.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+      expect(fits, url).toBe(true);
+    } finally {
+      await v.context.close();
+    }
+  }
+});
+
+test("E2E-18: the card is reachable by keyboard and opens its post", async ({ browser }) => {
+  const base = baseUrlOf();
+  await blank(browser, base);
+  await seed(base, P1);
+  await publish(base);
+  await waitList(browser, base, "Notes on moving to Vercel");
+
+  const v = await visit(browser, base, "/blog/");
+  try {
+    const page = v.page;
+    await expect(page.getByRole("heading", { level: 1, name: "Blog", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to portfolio", exact: true })).toBeVisible();
+    const wanted = 'Read "Notes on moving to Vercel"';
+    let focused = false;
+    for (let i = 0; i < 40 && !focused; i++) {
+      await page.keyboard.press("Tab");
+      focused = await page.evaluate((label) => document.activeElement?.getAttribute("aria-label") === label, wanted);
+    }
+    expect(focused, "the card link received focus within 40 Tab presses").toBe(true);
+    await page.keyboard.press("Enter");
+    await page.waitForURL(/\/blog\/moving-to-vercel\/?$/);
+    expect(new URL(page.url()).pathname).toMatch(/^\/blog\/moving-to-vercel\/?$/);
+    await expect(page.getByRole("link", { name: "All posts", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to all posts", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Notes on moving to Vercel" })).toBeVisible();
+  } finally {
+    await v.context.close();
+  }
+});
+
+test("E2E-19: the new blog sources use tokens only", async () => {
+  const read = (p: string): string => fs.readFileSync(path.join(process.cwd(), p), "utf8");
+  const files = ["src/app/not-found.tsx", "src/app/components/blog/BlogCard.tsx", "src/app/components/blog/BlogArticle.tsx"];
+  for (const file of files) {
+    const text = read(file);
+    expect(/#[0-9a-fA-F]{3,8}\b/.test(text), file + " has a hex colour").toBe(false);
+    expect(/\brgba?\(/.test(text), file + " has rgb(").toBe(false);
+    expect(/\bhsla?\(/.test(text), file + " has hsl(").toBe(false);
+    expect(text.includes("dark:"), file + " has dark:").toBe(false);
+  }
+  expect(read("src/app/not-found.tsx")).toContain("var(--");
+});

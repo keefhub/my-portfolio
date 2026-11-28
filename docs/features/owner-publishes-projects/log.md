@@ -35,3 +35,21 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+=====================================================================
+Task 3 — The standing documents describe the projects as read from the database
+Completed: 2026-11-28      Commit: 80b8f1d
+
+Summary: CLAUDE.md (the / row, invariant 1, admin-modules import rule) and Reference.md (tree line, data list, "Adding a New Project") describe the public projects read and the panel-then-Publish path.
+Decisions: publicProjects.ts listed after publicTechStack.ts.
+Deviations: None.
+Files changed: CLAUDE.md, Reference.md (modified); e2e/owner-publishes-projects.spec.ts (modified)
+E2E tests written: E2E-17      Passed before the change: None.
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

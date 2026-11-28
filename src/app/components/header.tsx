@@ -6,6 +6,7 @@ import {
   useEffect,
   useState,
   useRef,
+  useMemo,
   useCallback,
   type KeyboardEvent,
 } from "react";
@@ -13,9 +14,18 @@ import { Menu, X, Sun, Moon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "./ThemeProvider";
 
-const sections = ["about", "experience", "projects", "certifications"] as const;
+const allSections = [
+  "about",
+  "experience",
+  "projects",
+  "certifications",
+] as const;
 
-export default function Header() {
+export default function Header({ showAbout = true }: { showAbout?: boolean }) {
+  const sections = useMemo(
+    () => allSections.filter((id) => showAbout || id !== "about"),
+    [showAbout],
+  );
   const [activeSection, setActiveSection] = useState<string>("");
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -52,7 +62,7 @@ export default function Header() {
     });
 
     return () => observer.disconnect();
-  }, []);
+  }, [sections]);
 
   // Escape to close
   useEffect(() => {

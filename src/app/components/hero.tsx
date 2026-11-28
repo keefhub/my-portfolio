@@ -1,27 +1,40 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowDown, Github, Linkedin, Mail, FileText } from "lucide-react";
+import {
+  ArrowDown,
+  Github,
+  Linkedin,
+  Mail,
+  FileText,
+  Link as LinkIcon,
+} from "lucide-react";
+import {
+  contactLinks,
+  type ContactKind,
+  type PublicProfile,
+} from "@/lib/publicProfile";
 
-export default function Hero() {
+const ICONS = {
+  github: Github,
+  linkedin: Linkedin,
+  mail: Mail,
+  file: FileText,
+  link: LinkIcon,
+} satisfies Record<ContactKind, typeof Github>;
+
+export default function Hero({
+  profile,
+  hasAbout,
+}: {
+  profile: PublicProfile;
+  hasAbout: boolean;
+}) {
   const scrollToAbout = () => {
     document.getElementById("about")?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const socialLinks = [
-    {
-      icon: Github,
-      href: "https://github.com/keefhub",
-      label: "Visit GitHub profile",
-    },
-    {
-      icon: Linkedin,
-      href: "https://linkedin.com/in/yylim-keith",
-      label: "Visit LinkedIn profile",
-    },
-    { icon: Mail, href: "mailto:limy0313@e.ntu.edu.sg", label: "Send email" },
-    { icon: FileText, href: "/resume.pdf", label: "Download resume" },
-  ];
+  const socialLinks = contactLinks(profile, true);
 
   return (
     <section
@@ -52,7 +65,7 @@ export default function Hero() {
         aria-hidden="true"
       />
 
-      <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 text-center">
+      <div className="relative z-10 w-full min-w-0 max-w-4xl mx-auto px-4 sm:px-6 text-center">
         {/* Greeting */}
         <motion.p
           initial={{ opacity: 0, y: 24 }}
@@ -68,9 +81,9 @@ export default function Hero() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          className="text-5xl sm:text-6xl md:text-8xl font-extrabold mb-6 leading-[1.05] tracking-tight gradient-text"
+          className="text-5xl sm:text-6xl md:text-8xl font-extrabold mb-6 leading-[1.05] tracking-tight gradient-text wrap-anywhere"
         >
-          Keith Lim
+          {profile.name}
         </motion.h1>
 
         {/* Tagline */}
@@ -78,10 +91,9 @@ export default function Hero() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
-          className="text-lg sm:text-xl md:text-2xl text-[var(--muted)] mb-10 max-w-2xl mx-auto leading-relaxed"
+          className="text-lg sm:text-xl md:text-2xl text-[var(--muted)] mb-10 max-w-2xl mx-auto leading-relaxed wrap-anywhere"
         >
-          Software engineer by profession — plant lover, coffee enthusiast, and
-          photographer at heart.
+          {profile.headline}
         </motion.p>
 
         {/* CTA Buttons */}
@@ -101,59 +113,74 @@ export default function Hero() {
               className="transition-transform duration-300 group-hover:translate-y-0.5"
             />
           </a>
-          <a
-            href="#about"
-            className="inline-flex items-center gap-2 px-7 py-3.5 border-2 border-[var(--border-strong)] text-[var(--foreground)] font-semibold rounded-full hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)] transition-all duration-300 hover:-translate-y-0.5"
-          >
-            About Me
-          </a>
+          {hasAbout && (
+            <a
+              href="#about"
+              className="inline-flex items-center gap-2 px-7 py-3.5 border-2 border-[var(--border-strong)] text-[var(--foreground)] font-semibold rounded-full hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)] transition-all duration-300 hover:-translate-y-0.5"
+            >
+              About Me
+            </a>
+          )}
         </motion.div>
 
         {/* Social links */}
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.65, ease: [0.22, 1, 0.36, 1] }}
-          className="flex items-center justify-center gap-2"
-        >
-          {socialLinks.map(({ icon: Icon, href, label }, i) => (
-            <motion.a
-              key={label}
-              href={href}
-              target={href.startsWith("http") ? "_blank" : undefined}
-              rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
-              className="p-3 text-[var(--muted)] hover:text-[var(--accent-blue)] transition-all duration-300 rounded-full hover:bg-[var(--accent-blue-subtle)] hover:scale-110"
-              aria-label={label}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.75 + i * 0.08, duration: 0.4 }}
-            >
-              <Icon size={22} />
-            </motion.a>
-          ))}
-        </motion.div>
+        {socialLinks.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              duration: 0.6,
+              delay: 0.65,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+            className="flex items-center justify-center gap-2"
+          >
+            {socialLinks.map(({ kind, href, label }, i) => {
+              const Icon = ICONS[kind];
+              return (
+                <motion.a
+                  key={i}
+                  href={href}
+                  target={href.startsWith("http") ? "_blank" : undefined}
+                  rel={
+                    href.startsWith("http") ? "noopener noreferrer" : undefined
+                  }
+                  className="p-3 text-[var(--muted)] hover:text-[var(--accent-blue)] transition-all duration-300 rounded-full hover:bg-[var(--accent-blue-subtle)] hover:scale-110"
+                  aria-label={label}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.75 + i * 0.08, duration: 0.4 }}
+                >
+                  <Icon size={22} />
+                </motion.a>
+              );
+            })}
+          </motion.div>
+        )}
       </div>
 
       {/* Scroll indicator */}
-      <motion.button
-        onClick={scrollToAbout}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.2, duration: 0.5 }}
-        className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 cursor-pointer group"
-        aria-label="Scroll to About section"
-      >
-        <span className="text-xs text-[var(--muted-soft)] tracking-widest uppercase">
-          Scroll
-        </span>
-        <motion.span
-          animate={{ y: [0, 6, 0] }}
-          transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-          className="text-[var(--muted)] group-hover:text-[var(--accent-blue)] transition-colors"
+      {hasAbout && (
+        <motion.button
+          onClick={scrollToAbout}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.2, duration: 0.5 }}
+          className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 cursor-pointer group"
+          aria-label="Scroll to About section"
         >
-          <ArrowDown size={22} />
-        </motion.span>
-      </motion.button>
+          <span className="text-xs text-[var(--muted-soft)] tracking-widest uppercase">
+            Scroll
+          </span>
+          <motion.span
+            animate={{ y: [0, 6, 0] }}
+            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+            className="text-[var(--muted)] group-hover:text-[var(--accent-blue)] transition-colors"
+          >
+            <ArrowDown size={22} />
+          </motion.span>
+        </motion.button>
+      )}
     </section>
   );
 }

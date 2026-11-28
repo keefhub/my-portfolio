@@ -16,3 +16,21 @@ Tier: high (test-passed-before-change)
 Review: risk reviewer PASS (review 1)
 Findings: None.
 =====================================================================
+=====================================================================
+Task 2 — The earlier checks follow the feeds
+Completed: 2026-11-28      Commit: 98d1f31
+
+Summary: Twelve mention-rule lines in eight earlier specs gain the two feed files; E2E-21 of the blog posts spec retitled; retire-firebase E2E-44 and hosting ACC-16 use a two-part sitemap check; ACC-17 drops the item count; ACC-25 checks drafts in the feeds; ACC-30 skips the feeds in its equality check; E2E-16 guards these edits.
+Decisions: None (test-only Step; no implementer dispatched).
+Deviations: The gate required the retitled E2E-21 to be named in the Step; a gate-wording spec revision named it.
+Files changed: e2e/owner-publishes-posts-to-feeds, owner-publishes-blog-posts, retire-firebase, hosting-and-backend-migration-acceptance, owner-edits-profile, owner-uploads-images, owner-manages-experience, owner-manages-projects, owner-manages-certifications, owner-manages-tech-stack, owner-manages-blog-posts .spec.ts (modified)
+E2E tests written: E2E-16      Passed before the change: E2E-16 (reads the edited specs as text)
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: high (test-passed-before-change)
+Review: risk reviewer PASS (review 1)
+Findings: None.
+=====================================================================

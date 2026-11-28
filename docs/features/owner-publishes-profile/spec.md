@@ -5,7 +5,7 @@
 |                  |                                                                                  |
 | ---------------- | -------------------------------------------------------------------------------- |
 | Feature          | Owner publishes profile                                                          |
-| Version          | 0.3.2                                                                            |
+| Version          | 0.3.3                                                                            |
 | Spec source      | `docs/features/owner-publishes-profile/story.md`                                 |
 | Standing context | OVERVIEW §1–3 (`docs/features/OVERVIEW.md`), intent `docs/requirements/public-site-reads-database-intent.md` |
 | Domain entry     | `CLAUDE.md` § Invariants, `src/app/page.tsx` (the story names no `domain:` file) |
@@ -222,7 +222,7 @@ Publish response bodies: `{"published":true}` (200), `{"error":"not-signed-in"}`
 | D-21 | "Publishing on one site does not change the other" is a `manual` check on SIT and live (the run has one database); the code-level half (no outbound request, one invalidated path) is an automated source check. | [auto] |
 | D-22 | The `profile.photo` address is shown with the existing `next/image` (already `unoptimized` site-wide); the profile has no dates, so no date formatting is added. | [auto] |
 | D-24 | E2E-03 clicks the Publish button, which Step 3 creates, so E2E-03 is written and run by Step 3 (Step 3 now depends on Step 2 for the landing page it reads); Step 2's tests publish through the route (`publish()`). The spec file sets `test.setTimeout(150000)` from Step 2 on, because `blank()` may poll up to 60 s and a test calls it before its own work. (Raised by the blocked Step 2 report; no Step renumbered.) | [auto] |
-| D-25 | In every Step, the Change bullet for the spec file does not name a build-only (`compiler`) or `manual` row (Step 2: `E2E-23`; Step 3: `E2E-08`): the mechanical gate collects every id named in that bullet and demands a test titled for it. The Delivers, Verify and manual-check lines still name them. No other text in any Step changed. | [auto] |
+| D-25 | In every Step, the Change bullet for the spec file does not name a build-only (`compiler`) or `manual` row (Step 2: `E2E-23`; Step 3: `E2E-08`): the mechanical gate collects every id named in that bullet and demands a test titled for it. The Delivers, Verify and manual-check lines still name them. No other text in any Step changed. Every Verify command is also literal: it holds no placeholder such as `<name>` and no `-g` filter that matches no test title (Step 4 names one command per earlier spec, filtering on `E2E-NN:` ids with the colon), because the gate runs each Verify command as written. | [auto] |
 | D-23 | A photo address is shown only when it begins with `/`, `http://` or `https://`; `publicProfileFrom` sets any other value to `""` (the editor does not validate it, and `next/image` throws at render time on a bare relative path, which would fail the regeneration). The About section then follows `showsAbout` on the cleaned profile. | [auto] [derived] |
 
 ### 2.8 Do not touch
@@ -710,7 +710,14 @@ Orphan BR clauses: none. Orphan TS: none. Uncovered scenarios: none. Uncovered `
   - `npx playwright test e2e/owner-edits-profile.spec.ts -g "saving the profile does not change the public site"` → 1 passed
   - `npx playwright test e2e/retire-firebase.spec.ts -g "every public page and file answers|public sources equal the commit|standing documents describe the new stack"` → 3 passed
   - `npx playwright test e2e/hosting-and-backend-migration-acceptance.spec.ts -g "every public address loads at the same address|public pages are prebuilt and static"` → 2 passed
-  - `npm run test:e2e` is not run; instead for each of `owner-edits-profile`, `owner-uploads-images`, `owner-manages-experience`, `owner-manages-projects`, `owner-manages-certifications`, `owner-manages-tech-stack`, `owner-manages-blog-posts` run `npx playwright test e2e/<name>.spec.ts -g "lib/server"` plus the test whose title the rule sits in (read the test title at the cited line before running) → every selected test passed
+  - `npm run test:e2e` is not run; instead run these seven commands, each selecting the earlier spec's test whose title holds the `lib/server` rule → every selected test passed:
+    - `npx playwright test e2e/owner-edits-profile.spec.ts -g "E2E-12:"` → 1 passed
+    - `npx playwright test e2e/owner-uploads-images.spec.ts -g "E2E-04:|E2E-14:"` → 2 passed
+    - `npx playwright test e2e/owner-manages-experience.spec.ts -g "E2E-04:|E2E-13:"` → 2 passed
+    - `npx playwright test e2e/owner-manages-projects.spec.ts -g "E2E-03:|E2E-12:"` → 2 passed
+    - `npx playwright test e2e/owner-manages-certifications.spec.ts -g "E2E-03:|E2E-12:"` → 2 passed
+    - `npx playwright test e2e/owner-manages-tech-stack.spec.ts -g "E2E-03:|E2E-12:"` → 2 passed
+    - `npx playwright test e2e/owner-manages-blog-posts.spec.ts -g "E2E-02:|E2E-12:"` → 2 passed
 - **Stop-if:** one of those earlier tests is already failing before this Step (record it and do not mask it); `CLAUDE.md` has no Invariant 1 or Routes table (the document changed); an earlier spec needs more than the edits named here to pass.
 
 ## Version history
@@ -718,6 +725,7 @@ Orphan BR clauses: none. Orphan TS: none. Uncovered scenarios: none. Uncovered `
 | Version | Date | Change |
 | ------- | ---- | ------ |
 | 0.1.0 | 2026-11-28 | First full specification written from `story.md` |
+| 0.3.3 | 2026-11-28 | Step 4 last Verify bullet replaced by seven literal commands (`-g "E2E-NN:"`); D-25 widened to placeholder-free Verify commands |
 | 0.3.2 | 2026-11-28 | Step 3 Change bullet no longer names E2E-08, a manual row; D-25 widened to build-only and manual rows in every Step |
 | 0.3.1 | 2026-11-28 | Step 2 Change bullet reworded so it no longer names E2E-23, a compiler row (D-25) |
 | 0.3.0 | 2026-11-28 | Blocked Step 2 decided (D-24): E2E-03 moved to Step 3, Step 3 depends on Step 2, file-level 150 s test timeout |

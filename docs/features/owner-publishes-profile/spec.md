@@ -5,7 +5,7 @@
 |                  |                                                                                  |
 | ---------------- | -------------------------------------------------------------------------------- |
 | Feature          | Owner publishes profile                                                          |
-| Version          | 0.3.0                                                                            |
+| Version          | 0.3.1                                                                            |
 | Spec source      | `docs/features/owner-publishes-profile/story.md`                                 |
 | Standing context | OVERVIEW §1–3 (`docs/features/OVERVIEW.md`), intent `docs/requirements/public-site-reads-database-intent.md` |
 | Domain entry     | `CLAUDE.md` § Invariants, `src/app/page.tsx` (the story names no `domain:` file) |
@@ -222,6 +222,7 @@ Publish response bodies: `{"published":true}` (200), `{"error":"not-signed-in"}`
 | D-21 | "Publishing on one site does not change the other" is a `manual` check on SIT and live (the run has one database); the code-level half (no outbound request, one invalidated path) is an automated source check. | [auto] |
 | D-22 | The `profile.photo` address is shown with the existing `next/image` (already `unoptimized` site-wide); the profile has no dates, so no date formatting is added. | [auto] |
 | D-24 | E2E-03 clicks the Publish button, which Step 3 creates, so E2E-03 is written and run by Step 3 (Step 3 now depends on Step 2 for the landing page it reads); Step 2's tests publish through the route (`publish()`). The spec file sets `test.setTimeout(150000)` from Step 2 on, because `blank()` may poll up to 60 s and a test calls it before its own work. (Raised by the blocked Step 2 report; no Step renumbered.) | [auto] |
+| D-25 | Step 2's Change bullet for the spec file no longer names `E2E-23` (a `compiler` row, checked by the build in Step 2's Verify line): the mechanical gate collects every id named in that bullet and demands a test titled for it. The Delivers and Verify lines still name it. No other text in Step 2 or any Step changed. | [auto] |
 | D-23 | A photo address is shown only when it begins with `/`, `http://` or `https://`; `publicProfileFrom` sets any other value to `""` (the editor does not validate it, and `next/image` throws at render time on a bare relative path, which would fail the regeneration). The About section then follows `showsAbout` on the cleaned profile. | [auto] [derived] |
 
 ### 2.8 Do not touch
@@ -635,7 +636,7 @@ Orphan BR clauses: none. Orphan TS: none. Uncovered scenarios: none. Uncovered `
   - `aboutme.tsx` (stays `"use client"`): `export default function AboutMe(props: { profile: PublicProfile })`. Its root element becomes `<div className="py-16">` with no `id` and no `section` (the wrapper in `page.tsx` is the one `section#about`). Keep the "About Me" heading. Render `profile.about` as paragraphs in order, all with the same style (no special last paragraph). The photo block (the decorative rings, frame and accent dots) renders only when `profile.photo !== ""`, as `<Image src={profile.photo} alt={"Portrait of " + profile.name} fill … />` with the sizes and classes it has today; with no photo the text block is centred and fills the width. Long words wrap. Must NOT contain the old paragraphs or `/profile/placeholder.jpg`.
   - `footer.tsx` (stays `"use client"`): `export default function Footer(props: { name?: string; links?: ContactLink[] })`, both optional. The copyright line is `© {year} {name} — Built with Next.js & ❤️` with a name and `© {year} — Built with Next.js & ❤️` without one; the "thegoldenpothos" brand mark stays. The link group renders `links` in order with the same icon and attribute rules as the hero (size 18, existing classes) and is not rendered when `links` is missing or empty. The back-to-top button is unchanged. Must NOT contain the old addresses or name.
   - `header.tsx`: `export default function Header(props: { showAbout?: boolean })` where `showAbout` defaults to `true`. When `false`, "about" is removed from the list used by the scroll-spy, the desktop menu and the mobile menu; nothing else changes (the Blog link, the brand, the theme toggle and the non-home `Link` form stay).
-  - `e2e/owner-publishes-profile.spec.ts` gains `blank()` and the `afterAll` that calls it, and `E2E-02`, `E2E-04`, `E2E-05`, `E2E-10`, `E2E-11`, `E2E-12`, `E2E-13`, `E2E-14` and `E2E-21` as written in Section 4 (the test that clicks the Publish button is written in Step 3; `E2E-23` is verified by the build, not by a test). It also sets a file-level `test.setTimeout(150000)` (D-24) so the `blank()` polls cannot time a test out.
+  - `e2e/owner-publishes-profile.spec.ts` gains `blank()` and the `afterAll` that calls it, and `E2E-02`, `E2E-04`, `E2E-05`, `E2E-10`, `E2E-11`, `E2E-12`, `E2E-13`, `E2E-14` and `E2E-21` as written in Section 4 (the test that clicks the Publish button is written in Step 3; the build check in the Verify line below is not a test and has no test title). It also sets a file-level `test.setTimeout(150000)` (D-24) so the `blank()` polls cannot time a test out.
   - From this Step until Step 4 the earlier specs that load `/` or check the `lib/server` rule fail; this Step's Verify and its gate run only this feature's spec file and the build, and Step 4 repairs the earlier specs.
 - **Risk:** high — implements the kept-copy and no-cookie safety facts of impact.md (the page must stay static, read only the saved profile and be the same for every visitor).
 - **Verify:**
@@ -717,5 +718,6 @@ Orphan BR clauses: none. Orphan TS: none. Uncovered scenarios: none. Uncovered `
 | Version | Date | Change |
 | ------- | ---- | ------ |
 | 0.1.0 | 2026-11-28 | First full specification written from `story.md` |
+| 0.3.1 | 2026-11-28 | Step 2 Change bullet reworded so it no longer names E2E-23, a compiler row (D-25) |
 | 0.3.0 | 2026-11-28 | Blocked Step 2 decided (D-24): E2E-03 moved to Step 3, Step 3 depends on Step 2, file-level 150 s test timeout |
 | 0.2.0 | 2026-11-28 | Review round applied: the `lib/server` rule of eight earlier specs added to TS-11, Step 4 and E2E-24; Step 1 no `afterAll` until Step 2; one `section#about`; types, `reply()` helper, document literals and OVERVIEW §1 text spelled out; photo address rule D-23 |

@@ -5,7 +5,7 @@
 |                  |                                                                                  |
 | ---------------- | -------------------------------------------------------------------------------- |
 | Feature          | Owner publishes profile                                                          |
-| Version          | 0.3.1                                                                            |
+| Version          | 0.3.2                                                                            |
 | Spec source      | `docs/features/owner-publishes-profile/story.md`                                 |
 | Standing context | OVERVIEW §1–3 (`docs/features/OVERVIEW.md`), intent `docs/requirements/public-site-reads-database-intent.md` |
 | Domain entry     | `CLAUDE.md` § Invariants, `src/app/page.tsx` (the story names no `domain:` file) |
@@ -222,7 +222,7 @@ Publish response bodies: `{"published":true}` (200), `{"error":"not-signed-in"}`
 | D-21 | "Publishing on one site does not change the other" is a `manual` check on SIT and live (the run has one database); the code-level half (no outbound request, one invalidated path) is an automated source check. | [auto] |
 | D-22 | The `profile.photo` address is shown with the existing `next/image` (already `unoptimized` site-wide); the profile has no dates, so no date formatting is added. | [auto] |
 | D-24 | E2E-03 clicks the Publish button, which Step 3 creates, so E2E-03 is written and run by Step 3 (Step 3 now depends on Step 2 for the landing page it reads); Step 2's tests publish through the route (`publish()`). The spec file sets `test.setTimeout(150000)` from Step 2 on, because `blank()` may poll up to 60 s and a test calls it before its own work. (Raised by the blocked Step 2 report; no Step renumbered.) | [auto] |
-| D-25 | Step 2's Change bullet for the spec file no longer names `E2E-23` (a `compiler` row, checked by the build in Step 2's Verify line): the mechanical gate collects every id named in that bullet and demands a test titled for it. The Delivers and Verify lines still name it. No other text in Step 2 or any Step changed. | [auto] |
+| D-25 | In every Step, the Change bullet for the spec file does not name a build-only (`compiler`) or `manual` row (Step 2: `E2E-23`; Step 3: `E2E-08`): the mechanical gate collects every id named in that bullet and demands a test titled for it. The Delivers, Verify and manual-check lines still name them. No other text in any Step changed. | [auto] |
 | D-23 | A photo address is shown only when it begins with `/`, `http://` or `https://`; `publicProfileFrom` sets any other value to `""` (the editor does not validate it, and `next/image` throws at render time on a bare relative path, which would fail the regeneration). The About section then follows `showsAbout` on the cleaned profile. | [auto] [derived] |
 
 ### 2.8 Do not touch
@@ -662,7 +662,7 @@ Orphan BR clauses: none. Orphan TS: none. Uncovered scenarios: none. Uncovered `
   - `src/lib/admin/publish.ts` (client-safe; no `server-only`) exports `PUBLISH_URL: string = "/api/admin/publish/"`; `PUBLISH_MESSAGES = { publishing: "Publishing…", published: "Published. Visitors will see the profile within a minute.", failed: "The site could not be published because the database could not be reached. Try again later.", refused: "The site was not published. Check that you are signed in as the owner." }`; `type PublishOutcome = "published" | "failed" | "refused"`; and `publishSite(): Promise<PublishOutcome>`: `fetch(PUBLISH_URL, { method: "POST", signal: AbortSignal.timeout(15000) })` with no body; status 200 and a JSON body whose `published === true` → `"published"`; status 401 or 403 → `"refused"`; everything else (other statuses, a network error, a timeout, a body that is not JSON) → `"failed"`. It never throws and never returns or shows response text.
   - `src/app/components/admin/PublishButton.tsx` (`"use client"`) default-exports `PublishButton(): React.JSX.Element`. A `<button type="button">` whose accessible name is exactly `Publish` at all times, `disabled` while a publish runs, styled with `buttonStyle`. A `useRef` guard makes a second press before the first finishes do nothing, so one request is sent. On press: clear any message, show `<p role="status">` with `PUBLISH_MESSAGES.publishing`, call `publishSite()`; then replace the message with `<p role="status">` `PUBLISH_MESSAGES.published` (published), `<p role="alert">` `PUBLISH_MESSAGES.failed` (failed) or `<p role="alert">` `PUBLISH_MESSAGES.refused` (refused), and enable the button. Only one message is on screen at a time; after an unmount no state is set. Styles: the button uses `buttonStyle` imported from `./formParts`, a `role="status"` message uses `statusStyle`, a `role="alert"` message uses `errorStyle`; `AdminPanel.tsx`'s local `buttonStyle` is not used. `var(--…)` tokens only; no raw colour.
   - `AdminPanel.tsx`: in the signed-in body (the `else` branch) render `<PublishButton />` first, above `<nav aria-label="Admin sections">`. Not in the signed-out or not-allowed branches. The section menu, the editors and Sign out are unchanged.
-  - `e2e/owner-publishes-profile.spec.ts` gains `E2E-01`, `E2E-03`, `E2E-06`, `E2E-07`, `E2E-15`, `E2E-16`, `E2E-17`, `E2E-18` as written in Section 4 (`E2E-08` is manual).
+  - `e2e/owner-publishes-profile.spec.ts` gains `E2E-01`, `E2E-03`, `E2E-06`, `E2E-07`, `E2E-15`, `E2E-16`, `E2E-17`, `E2E-18` as written in Section 4.
 - **Risk:** low — a presentational control; every access decision is on the server (Step 1) and the mechanical gate plus the feature review cover this Step.
 - **Verify:**
   - `npx playwright test e2e/owner-publishes-profile.spec.ts -g "E2E-01|E2E-03|E2E-06|E2E-07|E2E-15|E2E-16|E2E-17|E2E-18"` → 8 passed
@@ -718,6 +718,7 @@ Orphan BR clauses: none. Orphan TS: none. Uncovered scenarios: none. Uncovered `
 | Version | Date | Change |
 | ------- | ---- | ------ |
 | 0.1.0 | 2026-11-28 | First full specification written from `story.md` |
+| 0.3.2 | 2026-11-28 | Step 3 Change bullet no longer names E2E-08, a manual row; D-25 widened to build-only and manual rows in every Step |
 | 0.3.1 | 2026-11-28 | Step 2 Change bullet reworded so it no longer names E2E-23, a compiler row (D-25) |
 | 0.3.0 | 2026-11-28 | Blocked Step 2 decided (D-24): E2E-03 moved to Step 3, Step 3 depends on Step 2, file-level 150 s test timeout |
 | 0.2.0 | 2026-11-28 | Review round applied: the `lib/server` rule of eight earlier specs added to TS-11, Step 4 and E2E-24; Step 1 no `afterAll` until Step 2; one `section#about`; types, `reply()` helper, document literals and OVERVIEW §1 text spelled out; photo address rule D-23 |

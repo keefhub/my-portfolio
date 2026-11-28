@@ -34,3 +34,21 @@ Tier: high (test-passed-before-change)
 Review: risk reviewer PASS (review 1)
 Findings: None.
 =====================================================================
+=====================================================================
+Task 3 — The standing documents describe the tech stack as read from the database
+Completed: 2026-11-28      Commit: dda0f51
+
+Summary: CLAUDE.md (invariant 1, import rule, content storage) and Reference.md (component tree, editing path) describe the public tech stack read.
+Decisions: Invariant 1 lists the profile, Experience entries and tech stack reads.
+Deviations: None.
+Files changed: CLAUDE.md, Reference.md (modified); e2e/owner-publishes-tech-stack.spec.ts (modified)
+E2E tests written: E2E-14      Passed before the change: None.
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

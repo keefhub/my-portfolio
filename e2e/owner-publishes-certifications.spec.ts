@@ -646,3 +646,22 @@ test("E2E-14: the earlier checks no longer require a Certifications section on a
     expect(text, file + " lists ThemeProvider.tsx").toContain("src/app/components/ThemeProvider.tsx");
   }
 });
+
+test("E2E-15: the standing documents describe the published certifications", async () => {
+  const claude = readText("CLAUDE.md");
+  for (const needle of [
+    "src/lib/server/publicCertifications.ts",
+    "publicCertifications.ts",
+    "last good copy",
+    "revalidatePath",
+    "The certifications are stored in Supabase",
+    "src/lib/server/",
+  ]) {
+    expect(claude.includes(needle), "CLAUDE.md contains " + needle).toBe(true);
+  }
+
+  const reference = readText("Reference.md");
+  expect(reference).toContain("publicCertifications");
+  expect(reference).not.toContain("`certifications[]`");
+  expect(reference).not.toContain("Edit `certifications[]`");
+});

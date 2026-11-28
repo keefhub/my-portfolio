@@ -49,7 +49,7 @@ page.tsx            ← multi-section scroll, anchor-linked (not routed)
 ├── ExperienceTimeline ← alternating timeline with flip cards, showing the published Experience entries
 ├── TechStack       ← category grid of tool icons
 ├── Projects        ← project grid with flip cards, showing the published projects
-├── Certifications  ← link badges
+├── Certifications  ← published certifications as link badges; hidden when there are none
 └── Footer          ← published profile's links + back-to-top FAB
 ```
 
@@ -204,7 +204,7 @@ Portfolio data is embedded as TypeScript constants in each component file:
 - the projects come from the saved list (`publicProjects.ts`, read by `page.tsx`)
 - the Experience entries come from the saved list (`publicExperience.ts`, read by `page.tsx`)
 - the tech stack comes from the saved list (`publicTechStack.ts`, read by `page.tsx`)
-- `certifications[]` in `certifications.tsx`
+- the certifications come from the saved list (`publicCertifications.ts`, read by `page.tsx`)
 - the social links in `hero.tsx` and `footer.tsx` come from the saved profile (`publicProfile.ts`)
 
 Blog data comes from Markdown files in `content/blog/`, loaded at build time.
@@ -316,7 +316,7 @@ interface Tool {
   icon: string;
 }
 
-interface Certification {
+interface PublicCertification {  // src/lib/publicCertifications.ts
   name: string;
   icon: string;
   url: string;
@@ -406,15 +406,7 @@ picks the post up automatically.
 
 ### Adding a New Certification
 
-Edit `certifications[]` in `src/app/components/certifications.tsx`:
-
-```typescript
-{
-  name: "AWS Certified Developer",
-  icon: "/certs/aws.png",  // place PNG in public/certs/
-  url: "https://credential.url",
-}
-```
+Add the certification in the panel (Certifications menu) and press Publish. There is no file to edit; upload the badge in the panel, or place a PNG in `public/certs/` and enter its path (for example `/certs/aws.png`).
 
 ### Adding a New Tech Stack Category
 

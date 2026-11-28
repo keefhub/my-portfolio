@@ -11,6 +11,7 @@ import ExperienceEditor from "./ExperienceEditor";
 import ImageLibrary from "./ImageLibrary";
 import ProfileEditor from "./ProfileEditor";
 import ProjectsEditor from "./ProjectsEditor";
+import PublishButton from "./PublishButton";
 import TechStackEditor from "./TechStackEditor";
 
 const buttonStyle: React.CSSProperties = {
@@ -85,6 +86,7 @@ export default function AdminPanel(props: {
     const section = ADMIN_SECTIONS.find((s) => s.id === selected);
     body = (
       <>
+        <PublishButton />
         <nav aria-label="Admin sections">
           <ul
             style={{

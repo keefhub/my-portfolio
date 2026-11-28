@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, request as playwrightRequest, test, type APIRequestContext, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { encode } from "next-auth/jwt";
 
 test.describe.configure({ mode: "default" });
@@ -482,4 +482,241 @@ test("E2E-21: the landing page sources hold no old content and keep the kept-cop
   const page = fs.readFileSync(path.join(process.cwd(), "src/app/page.tsx"), "utf8");
   expect(page).toContain("export const revalidate = false");
   expect(page.split("revalidate").length - 1).toBe(1);
+});
+
+// ---- Step 3: the Publish button in the panel ----
+
+const PANEL = "/bright-warm-greenhouse/";
+const PUBLISHED_TEXT = "Published. Visitors will see the profile within a minute.";
+const FAILED_TEXT = "The site could not be published because the database could not be reached. Try again later.";
+
+function readDbFile(): Record<string, unknown> {
+  if (DB_FILE === "" || !fs.existsSync(DB_FILE)) return {};
+  return JSON.parse(fs.readFileSync(DB_FILE, "utf8")) as Record<string, unknown>;
+}
+
+function dbBreak(): void {
+  fs.writeFileSync(DB_FILE, JSON.stringify({ ...readDbFile(), unreachable: true }));
+}
+
+function dbFix(): void {
+  const { unreachable: _unreachable, ...rest } = readDbFile();
+  void _unreachable;
+  fs.writeFileSync(DB_FILE, JSON.stringify(rest));
+}
+
+async function panelContext(browser: Browser, base: string, claims?: Claims): Promise<BrowserContext> {
+  const context = await browser.newContext({ baseURL: base });
+  if (claims) {
+    const [name, ...rest] = (await cookieOf(claims)).split("=");
+    await context.addCookies([{ name, value: rest.join("="), url: base }]);
+  }
+  return context;
+}
+
+async function openPanel(browser: Browser, base: string): Promise<{ context: BrowserContext; page: Page }> {
+  const context = await panelContext(browser, base, OWNER());
+  const page = await context.newPage();
+  await page.goto(PANEL);
+  return { context, page };
+}
+
+const publishButton = (page: Page) => page.getByRole("button", { name: "Publish", exact: true });
+
+test("E2E-01: pressing Publish in the panel shows the published message", async ({ baseURL, browser }) => {
+  const base = String(baseURL);
+  await blank(base);
+  await save(base, S1);
+  const { context, page } = await openPanel(browser, base);
+  try {
+    await publishButton(page).click();
+    await expect(page.getByRole("status").filter({ hasText: "Published." })).toHaveText(PUBLISHED_TEXT);
+    await expect(page.getByRole("alert").filter({ hasText: /\S/ })).toHaveCount(0);
+  } finally {
+    await context.close();
+  }
+});
+
+test("E2E-03: a saved change stays hidden until Publish, then appears", async ({ baseURL, browser }) => {
+  const base = String(baseURL);
+  await blank(base);
+  await save(base, S1);
+  await publish(base);
+  await waitFor(base, "Software Engineer");
+  await save(base, { ...S1, headline: "Staff Engineer" });
+
+  const visitorContext = await browser.newContext({ baseURL: base });
+  const visitorPage = await visitorContext.newPage();
+  try {
+    await visitorPage.goto("/");
+    let text = await visitorPage.evaluate(() => document.documentElement.outerHTML);
+    expect(text).toContain("Software Engineer");
+    expect(text).not.toContain("Staff Engineer");
+    await visitorPage.reload();
+    text = await visitorPage.evaluate(() => document.documentElement.outerHTML);
+    expect(text).toContain("Software Engineer");
+    expect(text).not.toContain("Staff Engineer");
+  } finally {
+    await visitorContext.close();
+  }
+
+  const { context, page } = await openPanel(browser, base);
+  try {
+    await publishButton(page).click();
+    await expect(page.getByRole("status").filter({ hasText: "Published." })).toHaveText(PUBLISHED_TEXT);
+  } finally {
+    await context.close();
+  }
+  await waitFor(base, "Staff Engineer");
+  const html = await visitorText(base);
+  const hero = html.slice(html.indexOf('id="hero"'));
+  const heroSection = hero.slice(0, hero.indexOf("</section>"));
+  expect(heroSection).not.toContain("Software Engineer");
+});
+
+test("E2E-06: a failed publish says so, leaks nothing and changes nothing; a retry works", async ({ baseURL, browser }) => {
+  const base = String(baseURL);
+  await blank(base);
+  await save(base, { ...S1 });
+  await publish(base);
+  await waitFor(base, "Keith Lim");
+  await save(base, { ...S1, name: "Keith L. Lim" });
+
+  const { context, page } = await openPanel(browser, base);
+  try {
+    dbBreak();
+    await publishButton(page).click();
+    await expect(page.getByRole("alert").filter({ hasText: /\S/ })).toHaveText(FAILED_TEXT);
+    await expect(page.getByText("Published.")).toHaveCount(0);
+    const panelText = await page.evaluate(() => document.body.innerText);
+    for (const secret of ["ECONNREFUSED", "10.1.2.3", "password-marker-standin", setting("ADMIN_EMAIL"), setting("AUTH_SECRET")]) {
+      if (secret !== "") expect(panelText).not.toContain(secret);
+    }
+    await expect(publishButton(page)).toBeEnabled();
+
+    dbFix();
+    const html = await visitorText(base);
+    expect(html).toContain("Keith Lim");
+    expect(html).not.toContain("Keith L. Lim");
+
+    await publishButton(page).click();
+    await expect(page.getByRole("status").filter({ hasText: "Published." })).toHaveText(PUBLISHED_TEXT);
+    await waitFor(base, "Keith L. Lim");
+  } finally {
+    await context.close();
+  }
+});
+
+test("E2E-07: a double press sends one request and the button is disabled while it runs", async ({ baseURL, browser }) => {
+  const base = String(baseURL);
+  await blank(base);
+  await save(base, S1);
+  const { context, page } = await openPanel(browser, base);
+  try {
+    let posts = 0;
+    await page.route("**/api/admin/publish/", async (route) => {
+      if (route.request().method() === "POST") {
+        posts += 1;
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+      await route.continue();
+    });
+    await publishButton(page).dblclick();
+    await expect(page.getByRole("status").filter({ hasText: "Publishing…" })).toHaveText("Publishing…");
+    await expect(publishButton(page)).toBeDisabled();
+    await expect(page.getByText(PUBLISHED_TEXT)).toHaveCount(1);
+    await expect(page.getByText("Publishing…")).toHaveCount(0);
+    await expect(publishButton(page)).toBeEnabled();
+    expect(posts).toBe(1);
+  } finally {
+    await context.close();
+  }
+});
+
+test("E2E-15: a lost connection shows the failure message and re-enables the button", async ({ baseURL, browser }) => {
+  const base = String(baseURL);
+  await blank(base);
+  await save(base, S1);
+  const { context, page } = await openPanel(browser, base);
+  try {
+    await page.route("**/api/admin/publish/", (route) => route.abort());
+    await publishButton(page).click();
+    await expect(page.getByRole("alert").filter({ hasText: /\S/ })).toHaveText(FAILED_TEXT);
+    await expect(page.getByText("Published.")).toHaveCount(0);
+    await expect(publishButton(page)).toBeEnabled();
+  } finally {
+    await context.close();
+  }
+});
+
+test("E2E-16: the Publish button works from the keyboard and shows a focus outline", async ({ baseURL, browser }) => {
+  const base = String(baseURL);
+  await blank(base);
+  await save(base, S1);
+  const { context, page } = await openPanel(browser, base);
+  try {
+    await expect(publishButton(page)).toBeVisible();
+    let focused = false;
+    for (let i = 0; i < 15 && !focused; i++) {
+      await page.keyboard.press("Tab");
+      focused = await page.evaluate(() => {
+        const el = document.activeElement;
+        return el !== null && el.tagName === "BUTTON" && (el.textContent ?? "").trim() === "Publish";
+      });
+    }
+    expect(focused).toBe(true);
+    await expect(publishButton(page)).toBeFocused();
+    const outline = await publishButton(page).evaluate((el) => getComputedStyle(el).outlineStyle);
+    expect(outline).not.toBe("none");
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("status").filter({ hasText: "Published." })).toHaveText(PUBLISHED_TEXT);
+  } finally {
+    await context.close();
+  }
+});
+
+test("E2E-17: the Publish button sources use theme tokens and no raw colour", async () => {
+  const button = fs.readFileSync(path.join(process.cwd(), "src/app/components/admin/PublishButton.tsx"), "utf8");
+  const lib = fs.readFileSync(path.join(process.cwd(), "src/lib/admin/publish.ts"), "utf8");
+  for (const source of [button, lib]) {
+    expect(source).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(source).not.toMatch(/\b(rgb|rgba|hsl|hsla|oklch)\(/);
+  }
+  expect(button.includes("var(--") || /import\s*\{[^}]*buttonStyle[^}]*\}\s*from\s*["']\.\/formParts["']/.test(button)).toBe(true);
+});
+
+test("E2E-18: only the signed-in owner sees the Publish button, on every screen", async ({ baseURL, browser }) => {
+  const base = String(baseURL);
+  await blank(base);
+  const { context, page } = await openPanel(browser, base);
+  try {
+    await expect(publishButton(page)).toHaveCount(1);
+    const menu = page.getByRole("navigation", { name: "Admin sections" });
+    for (const label of ["Profile", "Images", "Blog posts"]) {
+      await menu.getByRole("button", { name: label, exact: true }).click();
+      await expect(publishButton(page)).toHaveCount(1);
+    }
+  } finally {
+    await context.close();
+  }
+
+  const anonymous = await panelContext(browser, base);
+  try {
+    const anonymousPage = await anonymous.newPage();
+    await anonymousPage.goto(PANEL);
+    await expect(anonymousPage.getByText("Sign in with Google").first()).toBeVisible();
+    await expect(publishButton(anonymousPage)).toHaveCount(0);
+  } finally {
+    await anonymous.close();
+  }
+
+  const other = await panelContext(browser, base, OTHER());
+  try {
+    const otherPage = await other.newPage();
+    await otherPage.goto(PANEL);
+    await expect(otherPage.getByText("This account is not allowed to use the admin panel.")).toBeVisible();
+    await expect(publishButton(otherPage)).toHaveCount(0);
+  } finally {
+    await other.close();
+  }
 });

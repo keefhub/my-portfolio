@@ -130,6 +130,9 @@ AdminPanel ("use client", src/app/components/admin/AdminPanel.tsx)
 ├── signed-out: "Sign in with Google" form (Auth.js) + failure alert
 ├── signed-in, not allowed: message, Sign out
 └── signed-in, owner: section menu, Sign out
+    └── PublishButton (src/app/components/admin/PublishButton.tsx), under the "Admin" heading above the section
+        menu: POST /api/admin/publish/ via publishSite() (src/lib/admin/publish.ts); "Publishing…" while it runs,
+        then a status or an alert message; one press at a time
     └── ImageLibrary (src/app/components/admin/ImageLibrary.tsx), the "Images" menu item: upload
         (PNG/JPEG/WebP/SVG, at most 5 MB), newest-first list with size, Copy address, inline Confirm delete
     └── ProfileEditor (src/app/components/admin/ProfileEditor.tsx), the "Profile" menu item: one form for

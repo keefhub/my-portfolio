@@ -53,3 +53,17 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+=====================================================================
+Completion
+Completed: 2026-11-28
+
+Built: server-only certifications read with the build guard, tolerant view rules (badge path or http(s), https-only links), the Certifications section and menu link hidden when empty, earlier checks and documents brought in line.
+Removed content (D-13): the three hard-coded certifications were removed in b057997; the owner re-enters them from its parent (b057997^:src/app/components/certifications.tsx). public/certs/* stays.
+Deviations from the spec: locked E2E-07 publishes one Experience entry before its menu check (the built tech-stack slice hides the Experience link on an empty page).
+[auto] decisions in the spec: 17 lines (D-04..D-20).
+Feature review: PASS
+Findings: edge-case | note | logged | badge pattern accepts a backslash-led path (image-only); harden the lookahead
+Findings: nit | note | logged | E2E-07 waitFor("Engineer") is satisfied by the site metadata
+Final verification: npm run build ok; e2e/owner-publishes-certifications.spec.ts 15 passed, 0 failed.
+Manual checks pending: None.
+=====================================================================

@@ -52,3 +52,15 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+=====================================================================
+Completion
+Completed: 2026-11-28
+
+Built: RSS and the sitemap list the published posts from the snapshot (drafts never), Publish renews both feeds, RSS escapes CDATA ends, earlier checks and documents brought in line.
+Deviations from the spec: one gate-wording revision (Step 2 names the retitled E2E-21).
+[auto] decisions in the spec: 9 lines (D-02..D-12).
+Feature review: PASS
+Findings: None.
+Final verification: npm run build ok; e2e/owner-publishes-posts-to-feeds.spec.ts 17 passed, 0 failed.
+Manual checks pending: E2E-18 (owner's real publish on SIT).
+=====================================================================

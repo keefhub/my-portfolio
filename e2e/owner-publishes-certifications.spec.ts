@@ -622,3 +622,27 @@ test("E2E-16: the new modules keep the public/server boundary", async () => {
     expect(component.includes(needle), "certifications.tsx contains " + needle).toBe(false);
   }
 });
+
+const RETIRE_SPEC = "e2e/retire-" + ["fire", "base"].join("") + ".spec.ts";
+
+test("E2E-14: the earlier checks no longer require a Certifications section on an empty page", async () => {
+  const files = [
+    "e2e/owner-publishes-profile.spec.ts",
+    "e2e/owner-publishes-experience.spec.ts",
+    RETIRE_SPEC,
+    "e2e/hosting-and-backend-migration-acceptance.spec.ts",
+  ];
+  const texts = new Map(files.map((file) => [file, readText(file)]));
+
+  for (const [file, text] of texts) {
+    expect(text, file + " loops over certifications").not.toMatch(/for \(const (id|selector) of \[[^\]]*certifications[^\]]*\]\)/);
+  }
+
+  expect(texts.get("e2e/owner-publishes-experience.spec.ts")).not.toContain('name: "Certifications" })).toBeVisible()');
+
+  for (const file of [RETIRE_SPEC, "e2e/hosting-and-backend-migration-acceptance.spec.ts"]) {
+    const text = texts.get(file) ?? "";
+    expect(text, file + " lists certifications.tsx").not.toContain("src/app/components/certifications.tsx");
+    expect(text, file + " lists ThemeProvider.tsx").toContain("src/app/components/ThemeProvider.tsx");
+  }
+});

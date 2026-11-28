@@ -220,9 +220,6 @@ test("E2E-04: with no published profile the page hides the personal parts and sh
     expect(bodyText).not.toMatch(/error|could not|undefined|null/i);
     expect(errors).toEqual([]);
 
-    for (const id of ["certifications"]) {
-      expect(await page.locator("section#" + id).count()).toBeGreaterThanOrEqual(1);
-    }
     const footer = page.getByRole("contentinfo");
     await expect(footer).toContainText("thegoldenpothos");
     await expect(footer).not.toContainText("Keith");

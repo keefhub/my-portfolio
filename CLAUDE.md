@@ -43,13 +43,13 @@ passing does not mean the site builds.
 
 ## Routes
 
-Every public route is a static page kept by Vercel (the landing page reads the published profile; the blog pages are built at build time). Only the admin panel, `/api/auth/*` and `/api/admin/*` run on the server.
+Every public route is a static page kept by Vercel (the landing page reads the published profile; the blog list and each post read the published posts). Only the admin panel, `/api/auth/*` and `/api/admin/*` run on the server.
 
 | URL             | Source                                                       |
 | --------------- | ------------------------------------------------------------ |
 | `/`             | [src/app/page.tsx](src/app/page.tsx) — single-page scroll; a static page that reads the published profile through `src/lib/server/publicProfile.ts` and the published Experience entries through `src/lib/server/publicExperience.ts` and the published tech stack through `src/lib/server/publicTechStack.ts` and the published projects through `src/lib/server/publicProjects.ts` and the published certifications through `src/lib/server/publicCertifications.ts` (`revalidate = false`) |
-| `/blog/`        | [src/app/blog/page.tsx](src/app/blog/page.tsx)                |
-| `/blog/<slug>/` | [src/app/blog/[slug]/page.tsx](src/app/blog/[slug]/page.tsx)  |
+| `/blog/`        | [src/app/blog/page.tsx](src/app/blog/page.tsx) — a static page that reads the published posts through `src/lib/server/publicPosts.ts` (`revalidate = false`) |
+| `/blog/<slug>/` | [src/app/blog/[slug]/page.tsx](src/app/blog/[slug]/page.tsx) — a static page that reads the published posts through `src/lib/server/publicPosts.ts` (`revalidate = false`); a post address is rendered on its first visit and kept, so a new slug needs no build |
 | `/rss.xml`      | [src/app/rss.xml/route.ts](src/app/rss.xml/route.ts)          |
 | `/sitemap.xml`  | [src/app/sitemap.ts](src/app/sitemap.ts)                      |
 | `/robots.txt`   | [src/app/robots.ts](src/app/robots.ts)                        |
@@ -78,7 +78,7 @@ are components on one page.
 `next.config.ts` has no `output`. A public page reads Supabase on the server through `src/lib/server/publicProfile.ts` (the profile), `src/lib/server/publicExperience.ts` (the Experience entries), `src/lib/server/publicTechStack.ts` (the tech stack), `src/lib/server/publicProjects.ts` (the Projects) and `src/lib/server/publicCertifications.ts` (the certifications); each later slice adds its own read and declares `export const revalidate = false`, so Vercel keeps the last good copy and only the owner's Publish (`/api/admin/publish/`, which calls `revalidatePath`) or a code deploy renews it. There is no timer and no middleware. The panel page is dynamic, and the API routes are two families only: `/api/auth/*` and
 `/api/admin/*`. A public page, layout or metadata route never calls `auth()`
 or reads cookies or headers (it would silently stop being a kept page). Only
-`src/app/bright-warm-greenhouse/**`, `src/app/api/auth/**` and `src/app/api/admin/**` import `@/lib/auth`. Blog pages stay build-time with `generateStaticParams` and `dynamicParams = false`, and are never passed to `revalidatePath` while that holds. Public route handlers stay
+`src/app/bright-warm-greenhouse/**`, `src/app/api/auth/**` and `src/app/api/admin/**` import `@/lib/auth`. The blog pages read the published posts through `src/lib/server/publicPosts.ts` (one kept read, expired by Publish with `revalidateTag`, and the `/blog` layout renewed with `revalidatePath`); `generateStaticParams` returns none and `dynamicParams` is left at its default, and the Publish route renews them. Public route handlers stay
 `export const dynamic = "force-static"`; the Auth.js handler at `/api/auth/[...nextauth]` and the
 `/api/admin/*` entry points are the dynamic handlers. `/api/admin/*` is called at its slashed address.
 
@@ -92,15 +92,11 @@ redirect to its slashed form and Auth.js accepts it. Do not change it in one fil
 catch-all rewrite, so an unknown URL reaches the framework's 404 page.
 
 **3. Never import the blog barrel from a client component.**
-[src/lib/blog/posts.ts](src/lib/blog/posts.ts) is `import "server-only"` and
-reads the filesystem. The barrel [src/lib/blog/index.ts](src/lib/blog/index.ts)
-re-exports it.
+Blog data is read only on the server, through `src/lib/server/publicPosts.ts`; `src/lib/blog/posts.ts` no longer exists,
+and the barrel [src/lib/blog/index.ts](src/lib/blog/index.ts) no longer touches the filesystem.
 
-- Client components import types from `@/lib/blog/types` — **that path only**.
+- Client components import types from `@/lib/blog/types` — **that path only** (the gate's barrel check stays).
 - Server components may use `@/lib/blog`.
-
-Importing `@/lib/blog` from a `"use client"` file pulls `fs` into the browser
-bundle and fails the build.
 
 **4. Format dates with `timeZone: "UTC"`.**
 Use `formatDate()` from [src/lib/blog/types.ts](src/lib/blog/types.ts). `"2026-05-15"`
@@ -140,10 +136,10 @@ decided on the server by `src/lib/admin/access.ts` and `src/lib/auth.ts`; the pa
 depends on database rules.
 `src/lib/server/` holds the server-only modules (the SQL text, the database connection, the stand-in, the
 profile store, the storage module and the image store); `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are read
-in one file there (`src/lib/server/storage.ts`). It is imported by `src/app/api/admin/**` and, for `publicProfile.ts`, `publicExperience.ts`, `publicTechStack.ts`, `publicProjects.ts` and `publicCertifications.ts` only, by `src/app/page.tsx`; never by a
+in one file there (`src/lib/server/storage.ts`). It is imported by `src/app/api/admin/**` and, for `publicProfile.ts`, `publicExperience.ts`, `publicTechStack.ts`, `publicProjects.ts` and `publicCertifications.ts` only, by `src/app/page.tsx`, and, for `publicPosts.ts` only, by `src/app/blog/page.tsx` and `src/app/blog/[slug]/page.tsx`; never by a
 client component, a layout or any other public file. The owner decision stays in `src/lib/admin/access.ts` and `src/lib/auth.ts`. The shared list pattern is `ListEditor.tsx` with the browser store `createHttpListStore` (`src/lib/admin/listClient.ts`), the server `createListService` (`src/lib/server/listStore.ts`) and the list SQL (`src/lib/server/listSql.ts`); each later list slice adds its table name, a route file and an editor.
 
-**Content storage.** The profile, the images, the experience entries and the projects are stored in Supabase. The certifications are stored in Supabase the same way. The tech stack is stored in Supabase the same way. The blog posts are stored in Supabase the same way; a post is keyed by its slug. The landing page shows the published profile. Nothing else holds the panel's content and no second backend exists.
+**Content storage.** The profile, the images, the experience entries and the projects are stored in Supabase. The certifications are stored in Supabase the same way. The tech stack is stored in Supabase the same way. The blog posts are stored in Supabase the same way; a post is keyed by its slug. The landing page shows the published profile, and the blog pages show the published posts. Nothing else holds the panel's content and no second backend exists.
 
 **Settings.** The site reads seven settings by name: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
 `ADMIN_EMAIL`, `SUPABASE_DB_URL`, `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The owner sets them in Vercel for Production and SIT; they are never in the repo.
@@ -168,21 +164,12 @@ sign-in app lists three return addresses: `https://thegoldenpothos.xyz/api/auth/
 
 ## Blog authoring
 
-Posts are `content/blog/<slug>.md`, loaded and validated at build time.
-
-Required frontmatter — `title`, `excerpt`, `date` (`YYYY-MM-DD`), `slug`.
-Optional — `updated`, `tags`, `draft`, `featured`, `coverImage`, `coverAlt`,
-`readingTime`.
-
-The build **fails loudly** on a missing/empty required field, an unparseable
-date, or a duplicate slug. `readingTime` is computed from the body when omitted —
-prefer omitting it so it cannot drift. `draft: true` hides a post from listings,
-detail pages, RSS, and the sitemap.
+Posts are written and saved in the admin panel (Blog posts) and a post is shown on `/blog/` and its own address after the owner presses Publish. A draft is never public. The repository holds no post files.
 
 Markdown runs through unified: remark-parse → remark-gfm → remark-rehype →
 rehype-raw → rehype-slug → rehype-autolink-headings → rehype-highlight
 ([src/lib/markdown.ts](src/lib/markdown.ts), re-exported by `src/lib/blog/markdown.ts`; client-safe, so the admin preview imports `@/lib/markdown` directly). Raw HTML in posts is
-parsed as real elements and **is trusted** — content is authored in this repo.
+parsed as real elements and **is trusted** because only the owner writes posts.
 If untrusted markdown is ever rendered, add `rehype-sanitize` after
 `rehype-raw`.
 

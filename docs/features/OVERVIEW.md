@@ -6,7 +6,7 @@ analysis; §4 is only an index. Individual stories assume this context and don't
 ## 1. Product Overview
 
 my-portfolio is the personal portfolio and blog of Keith Lim, published at
-`https://thegoldenpothos.xyz`. The public site is Next.js served by Vercel: its pages are static pages whose content is read from Supabase on the server and kept as the last good copy until the owner publishes (the blog pages stay build-time until their own slice): a single-page scroll landing page (Hero, About, Experience, Tech Stack, Projects, Certifications) plus a Markdown blog with RSS, sitemap and robots.
+`https://thegoldenpothos.xyz`. The public site is Next.js served by Vercel: its pages are static pages whose content is read from Supabase on the server and kept as the last good copy until the owner publishes: a single-page scroll landing page (Hero, About, Experience, Tech Stack, Projects, Certifications) plus a Markdown blog with RSS, sitemap and robots.
 
 The one job it must do well is present Keith's professional work credibly and quickly: hiring
 managers and recruiters skim the landing page; peers and search visitors read blog posts. The owner (Keith) is the only author and enters content in the admin panel.

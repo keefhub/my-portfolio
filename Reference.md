@@ -14,7 +14,7 @@
 | **Animation** | Framer Motion 12.7                                      |
 | **Icons**     | lucide-react 0.503                                      |
 | **Fonts**     | Geist (sans), Geist Mono (via `next/font`)              |
-| **Content**   | Markdown blog in `content/blog/`, built by unified/remark/rehype |
+| **Content**   | Blog posts saved in the panel (Supabase), rendered by unified/remark/rehype |
 | **Deploy**    | Vercel (Git integration; public pages are static kept copies, sign-in, the panel and Publish on the server) |
 | **Output**    | `trailingSlash: true`; public pages static (kept copy), no separate export folder |
 
@@ -60,7 +60,7 @@ blog/layout.tsx     ← shared blog chrome
 ├── blog/page.tsx        → BlogIndex → BlogCard[]   (server components)
 └── blog/[slug]/page.tsx → BlogArticle              (server component)
     └── PostBody (blog/PostBody.tsx, hookless; the .prose wrapper, also used by the admin preview)
-        ↑ content sourced from content/blog/*.md at build time
+        ↑ published posts read from the database through src/lib/server/publicPosts.ts
 ```
 
 ### Data Flow
@@ -76,9 +76,9 @@ User toggles theme → ThemeContext → localStorage + data-theme attr on <html>
 
 - **Landing page is anchor-scrolled, the blog is routed**: `/` is one page of sections; `/blog` and `/blog/<slug>` are real routes
 - **Mixed server/client components**: 8 of 17 are `"use client"`. The landing-page sections are client (animation + state); the blog tree and metadata routes are server components
-- **Kept-copy public pages**: public pages read Supabase on the server and Vercel keeps the last good copy (`revalidate = false`); only the owner's Publish (`/api/admin/publish/`, `revalidatePath("/")`) or a deploy renews it. No middleware, no timer. Blog pages stay build-time and are never passed to `revalidatePath`. Dynamic public routes need `generateStaticParams` and `dynamicParams = false`; public route handlers stay `dynamic = "force-static"`. Only sign-in (`/api/auth/*`) and the panel (`/api/admin/*` and the panel page) are dynamic
+- **Kept-copy public pages**: public pages read Supabase on the server and Vercel keeps the last good copy (`revalidate = false`); only the owner's Publish (`/api/admin/publish/`, `revalidatePath("/")`) or a deploy renews it. No middleware, no timer. The blog pages read the published posts through `src/lib/server/publicPosts.ts` (one kept read, expired by Publish with `revalidateTag`, the `/blog` layout renewed with `revalidatePath`); a post address is rendered on its first visit and kept. Public route handlers stay `dynamic = "force-static"`. Only sign-in (`/api/auth/*`) and the panel (`/api/admin/*` and the panel page) are dynamic
 - **`trailingSlash: true`**: Each route is emitted as a directory (`blog/<slug>/`) and the host redirects the unslashed form to the slashed one. Coupled to `vercel.json` and `absoluteUrl()` in `src/lib/site.ts` — change all three together
-- **Build-time content pipeline**: Markdown in `content/blog/` is read, validated, and rendered during `next build` — never at runtime
+- **Published-posts pipeline**: posts are saved in the panel, stored in Supabase, and read by `src/lib/server/publicPosts.ts`; the Markdown is rendered on the server and kept until Publish
 - **CSS variables for theming**: Light/dark tokens in `:root` / `[data-theme="dark"]`
 - **Flip cards**: Used in both Experience and Projects for progressive disclosure
 
@@ -191,8 +191,8 @@ Styled with inline `var(--token)` values only; the panel code imports `src/lib/a
 
 ## Backend / API
 
-**The public pages read only the repository** (`content/blog/` and the component constants below); see the
-Blog Subsystem section for the build-time data layer. The server pieces serve the owner's panel only:
+**The public pages read Supabase on the server** (the kept copies; the blog through `src/lib/server/publicPosts.ts`); see the
+Blog Subsystem section for the blog data layer. The server pieces serve the owner's panel only:
 
 - Sign-in is Auth.js; the owner is the verified Google email in `ADMIN_EMAIL`.
 - The owner-only routes under `/api/admin/` check the owner before any database or storage call.
@@ -207,7 +207,7 @@ Portfolio data is embedded as TypeScript constants in each component file:
 - the certifications come from the saved list (`publicCertifications.ts`, read by `page.tsx`)
 - the social links in `hero.tsx` and `footer.tsx` come from the saved profile (`publicProfile.ts`)
 
-Blog data comes from Markdown files in `content/blog/`, loaded at build time.
+Blog data comes from the published posts saved in the panel, read through `src/lib/server/publicPosts.ts`.
 
 ---
 
@@ -216,53 +216,40 @@ Blog data comes from Markdown files in `content/blog/`, loaded at build time.
 ### Pipeline
 
 ```
-content/blog/*.md
-  ↓ fs.readdirSync + gray-matter          (src/lib/blog/posts.ts, server-only)
-  ↓ validateFrontmatter — throws on bad input, failing the build
-  ↓ sort newest-first, memoize (production only)
+posts saved in the panel (Supabase table, one record per slug)
+  ↓ Publish expires the tag and renews the /blog layout
+  ↓ publicPosts.ts: one cached read of the published set  (src/lib/server/publicPosts.ts)
+  ↓ pure mapper: published only, tolerant, sorted, reading time  (src/lib/publicPosts.ts)
   ↓ unified pipeline                       (src/lib/blog/markdown.ts)
-  →  HTML rendered into BlogArticle at build time
+  →  HTML rendered into BlogArticle, kept until the next Publish
 ```
 
-### Modules (`src/lib/blog/`)
+### Modules
 
 | File          | Role                                                                       |
 | ------------- | -------------------------------------------------------------------------- |
-| `types.ts`    | `BlogFrontmatter`, `BlogPost`, `BlogPostLite`, `formatDate()`. **Client-safe.** |
-| `posts.ts`    | `import "server-only"`. Reads the filesystem. Loading, validation, reading time. |
-| `markdown.ts` | `markdownToHtml()` — the unified/remark/rehype pipeline                      |
-| `rss.ts`      | `generateRssFeed()`                                                         |
-| `index.ts`    | Barrel. **Server-only by transitivity** — re-exports `posts.ts`.            |
+| `src/lib/server/publicPosts.ts` | Server-only. The cached read of the published posts and its refresh. |
+| `src/lib/publicPosts.ts` | Pure mapper from stored records to the view type; `readingMinutes`. |
+| `src/lib/blog/types.ts`    | `BlogFrontmatter`, `BlogPost`, `BlogPostLite`, `formatDate()`. **Client-safe.** |
+| `src/lib/blog/markdown.ts` | `markdownToHtml()` — the unified/remark/rehype pipeline                      |
+| `src/lib/blog/rss.ts`      | `generateRssFeed()`                                                         |
+| `src/lib/blog/index.ts`    | Barrel. No filesystem access.            |
 
 > **Import rule:** client components import from `@/lib/blog/types` only.
-> Importing the `@/lib/blog` barrel from a `"use client"` file drags `fs` into
-> the browser bundle and fails the build.
-
-### Frontmatter
-
-Required: `title`, `excerpt`, `date` (`YYYY-MM-DD`), `slug`.
-Optional: `updated`, `tags`, `draft`, `featured`, `coverImage`, `coverAlt`, `readingTime`.
-
-The build **fails loudly** on a missing/empty required field, a non-string
-required field, an unparseable date, or a duplicate slug across files.
 
 ### Behaviors worth knowing
 
-- **`readingTime` is computed** from the body (200 wpm, fenced code stripped) when
-  omitted. Prefer omitting it so it cannot drift from the content.
-- **`draft: true`** removes a post from listings, its detail page, RSS, and the sitemap.
-- **The memo cache is production-only.** In `next dev` the Markdown files are not
-  module dependencies, so caching would serve stale content until a server restart.
-- **`formatDate()` pins `timeZone: "UTC"`.** Without it, build-time HTML and the
+- **`readingTime` is computed** from the body when the post is mapped.
+- **A draft** is never public: it is filtered in the SQL, in the mapper and in the tests.
+- **A post saved but not published** is not found: both pages read the cached published set, never the live table.
+- **`formatDate()` pins `timeZone: "UTC"`.** Without it, HTML and the
   client re-render disagree across timezone boundaries → hydration mismatch.
-- **Raw HTML in posts is trusted** and parsed by `rehype-raw` into real elements.
+- **Raw HTML in posts is trusted** and parsed by `rehype-raw` into real elements, because only the owner writes posts.
   If untrusted Markdown is ever rendered, add `rehype-sanitize` after `rehype-raw`.
 
 ### List vs. detail
 
-`getPublishedPosts()` and `getFeaturedPosts()` return `BlogPostLite` — the post
-*without* its Markdown body — so list views never ship article content. Only
-`getPostBySlug()` carries `content`.
+`loadPublishedPosts()` returns every published post with its body in one kept read; the list page uses the card fields only and the post page finds its slug in the same set.
 
 ---
 
@@ -393,16 +380,7 @@ Open the admin panel's Projects section, add the project there, and press Publis
 
 ### Adding a Blog Post
 
-1. Create `content/blog/<slug>.md`
-2. Frontmatter must include `title`, `excerpt`, `date` (`YYYY-MM-DD`), and `slug`
-   — `slug` must match the filename and be unique across all posts
-3. Omit `readingTime` so it is computed from the body
-4. Set `draft: true` to keep it out of listings, RSS, and the sitemap until ready
-5. Set `featured: true` to surface it via `getFeaturedPosts()`
-6. Run `npm run build` — frontmatter is validated there, and a bad post fails the build
-
-No registration step: the loader globs the directory, and `generateStaticParams`
-picks the post up automatically.
+Open the admin panel's Blog posts section, write and save the post (leave "draft" off), and press Publish. The post appears on `/blog/` and at its own address, with no build (`src/lib/server/publicPosts.ts`). A draft stays hidden.
 
 ### Adding a New Certification
 

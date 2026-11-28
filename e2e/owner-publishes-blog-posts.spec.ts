@@ -792,3 +792,35 @@ test("E2E-22: the earlier checks no longer name the repository's posts and allow
     expect(rules, file + " has a server-folder mention rule").toBeGreaterThan(0);
   }
 });
+
+test("E2E-23: the standing documents describe the published blog posts", async () => {
+  const root = process.cwd();
+  const read = (p: string): string => fs.readFileSync(path.join(root, p), "utf8");
+  const claude = read("CLAUDE.md");
+  for (const text of ["src/lib/server/publicPosts.ts", "revalidateTag", "/blog/<slug>/", "last good copy"]) {
+    expect(claude.includes(text), "CLAUDE.md lacks " + text).toBe(true);
+  }
+  const gone = [
+    "dynamicParams = false",
+    "Blog pages stay build-time",
+    "are never passed to `revalidatePath`",
+    "Posts are `content/blog/<slug>.md`",
+    "loaded and validated at build time",
+    "The build **fails loudly**",
+    "reads the filesystem",
+    "pulls `fs` into the browser",
+  ];
+  for (const text of gone) {
+    expect(claude.includes(text), "CLAUDE.md still has " + text).toBe(false);
+  }
+
+  const reference = read("Reference.md");
+  expect(reference.includes("src/lib/server/publicPosts.ts"), "Reference.md lacks publicPosts.ts").toBe(true);
+  for (const text of ["Build-time content pipeline", "content/blog/*.md", "Create `content/blog/<slug>.md`"]) {
+    expect(reference.includes(text), "Reference.md still has " + text).toBe(false);
+  }
+
+  const overview = read("docs/features/OVERVIEW.md");
+  expect(overview.includes("the blog pages stay build-time until their own slice")).toBe(false);
+  expect(overview.includes("blog")).toBe(true);
+});

@@ -28,4 +28,6 @@ export function refreshPublishedPosts(): void {
   const key = cacheKey();
   revalidateTag("blog-posts-" + key, { expire: 0 });
   revalidatePath("/blog", "layout");
+  revalidatePath("/rss.xml", "layout");
+  revalidatePath("/sitemap.xml", "layout");
 }

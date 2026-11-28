@@ -4,11 +4,12 @@ import {
   type PublicExperienceEntry,
 } from "@/lib/publicExperience";
 import { readListRecords } from "@/lib/server/database";
+import { keptRead } from "@/lib/server/keptRead";
 
 export async function loadPublishedExperience(): Promise<PublicExperienceEntry[]> {
-  if (process.env.NEXT_PHASE === "phase-production-build") {
-    const setting = process.env.SUPABASE_DB_URL;
-    if (setting === undefined || setting.trim() === "") return [];
-  }
-  return publicExperienceFrom(await readListRecords("experience"));
+  return keptRead<PublicExperienceEntry[]>(
+    "experience",
+    async () => publicExperienceFrom(await readListRecords("experience")),
+    [],
+  );
 }

@@ -10,6 +10,7 @@ import { loadPublishedProfile } from "@/lib/server/publicProfile";
 import { loadPublishedExperience } from "@/lib/server/publicExperience";
 import { loadPublishedTechStack } from "@/lib/server/publicTechStack";
 import { loadPublishedProjects } from "@/lib/server/publicProjects";
+import { loadPublishedCertifications } from "@/lib/server/publicCertifications";
 import { contactLinks, showsAbout } from "@/lib/publicProfile";
 
 export const revalidate = false;
@@ -19,6 +20,7 @@ export default async function Home() {
   const entries = await loadPublishedExperience();
   const categories = await loadPublishedTechStack();
   const projects = await loadPublishedProjects();
+  const certifications = await loadPublishedCertifications();
   const about = profile !== null && showsAbout(profile);
   return (
     <>
@@ -31,6 +33,7 @@ export default async function Home() {
         showAbout={about}
         showExperience={entries.length > 0 || categories.length > 0}
         showProjects={projects.length > 0}
+        showCertifications={certifications.length > 0}
       />
       {profile && <Hero profile={profile} hasAbout={about} />}
 
@@ -54,9 +57,11 @@ export default async function Home() {
           </section>
         )}
 
-        <section id="certifications" className="py-24 md:py-32">
-          <Certifications />
-        </section>
+        {certifications.length > 0 && (
+          <section id="certifications" className="py-24 md:py-32">
+            <Certifications entries={certifications} />
+          </section>
+        )}
       </main>
 
       <Footer

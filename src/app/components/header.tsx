@@ -25,10 +25,12 @@ export default function Header({
   showAbout = true,
   showExperience = true,
   showProjects = true,
+  showCertifications = true,
 }: {
   showAbout?: boolean;
   showExperience?: boolean;
   showProjects?: boolean;
+  showCertifications?: boolean;
 }) {
   const sections = useMemo(
     () =>
@@ -36,9 +38,10 @@ export default function Header({
         (id) =>
           (showAbout || id !== "about") &&
           (showExperience || id !== "experience") &&
-          (showProjects || id !== "projects"),
+          (showProjects || id !== "projects") &&
+          (showCertifications || id !== "certifications"),
       ),
-    [showAbout, showExperience, showProjects],
+    [showAbout, showExperience, showProjects, showCertifications],
   );
   const [activeSection, setActiveSection] = useState<string>("");
   const [isOpen, setIsOpen] = useState(false);

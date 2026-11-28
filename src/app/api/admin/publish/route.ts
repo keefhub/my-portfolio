@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { getPanelState } from "@/lib/auth";
+import { refreshPublishedPosts } from "@/lib/server/publicPosts";
 import { loadProfile } from "@/lib/server/profile";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ export async function POST(): Promise<Response> {
   try {
     await loadProfile();
     revalidatePath("/");
+    refreshPublishedPosts();
     return reply({ published: true }, 200);
   } catch {
     return reply({ error: "unavailable" }, 503);

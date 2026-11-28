@@ -17,3 +17,21 @@ Review: risk reviewer PASS (review 1)
 Findings: nit | note | logged | link check accepts a bare "https://" (dead link); javascript:/data:/relative values give no link as required
 Findings: nit | note | logged | CSS bullet deviation acceptable
 =====================================================================
+=====================================================================
+Task 2 — The earlier checks follow the change
+Completed: 2026-11-28      Commit: 9053f46
+
+Summary: Earlier specs no longer expect the Projects section, its heading or project.tsx on a nothing-saved page; the four owner-publishes-* spec files were added to ALLOWED_PUBLIC_PATHS in retire-firebase E2E-64 and hosting E2E-ACC-20 (they mention "retire-firebase.spec.ts"); E2E-16 guards the removals.
+Decisions: profile spec loop ids now ["certifications"].
+Deviations: The first implementer run hit the Stop-if (E2E-64 and E2E-ACC-20 failing on the goal's own new spec files, a regression from slices 21-23 not caught because each slice runs only its own spec); auto-revision D-21 settled it. The locked E2E-16 test was kept across the revision because the revision did not change it.
+Files changed: e2e/retire-firebase.spec.ts, e2e/hosting-and-backend-migration-acceptance.spec.ts, e2e/owner-publishes-profile.spec.ts, e2e/owner-publishes-experience.spec.ts, e2e/owner-publishes-projects.spec.ts (modified)
+E2E tests written: E2E-16      Passed before the change: None.
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: Step 2 blocked on E2E-64/E2E-ACC-20 leftovers; D-21 (spec 0.1.2).
+Mechanical gate: PASS (warnings: none)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

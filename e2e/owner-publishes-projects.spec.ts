@@ -492,9 +492,10 @@ test("E2E-08: a failed publish keeps the old projects, shows the notice and leak
       expect(result.body).toEqual({ error: "unavailable" });
 
       await publishButton(page).click();
-      const alert = page.getByRole("alert").filter({ hasText: /\S/ });
+      const failure = "The site could not be published because the database could not be reached. Try again later.";
+      const alert = page.getByRole("alert").filter({ hasText: failure });
       await expect(alert).toBeVisible();
-      await expect(alert).toHaveText("The site could not be published because the database could not be reached. Try again later.");
+      await expect(alert).toHaveText(failure);
     } finally {
       dbFix();
     }

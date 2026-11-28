@@ -89,3 +89,18 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+=====================================================================
+Completion
+Completed: 2026-11-28
+
+Built: published blog posts read from the database through one cached snapshot keyed by a hash of the setting; Publish expires it and renews the blog pages; new posts readable at their own address without a code change; drafts and unpublished saves hidden; covers and wrapping; a site-wide not-found page; the repository's posts and file loader deleted; twelve earlier specs and the standing documents brought in line.
+Removed content (D-16): the two Markdown posts were deleted in 7a142c7; the owner re-enters them from its parent (7a142c7^:content/blog/).
+Deviations from the spec: locked-test narrowings E2E-09 (region's own h2) and E2E-21 (exact barrel import); auto-revision D-20 for an earlier slice's sign-in spec regression.
+[auto] decisions in the spec: 18 lines (D-03..D-20).
+Feature review: PASS
+Findings: edge-case | note | logged | first visit to a never-opened post address during a database outage shows an error page (outage slice, SF-8)
+Findings: edge-case | note | logged | blankPublished without try/finally; shared-stand-in specs may flake if a parallel spec publishes
+Final verification: npm run build ok; e2e/owner-publishes-blog-posts.spec.ts 22 passed, 0 failed.
+Manual checks pending: E2E-20 (dark theme), E2E-24 (a real publish on SIT).
+Follow-ups: RSS and the sitemap list no posts until owner-publishes-posts-to-feeds.
+=====================================================================

@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { encode } from "next-auth/jwt";
 
@@ -684,4 +684,41 @@ test("E2E-19: the new blog sources use tokens only", async () => {
     expect(text.includes("dark:"), file + " has dark:").toBe(false);
   }
   expect(read("src/app/not-found.tsx")).toContain("var(--");
+});
+
+test("E2E-21: the repository's posts and their loader are gone, and the feeds list no post", async () => {
+  const root = process.cwd();
+  const read = (p: string): string => fs.readFileSync(path.join(root, p), "utf8");
+  for (const file of ["content/blog/hello-world.md", "content/blog/building-portfolio-nextjs.md", "src/lib/blog/posts.ts"]) {
+    expect(fs.existsSync(path.join(root, file)), file + " exists").toBe(false);
+  }
+  const folder = path.join(root, "content", "blog");
+  const left = fs.existsSync(folder) ? fs.readdirSync(folder).filter((name) => name.endsWith(".md")) : [];
+  expect(left).toEqual([]);
+
+  const grep = spawnSync(
+    "git",
+    ["grep", "--untracked", "-l", "-E", "content/blog|gray-matter|getPublishedPosts|getPostBySlug|getFeaturedPosts|estimateReadingTime", "--", "src"],
+    { cwd: root, encoding: "utf8" },
+  );
+  expect(grep.stdout.trim()).toBe("");
+
+  for (const file of ["src/app/rss.xml/route.ts", "src/app/sitemap.ts"]) {
+    expect(/from\s+["']@\/lib\/blog["']/.test(read(file)), file + " imports the @/lib/blog barrel").toBe(false);
+  }
+
+  const base = baseUrlOf();
+  await withRequest(base, async (request) => {
+    const rss = await request.get("/rss.xml");
+    expect(rss.status()).toBe(200);
+    const feed = await rss.text();
+    expect(feed).toContain('<rss version="2.0"');
+    expect(feed.split("<item>").length - 1).toBe(0);
+
+    const map = await request.get("/sitemap.xml");
+    expect(map.status()).toBe(200);
+    const xml = await map.text();
+    const locs = [...xml.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => m[1]);
+    expect(locs).toEqual(["https://thegoldenpothos.xyz/", "https://thegoldenpothos.xyz/blog/"]);
+  });
 });

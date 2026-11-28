@@ -1,4 +1,4 @@
-import { getPublishedPosts, generateRssFeed } from "@/lib/blog";
+import { generateRssFeed } from "@/lib/blog/rss";
 import { SITE_URL } from "@/lib/site";
 
 /**
@@ -11,12 +11,8 @@ import { SITE_URL } from "@/lib/site";
 export const dynamic = "force-static";
 
 export function GET() {
-  const posts = getPublishedPosts().map((p) => ({
-    title: p.title,
-    excerpt: p.excerpt,
-    date: p.date,
-    slug: p.slug,
-  }));
+  // owner-publishes-posts-to-feeds fills this list.
+  const posts: { title: string; excerpt: string; date: string; slug: string }[] = [];
 
   return new Response(generateRssFeed(posts, SITE_URL), {
     headers: {

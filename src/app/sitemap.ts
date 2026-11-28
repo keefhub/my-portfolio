@@ -1,16 +1,10 @@
 import type { MetadataRoute } from "next";
-import { getPublishedPosts } from "@/lib/blog";
 import { absoluteUrl } from "@/lib/site";
 
 export const dynamic = "force-static";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const posts = getPublishedPosts().map((post) => ({
-    url: absoluteUrl(`/blog/${post.slug}`),
-    lastModified: new Date(post.updated ?? post.date),
-    changeFrequency: "yearly" as const,
-    priority: 0.6,
-  }));
+  const posts: MetadataRoute.Sitemap = [];
 
   return [
     {

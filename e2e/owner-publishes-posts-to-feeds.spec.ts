@@ -582,3 +582,31 @@ test("E2E-16: the earlier specs follow the feeds", async () => {
     for (const needle of needles) expect(text, `${file} still holds ${needle}`).not.toContain(needle);
   }
 });
+
+test("E2E-17: the standing documents describe the feeds", async () => {
+  const read = (file: string): string => fs.readFileSync(path.join(process.cwd(), file), "utf8");
+  const claude = read("CLAUDE.md");
+  const reference = read("Reference.md");
+  const lineWith = (text: string, needle: string): string => {
+    const line = text.split("\n").find((l) => l.includes(needle));
+    expect(line, `no line holds ${needle}`).toBeDefined();
+    return line as string;
+  };
+
+  expect(lineWith(claude, "[src/app/rss.xml/route.ts]")).toContain("publicPosts.ts");
+  expect(lineWith(claude, "[src/app/sitemap.ts]")).toContain("publicPosts.ts");
+  const admin = lineWith(claude, "for `publicPosts.ts` only");
+  expect(admin).toContain("src/app/rss.xml/route.ts");
+  expect(admin).toContain("src/app/sitemap.ts");
+
+  const routeRows = reference.split("\n").filter((l) => l.startsWith("|"));
+  for (const file of ["src/app/rss.xml/route.ts", "src/app/sitemap.ts"]) {
+    const row = routeRows.find((l) => l.includes(file));
+    expect(row, `no routes-table row holds ${file}`).toBeDefined();
+    expect(row).toContain("publicPosts.ts");
+  }
+
+  expect(claude).toContain("last good copy");
+  expect(claude).toContain("revalidateTag");
+  expect(claude).toContain("src/lib/server/publicPosts.ts");
+});

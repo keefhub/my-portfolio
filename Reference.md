@@ -31,8 +31,8 @@ The public routes are static pages kept by Vercel (the landing page reads the pu
 | `/`             | `src/app/page.tsx`            | Multi-section scroll landing page |
 | `/blog/`        | `src/app/blog/page.tsx`       | Post index                        |
 | `/blog/<slug>/` | `src/app/blog/[slug]/page.tsx`| `generateStaticParams` per post   |
-| `/rss.xml`      | `src/app/rss.xml/route.ts`    | `dynamic = "force-static"`        |
-| `/sitemap.xml`  | `src/app/sitemap.ts`          | Next metadata route               |
+| `/rss.xml`      | `src/app/rss.xml/route.ts`    | `dynamic = "force-static"`; reads the published posts through src/lib/server/publicPosts.ts; renewed by Publish |
+| `/sitemap.xml`  | `src/app/sitemap.ts`          | Next metadata route; reads the published posts through src/lib/server/publicPosts.ts; renewed by Publish |
 | `/robots.txt`   | `src/app/robots.ts`           | Next metadata route               |
 | `/bright-warm-greenhouse/` | `src/app/bright-warm-greenhouse/page.tsx` | Owner-only admin panel; `noindex`; renders `AdminPanel` |
 | `/api/auth/*`   | `src/app/api/auth/[...nextauth]/route.ts` | The Auth.js handlers; dynamic.    |

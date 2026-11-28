@@ -35,3 +35,21 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+=====================================================================
+Task 3 — The standing documents describe the published certifications
+Completed: 2026-11-28      Commit: 78c17de
+
+Summary: CLAUDE.md names all five public reads (invariant 1, import rule) and Reference.md describes the published certifications and PublicCertification type.
+Decisions: lists extended after the tech stack and projects text; Reference.md nav-links line left as is (not in the Step).
+Deviations: None.
+Files changed: CLAUDE.md, Reference.md (modified); e2e/owner-publishes-certifications.spec.ts (modified)
+E2E tests written: E2E-15      Passed before the change: None.
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

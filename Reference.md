@@ -46,7 +46,7 @@ page.tsx            ← multi-section scroll, anchor-linked (not routed)
 ├── Header          ← sticky nav + scrollspy + mobile drawer + theme toggle
 ├── Hero            ← fullscreen landing; reads the published profile
 ├── AboutMe         ← bio text + photo from the published profile
-├── ExperienceTimeline ← alternating timeline with flip cards
+├── ExperienceTimeline ← alternating timeline with flip cards, showing the published Experience entries
 ├── TechStack       ← category grid of tool icons
 ├── Projects        ← project grid with flip cards
 ├── Certifications  ← link badges
@@ -202,7 +202,7 @@ Blog Subsystem section for the build-time data layer. The server pieces serve th
 Portfolio data is embedded as TypeScript constants in each component file:
 
 - `projects[]` in `project.tsx`
-- `experienceData[]` in `experienceTimeLine.tsx`
+- the Experience entries come from the saved list (`publicExperience.ts`, read by `page.tsx`)
 - `techStack[]` in `techstack.tsx`
 - `certifications[]` in `certifications.tsx`
 - the social links in `hero.tsx` and `footer.tsx` come from the saved profile (`publicProfile.ts`)
@@ -445,7 +445,7 @@ Edit `techStack[]` in `src/app/components/techstack.tsx`:
 
 ### Adding a New Experience Entry
 
-Edit `experienceData[]` in `src/app/components/experienceTimeLine.tsx` — follows the same pattern.
+Add the entry in the admin panel's Experience section, then press Publish.
 
 ### Adding Dark Mode Enhancements
 

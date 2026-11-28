@@ -644,3 +644,19 @@ test("E2E-15: the earlier checks and the message constant follow the change", as
     expect(text, file + " must still list techstack.tsx").toContain("src/app/components/techstack.tsx");
   }
 });
+
+test("E2E-16: the standing documents and the earlier spec describe the entries as read from the database", async () => {
+  const reference = readText("Reference.md");
+  expect(reference).toContain("publicExperience");
+  expect(reference).not.toContain("experienceData[]");
+  expect(reference).not.toContain("Edit `experienceData[]`");
+  const claude = readText("CLAUDE.md");
+  expect(claude).toContain("src/lib/server/publicExperience.ts");
+  expect(claude).toContain("publicExperience.ts");
+  expect(claude).toContain("the experience entries and the projects");
+  expect(claude).toContain("last good copy");
+  expect(claude).toContain("revalidatePath");
+  const earlier = readText("docs/features/owner-publishes-profile/spec.md");
+  expect(earlier).toContain("Published. Visitors will see the changes within a minute.");
+  expect(earlier).not.toContain("will see the profile within a minute");
+});

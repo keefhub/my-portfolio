@@ -2,87 +2,13 @@
 
 import { useState, useRef, type KeyboardEvent } from "react";
 import { motion, useInView } from "framer-motion";
-
-interface ExperienceItem {
-  year: string;
-  title: string;
-  company: string;
-  duration: string;
-  description: string;
-  details: string[];
-}
-
-const experienceData: ExperienceItem[] = [
-  {
-    year: "2026",
-    title: "Software Engineer",
-    company: "Resorts World Sentosa",
-    duration: "Sep 2026 - Present",
-    description:
-      "Worked on full stack development with ASP.NET, WinForms, and C#.",
-    details: [
-      "Just the beginning, but excited to learn and grow in the casino industry!",
-    ],
-  },
-  {
-    year: "2024",
-    title: "Software Engineer",
-    company: "NCS",
-    duration: "Jul 2024 - Sep 2026",
-    description:
-      "Worked on full stack development with ASP.NET Core, Angular, and C#.",
-    details: [
-      "Built and deployed full-stack web applications with ASP.NET Core (4.8 and 8), C#, Bootstrap, and Angular 18.",
-      "Designed and implemented SQL stored procedures and managed database schema in Microsoft SQL Server.",
-      "Proactively collaborated with cross-functional teams (locally and offshore) to gather requirements and deliver high-quality software solutions.",
-      "First job, but loaded with experience and lots to learn!",
-    ],
-  },
-  {
-    year: "2023",
-    title: "Software Engineer Intern",
-    company: "ST Engineering Defence Aerospace",
-    duration: "Jan 2023 - Aug 2023",
-    description: "Built web apps with Outsystem and automation with Python.",
-    details: [
-      "Developed interactive dashboards to track its software licensing assets with Outsystem",
-      "Scripted automation with Python (Selenium)",
-      "Operations of aerospace industry is complex and interesting! What's more interesting is to learn about the magnitude of their software licensing assets.",
-    ],
-  },
-  {
-    year: "2022",
-    title: "IT Intern",
-    company: "Dimerco Express Group",
-    duration: "May 2022 - Aug 2022",
-    description: "Developed process automation and assisted in IT support.",
-    details: [
-      "Developed process automation for its finance and billing team with UI Bot.",
-      "Managed IT hardware and supported users with IT issues.",
-      "Interesting experience, learnt a lot about the logistics industry, finance, and billing system!",
-    ],
-  },
-  {
-    year: "2020",
-    title: "Bachelor's in Electrical and Electronic Engineering (Honours)",
-    company: "Nanyang Technological University",
-    duration: "Aug 2020 - May 2024",
-    description:
-      "Specialized in Computer Engineering, focusing on software development.",
-    details: [
-      "Modules include - Introduction to Data Science and Artificial Intelligence, Data Structure & Algorithm, Software Engineering, Database Systems, Web Application Design, Information Security.",
-      "Final Year Project: Developed mobile app for personalized travel itinerary using OpenAI API, React Native, and Javascript.",
-      "Director of Digital Imaging for Welfare Services Club.",
-      "Had fun as well :)",
-    ],
-  },
-];
+import type { PublicExperienceEntry } from "@/lib/publicExperience";
 
 function TimelineCard({
   item,
   index,
 }: {
-  item: ExperienceItem;
+  item: PublicExperienceEntry;
   index: number;
 }) {
   const [flipped, setFlipped] = useState(false);
@@ -144,16 +70,16 @@ function TimelineCard({
                   {item.year}
                 </span>
               </div>
-              <p className="text-xs text-[var(--muted-soft)] mb-1">
+              <p className="text-xs text-[var(--muted-soft)] mb-1 break-words">
                 {item.duration}
               </p>
-              <h3 className="text-xl font-bold text-[var(--foreground)] mb-1">
+              <h3 className="text-xl font-bold text-[var(--foreground)] mb-1 break-words">
                 {item.title}
               </h3>
-              <p className="text-sm text-[var(--accent-blue)] font-medium">
+              <p className="text-sm text-[var(--accent-blue)] font-medium break-words">
                 {item.company}
               </p>
-              <p className="mt-3 text-[var(--foreground-soft)] text-sm leading-relaxed">
+              <p className="mt-3 text-[var(--foreground-soft)] text-sm leading-relaxed break-words">
                 {item.description}
               </p>
               <p className="mt-3 text-xs text-[var(--accent-blue)] font-medium">
@@ -163,20 +89,33 @@ function TimelineCard({
 
             {/* Back */}
             <div className="card-back overflow-y-auto">
-              <h4 className="text-lg font-bold text-[var(--foreground)] mb-3">
-                What I Did
-              </h4>
-              <ul className="space-y-2 text-[var(--foreground-soft)] text-sm">
-                {item.details.map((point, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="text-[var(--accent-rose)] mt-1 shrink-0">
-                      •
-                    </span>
-                    <span>{point}</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-4 text-xs text-[var(--accent-rose)] font-medium">
+              {item.details.length > 0 ? (
+                <>
+                  <h4 className="text-lg font-bold text-[var(--foreground)] mb-3">
+                    What I Did
+                  </h4>
+                  <ul className="space-y-2 text-[var(--foreground-soft)] text-sm">
+                    {item.details.map((point, i) => (
+                      <li
+                        key={i}
+                        className="flex gap-2 before:content-['•'] before:text-[var(--accent-rose)] before:mt-1 before:shrink-0"
+                      >
+                        <span className="break-words min-w-0">{point}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <>
+                  <p className="text-[var(--foreground-soft)] text-sm break-words">
+                    {item.duration}
+                  </p>
+                  <p className="text-[var(--foreground-soft)] text-sm break-words">
+                    {item.description}
+                  </p>
+                </>
+              )}
+              <p className="mt-4 text-xs text-[var(--accent-rose)] font-medium break-words">
                 ← Click to go back
               </p>
             </div>
@@ -187,7 +126,12 @@ function TimelineCard({
   );
 }
 
-export default function ExperienceTimeline() {
+export default function ExperienceTimeline({
+  entries,
+}: {
+  entries: PublicExperienceEntry[];
+}) {
+  if (entries.length === 0) return null;
   return (
     <section className="py-16">
       <h2 className="text-3xl sm:text-4xl font-bold text-center mb-16 text-[var(--foreground)]">
@@ -204,7 +148,7 @@ export default function ExperienceTimeline() {
           aria-hidden="true"
         />
 
-        {experienceData.map((item, index) => (
+        {entries.map((item, index) => (
           <TimelineCard key={index} item={item} index={index} />
         ))}
       </div>

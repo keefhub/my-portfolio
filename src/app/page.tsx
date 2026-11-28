@@ -7,12 +7,14 @@ import Certifications from "./components/certifications";
 import Projects from "./components/project";
 import AboutMe from "./components/aboutme";
 import { loadPublishedProfile } from "@/lib/server/publicProfile";
+import { loadPublishedExperience } from "@/lib/server/publicExperience";
 import { contactLinks, showsAbout } from "@/lib/publicProfile";
 
 export const revalidate = false;
 
 export default async function Home() {
   const profile = await loadPublishedProfile();
+  const entries = await loadPublishedExperience();
   const about = profile !== null && showsAbout(profile);
   return (
     <>
@@ -32,7 +34,7 @@ export default async function Home() {
         )}
 
         <section id="experience" className="py-24 md:py-32 section-divider">
-          <ExperienceTimeline />
+          {entries.length > 0 && <ExperienceTimeline entries={entries} />}
           <TechStack />
         </section>
 

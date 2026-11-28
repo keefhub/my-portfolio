@@ -16,3 +16,23 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+=====================================================================
+Task 2 — Add the file-scan checks
+Completed: 2026-11-28      Commit: 9113386
+
+Summary: E2E-04 to E2E-11 scan the project (and the built output) for left-over content, hard-coded lists, post files, dependency/config drift, new settings, database addresses, real emails, setting values and logged settings; each scan proves itself on a planted match first.
+Decisions: None (tests-only Step; no implementer dispatch, nothing to implement).
+Deviations: None.
+Files changed: e2e/retire-repo-content.spec.ts (modified)
+E2E tests written: E2E-04, E2E-05, E2E-06, E2E-07, E2E-08, E2E-09, E2E-10, E2E-11      Passed before the change: all eight (expected, spec D-11: the end state already holds)
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: high (test-passed-before-change)
+Review: risk reviewer PASS (review 1)
+Findings: test-coverage | note | logged | E2E-10's email-domain filter has no planted control of its own
+Findings: test-coverage | note | logged | E2E-06's front-matter sub-check has no planted control (the planted file sits outside src)
+Note: Task 1's test file e2e/retire-repo-content.spec.ts landed in the spec revision commit (staged tests were included when that commit was made); not amended, per the no-amend rule.
+=====================================================================

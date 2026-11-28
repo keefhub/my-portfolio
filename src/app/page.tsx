@@ -9,6 +9,7 @@ import AboutMe from "./components/aboutme";
 import { loadPublishedProfile } from "@/lib/server/publicProfile";
 import { loadPublishedExperience } from "@/lib/server/publicExperience";
 import { loadPublishedTechStack } from "@/lib/server/publicTechStack";
+import { loadPublishedProjects } from "@/lib/server/publicProjects";
 import { contactLinks, showsAbout } from "@/lib/publicProfile";
 
 export const revalidate = false;
@@ -17,6 +18,7 @@ export default async function Home() {
   const profile = await loadPublishedProfile();
   const entries = await loadPublishedExperience();
   const categories = await loadPublishedTechStack();
+  const projects = await loadPublishedProjects();
   const about = profile !== null && showsAbout(profile);
   return (
     <>
@@ -28,6 +30,7 @@ export default async function Home() {
       <Header
         showAbout={about}
         showExperience={entries.length > 0 || categories.length > 0}
+        showProjects={projects.length > 0}
       />
       {profile && <Hero profile={profile} hasAbout={about} />}
 
@@ -45,9 +48,11 @@ export default async function Home() {
           </section>
         )}
 
-        <section id="projects" className="py-24 md:py-32 section-divider">
-          <Projects />
-        </section>
+        {projects.length > 0 && (
+          <section id="projects" className="py-24 md:py-32 section-divider">
+            <Projects projects={projects} />
+          </section>
+        )}
 
         <section id="certifications" className="py-24 md:py-32">
           <Certifications />

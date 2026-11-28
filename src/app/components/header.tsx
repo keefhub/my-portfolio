@@ -24,18 +24,21 @@ const allSections = [
 export default function Header({
   showAbout = true,
   showExperience = true,
+  showProjects = true,
 }: {
   showAbout?: boolean;
   showExperience?: boolean;
+  showProjects?: boolean;
 }) {
   const sections = useMemo(
     () =>
       allSections.filter(
         (id) =>
           (showAbout || id !== "about") &&
-          (showExperience || id !== "experience"),
+          (showExperience || id !== "experience") &&
+          (showProjects || id !== "projects"),
       ),
-    [showAbout, showExperience],
+    [showAbout, showExperience, showProjects],
   );
   const [activeSection, setActiveSection] = useState<string>("");
   const [isOpen, setIsOpen] = useState(false);

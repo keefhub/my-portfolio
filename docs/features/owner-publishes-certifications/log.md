@@ -17,3 +17,21 @@ Review: risk reviewer PASS (review 1)
 Findings: edge-case | note | logged | badge pattern accepts a backslash-led path that may load an image from another host (image only); harden the lookahead to (?![\/\\]) in a later revision
 Findings: nit | note | logged | E2E-07's waitFor("Engineer") passes at once because metadata contains "Software Engineer"; the next goto is still the first renewed request
 =====================================================================
+=====================================================================
+Task 2 — The earlier checks follow the hidden section
+Completed: 2026-11-28      Commit: 99bf9b7
+
+Summary: Earlier specs (profile, experience, retire-firebase, hosting) no longer expect section#certifications, its heading or certifications.tsx on a nothing-saved page; E2E-14 guards the removals.
+Decisions: single-entry id/selector loops removed outright; the two Certifications heading assertions in the experience spec deleted.
+Deviations: None.
+Files changed: e2e/owner-publishes-profile.spec.ts, e2e/owner-publishes-experience.spec.ts, e2e/retire-firebase.spec.ts, e2e/hosting-and-backend-migration-acceptance.spec.ts, e2e/owner-publishes-certifications.spec.ts (modified)
+E2E tests written: E2E-14      Passed before the change: None.
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

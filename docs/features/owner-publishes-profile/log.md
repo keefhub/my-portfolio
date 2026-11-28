@@ -54,3 +54,21 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+=====================================================================
+Task 4 — Keep the earlier specs true and amend the standing documents
+Completed: 2026-11-28      Commit: 0130ed9
+
+Summary: CLAUDE.md, Reference.md and OVERVIEW §1/§2 item 1 now state the kept-copy rule and the Publish route; ten earlier specs drop the old landing-page assertions and allow src/app/page.tsx as the one public importer of src/lib/server/publicProfile.ts.
+Decisions: Reference.md's "next build → public pages prerendered" line left as is (not named by the Step, no test forbids it); one Routes row for /api/admin/publish/ kept (the orchestrator removed a duplicate).
+Deviations: A session restart interrupted the first implementer; its unstaged doc edits were discarded and the Step re-run. The clone was shallow, so E2E-47 and E2E-ACC-16 could not find their baseline commit; the history was fetched (git fetch --unshallow). Locked test E2E-19 (owner-edits-profile) was narrowed by a fresh test-author dispatch to check the page body (after </head>, scripts removed) for the owner's name, because the do-not-touch layout metadata carries it; html2 === html1 and the other checks are unchanged. Step 4's placeholder Verify line was replaced by literal commands (D-25 widened, spec 0.3.3).
+Files changed: CLAUDE.md, Reference.md, docs/features/OVERVIEW.md (modified); e2e/owner-publishes-profile.spec.ts and ten earlier e2e specs (modified)
+E2E tests written: E2E-22, E2E-24      Passed before the change: E2E-24 (it reads the earlier specs, edited by the test author in this Step)
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: None new (D-25 widened, spec 0.3.3).
+Mechanical gate: PASS (warnings: none)
+Tier: high (implementer-deviation)
+Review: risk reviewer PASS (review 1)
+Findings: nit | note | fixed | CLAUDE.md listed /api/admin/publish/ twice; folded into one row
+=====================================================================

@@ -35,3 +35,21 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+=====================================================================
+Task 3 — The standing documents and the earlier spec describe the entries as read from the database
+Completed: 2026-11-28      Commit: 1b86c2b
+
+Summary: CLAUDE.md and Reference.md describe the public experience read; Reference.md's "add an experience entry" path now points at the panel and Publish; the earlier profile spec carries the new success message.
+Decisions: Reference.md reads "Add the entry in the admin panel's Experience section, then press Publish."; replace-all of the old message in the earlier spec (7 lines).
+Deviations: None.
+Files changed: CLAUDE.md, Reference.md, docs/features/owner-publishes-profile/spec.md (modified); e2e/owner-publishes-experience.spec.ts (modified)
+E2E tests written: E2E-16      Passed before the change: None.
+Manual checks pending: None.
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

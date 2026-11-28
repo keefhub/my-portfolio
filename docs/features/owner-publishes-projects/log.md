@@ -53,3 +53,17 @@ Tier: low
 Review: none (low tier)
 Findings: None.
 =====================================================================
+=====================================================================
+Completion
+Completed: 2026-11-28
+
+Built: server-only projects read with the build guard, tolerant view rules with the http(s)-only link rule, the Projects section and menu link hidden when empty, earlier checks and documents brought in line, and the goal's new spec files allowed by the two firebase-search guard tests.
+Removed content (D-13): the hard-coded projects were removed in adda6c3; the owner re-enters them from its parent (adda6c3^:src/app/components/project.tsx).
+Deviations from the spec: CSS-drawn back-face bullet; completion fix of locked E2E-08 (it matched the editor's own alert as well as the Publish failure; now filters by the failure text, assertions unchanged).
+[auto] decisions in the spec: 18 lines (D-04..D-21).
+Feature review: PASS
+Findings: edge-case | note | logged | link rule accepts a bare "https://" (dead link)
+Final verification: npm run build ok; e2e/owner-publishes-projects.spec.ts 16 passed, 0 failed (after one completion fix).
+Manual checks pending: None.
+Follow-ups: OQ-2, the hero's "View My Work" button points at a hidden section when there are no projects.
+=====================================================================

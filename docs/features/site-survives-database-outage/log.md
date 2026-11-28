@@ -34,3 +34,21 @@ Tier: high (spec Risk: high, implementer-deviation, test-passed-before-change)
 Review: risk reviewer PASS (review 1)
 Findings: None.
 =====================================================================
+=====================================================================
+Task 3 — A way back to the blog, and the standing documents
+Completed: 2026-11-28      Commit: 578d8a6
+
+Summary: not-found.tsx gains "Back to the blog"; CLAUDE.md (invariant 1, routes row) and Reference.md describe the kept read, the previous copy served on a failed renewal, and Publish's stale-while-revalidate marking.
+Decisions: None.
+Deviations: None.
+Files changed: src/app/not-found.tsx, CLAUDE.md, Reference.md (modified); e2e/site-survives-database-outage.spec.ts (modified)
+E2E tests written: E2E-07, E2E-11      Passed before the change: None.
+Manual checks pending: E2E-12 (a real paused SIT project), E2E-13 (Vercel's own keeping, never-opened post address during an outage)
+
+Attempts: 1
+Auto-revisions: None.
+Mechanical gate: PASS (warnings: none)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

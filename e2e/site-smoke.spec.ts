@@ -12,7 +12,12 @@ test("E2E-01: landing page renders its sections without console errors", async (
 
 test("E2E-02: blog index lists posts and a post page loads at its trailing-slash URL", async ({ page }) => {
   await page.goto("/blog/");
-  const firstPost = page.locator('a[href^="/blog/"]:not([href="/blog/"])').first();
+  const postLinks = page.locator('a[href^="/blog/"]:not([href="/blog/"])');
+  if ((await postLinks.count()) === 0) {
+    await expect(page.locator("main#main-content")).toContainText("No posts yet — check back soon!");
+    return;
+  }
+  const firstPost = postLinks.first();
   await expect(firstPost).toBeVisible();
 
   await firstPost.click();

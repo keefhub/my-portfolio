@@ -610,7 +610,7 @@ test("E2E-02: the post SQL is exactly the proven text, the server files are mark
   const mentionFiles = mentions.stdout.split("\n").filter(Boolean);
   expect(mentionFiles.length).toBeGreaterThan(0);
   for (const file of mentionFiles) {
-    expect(file.startsWith("src/app/api/admin/") || file.startsWith(SERVER_PATH + "/") || file === "src/app/page.tsx", file).toBe(true);
+    expect(file.startsWith("src/app/api/admin/") || file.startsWith(SERVER_PATH + "/") || file === "src/app/page.tsx" || file === "src/app/blog/page.tsx" || file === "src/app/blog/[slug]/page.tsx", file).toBe(true);
   }
 
   const importers = gitGrep(["-l", "-E", "[\"']" + PG + "[\"']", "--", "src"]);
@@ -1111,14 +1111,14 @@ test("E2E-12: no public page or script carries the routes or the database, and t
   };
   const keys = Object.keys(manifest.routes);
   expect(keys.filter((k) => k.startsWith("/api/admin"))).toEqual([]);
-  for (const key of ["/", "/blog", "/blog/hello-world", "/blog/building-portfolio-nextjs", "/robots.txt", "/rss.xml", "/sitemap.xml"]) {
+  for (const key of ["/", "/blog", "/robots.txt", "/rss.xml", "/sitemap.xml"]) {
     expect(keys, key).toContain(key);
   }
 
   const forbidden = ["api/admin/blog-posts", "blog_posts", "SUPABASE_DB_URL", "stand-in:", "DatabaseUnavailable"];
   const noPost = ["Notes on moving to Vercel", "moving-to-vercel"];
   let fetched = 0;
-  for (const path of ["/", "/blog/", "/blog/hello-world/", "/blog/building-portfolio-nextjs/", "/rss.xml", "/sitemap.xml"]) {
+  for (const path of ["/", "/blog/", "/rss.xml", "/sitemap.xml"]) {
     const page = await request.get(path);
     expect(page.status(), path).toBe(200);
     const html = await page.text();
@@ -1159,7 +1159,7 @@ test("E2E-12: no public page or script carries the routes or the database, and t
     ).toBe(true);
   }
 
-  const serverMentions = gitGrep(["-l", "-E", SERVER_DIR, "--", "src", ":(exclude)" + SERVER_PATH, ":(exclude)src/app/api/admin", ":(exclude)src/app/page.tsx"]);
+  const serverMentions = gitGrep(["-l", "-E", SERVER_DIR, "--", "src", ":(exclude)" + SERVER_PATH, ":(exclude)src/app/api/admin", ":(exclude)src/app/page.tsx", ":(exclude,literal)src/app/blog/page.tsx", ":(exclude,literal)src/app/blog/[slug]/page.tsx"]);
   expect(serverMentions.stdout).toBe("");
   expect(serverMentions.status).toBe(1);
 });

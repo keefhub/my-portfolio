@@ -625,7 +625,7 @@ test("E2E-12: the SQL is exactly the proven text, the server files are marked se
     encoding: "utf8",
   });
   for (const file of (mentions.stdout ?? "").split("\n").filter(Boolean)) {
-    expect(file.startsWith("src/app/api/admin/") || file.startsWith("src/lib/server/") || file === "src/app/page.tsx", file).toBe(true);
+    expect(file.startsWith("src/app/api/admin/") || file.startsWith("src/lib/server/") || file === "src/app/page.tsx" || file === "src/app/blog/page.tsx" || file === "src/app/blog/[slug]/page.tsx", file).toBe(true);
   }
 
   // (4) only the database module imports the library
@@ -651,7 +651,7 @@ test("E2E-13: no public page or script carries the database setting, the stand-i
   );
   let fetched = 0;
 
-  for (const path of ["/", "/blog/", "/blog/hello-world/", "/blog/building-portfolio-nextjs/"]) {
+  for (const path of ["/", "/blog/"]) {
     const page = await request.get(path);
     expect(page.status(), path).toBe(200);
     const html = await page.text();

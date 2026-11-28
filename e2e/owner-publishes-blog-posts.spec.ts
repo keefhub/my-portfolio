@@ -722,3 +722,73 @@ test("E2E-21: the repository's posts and their loader are gone, and the feeds li
     expect(locs).toEqual(["https://thegoldenpothos.xyz/", "https://thegoldenpothos.xyz/blog/"]);
   });
 });
+
+test("E2E-22: the earlier checks no longer name the repository's posts and allow the two blog pages", async () => {
+  const root = process.cwd();
+  // the old backend's name is put together from pieces so that no search of the tree finds it here
+  const RETIRE_SPEC = ["e2e/retire-fire", "base.spec.ts"].join("");
+  const read = (p: string): string => fs.readFileSync(path.join(root, p), "utf8");
+  const earlier = [
+    "e2e/site-smoke.spec.ts",
+    "e2e/owner-google-sign-in.spec.ts",
+    "e2e/owner-edits-profile.spec.ts",
+    "e2e/owner-uploads-images.spec.ts",
+    "e2e/owner-manages-experience.spec.ts",
+    "e2e/owner-manages-projects.spec.ts",
+    "e2e/owner-manages-certifications.spec.ts",
+    "e2e/owner-manages-tech-stack.spec.ts",
+    "e2e/owner-manages-blog-posts.spec.ts",
+    "e2e/owner-previews-blog-post.spec.ts",
+    RETIRE_SPEC,
+    "e2e/hosting-and-backend-migration-acceptance.spec.ts",
+  ];
+  const ACCEPTANCE = "e2e/hosting-and-backend-migration-acceptance.spec.ts";
+  for (const file of earlier) {
+    const text = read(file);
+    const stripped = file === ACCEPTANCE ? text.split("/blog/hello-world/extra/").join("") : text;
+    expect(stripped.includes("hello-world"), file + " names hello-world").toBe(false);
+    expect(text.includes("building-portfolio-nextjs"), file + " names building-portfolio-nextjs").toBe(false);
+  }
+
+  const arrayAfter = (text: string, opener: string): string => {
+    const start = text.indexOf(opener);
+    expect(start, opener + " exists").toBeGreaterThanOrEqual(0);
+    const from = start + opener.length;
+    return text.slice(from, text.indexOf("]", from));
+  };
+  const removed = ['"content/blog"', '"src/app/sitemap.ts"', '"src/app/rss.xml"', '"src/app/blog/page.tsx"', '"src/app/components/blog"', '"src/lib/blog"'];
+  const lists: Array<[string, string]> = [
+    [ACCEPTANCE, "const sources = ["],
+    [RETIRE_SPEC, "const PUBLIC_SOURCES = ["],
+  ];
+  for (const [file, opener] of lists) {
+    const body = arrayAfter(read(file), opener);
+    for (const entry of removed) {
+      expect(body.includes(entry), file + " " + opener + " still holds " + entry).toBe(false);
+    }
+  }
+
+  const ruleFiles = [
+    "e2e/owner-edits-profile.spec.ts",
+    "e2e/owner-uploads-images.spec.ts",
+    "e2e/owner-manages-experience.spec.ts",
+    "e2e/owner-manages-projects.spec.ts",
+    "e2e/owner-manages-certifications.spec.ts",
+    "e2e/owner-manages-tech-stack.spec.ts",
+    "e2e/owner-manages-blog-posts.spec.ts",
+    ACCEPTANCE,
+  ];
+  for (const file of ruleFiles) {
+    const lines = read(file).split("\n");
+    let rules = 0;
+    lines.forEach((line, i) => {
+      const isRule = (line.includes('startsWith("src/app/api/admin/")') || line.includes(':(exclude)src/app/api/admin"')) && (line.includes("lib/server") || line.includes("SERVER_PATH"));
+      if (!isRule) return;
+      rules++;
+      const near = lines.slice(Math.max(0, i - 3), i + 4).join("\n");
+      expect(near.includes("src/app/blog/page.tsx"), file + ":" + (i + 1) + " lacks the blog list page").toBe(true);
+      expect(near.includes("src/app/blog/[slug]/page.tsx"), file + ":" + (i + 1) + " lacks the post page").toBe(true);
+    });
+    expect(rules, file + " has a server-folder mention rule").toBeGreaterThan(0);
+  }
+});

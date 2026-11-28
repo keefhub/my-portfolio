@@ -36,3 +36,21 @@ Review: risk reviewer PASS (review 1)
 Findings: nit | note | logged | footer.tsx ICONS const sits between import statements
 Findings: conformance | note | logged | the three deviations are acceptable
 =====================================================================
+=====================================================================
+Task 3 — The Publish button in the panel
+Completed: 2026-11-28      Commit: 3e8398b
+
+Summary: Added publishSite() and the PublishButton under the panel's Admin heading, with Publishing… state, one press at a time, and the D-14 messages.
+Decisions: button dims with opacity 0.6 while running (as SubmitButton does); publishSite reads the body only to check published === true and never shows response text; PublishButton wraps button and message in a div.
+Deviations: Locked tests E2E-01, E2E-06 and E2E-15 used an unscoped getByRole("alert") that also matched Next's empty route announcer; a fresh test-author dispatch scoped them with .filter({ hasText: /\S/ }) (assertions unchanged), then they were relocked. The gate's E2E-08 (manual) id check was settled by widening D-25 (spec 0.3.2, committed as a plain revision, not a third blocked-task revision, because it applies an existing Decision).
+Files changed: src/lib/admin/publish.ts (created), src/app/components/admin/PublishButton.tsx (created), src/app/components/admin/AdminPanel.tsx (modified), Reference.md (modified, by the orchestrator), e2e/owner-publishes-profile.spec.ts (modified)
+E2E tests written: E2E-01, E2E-03, E2E-06, E2E-07, E2E-15, E2E-16, E2E-17, E2E-18      Passed before the change: None.
+Manual checks pending: E2E-08
+
+Attempts: 1
+Auto-revisions: None new (D-25 widened, spec 0.3.2).
+Mechanical gate: PASS (warnings: DOCS Reference.md changed — the orchestrator's AdminPanel tree entry for PublishButton; cleared)
+Tier: low
+Review: none (low tier)
+Findings: None.
+=====================================================================

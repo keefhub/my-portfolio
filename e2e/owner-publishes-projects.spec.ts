@@ -801,3 +801,14 @@ test("E2E-16: the earlier checks no longer expect the written-in projects", asyn
   expect(profile).not.toMatch(/for \(const id of \[[^\]]*"projects"/);
   expect(experience).not.toContain('name: "Projects"');
 });
+
+test("E2E-17: the standing documents describe the projects as read from the database", async () => {
+  const reference = readText("Reference.md");
+  const claude = readText("CLAUDE.md");
+  expect(reference).toContain("publicProjects");
+  expect(reference).not.toContain("projects[]");
+  expect(claude).toContain("src/lib/server/publicProjects.ts");
+  expect(claude).toContain("the experience entries and the projects");
+  expect(claude).toContain("last good copy");
+  expect(claude).toContain("revalidatePath");
+});

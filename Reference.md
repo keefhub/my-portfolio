@@ -48,7 +48,7 @@ page.tsx            ← multi-section scroll, anchor-linked (not routed)
 ├── AboutMe         ← bio text + photo from the published profile
 ├── ExperienceTimeline ← alternating timeline with flip cards, showing the published Experience entries
 ├── TechStack       ← category grid of tool icons
-├── Projects        ← project grid with flip cards
+├── Projects        ← project grid with flip cards, showing the published projects
 ├── Certifications  ← link badges
 └── Footer          ← published profile's links + back-to-top FAB
 ```
@@ -201,7 +201,7 @@ Blog Subsystem section for the build-time data layer. The server pieces serve th
 
 Portfolio data is embedded as TypeScript constants in each component file:
 
-- `projects[]` in `project.tsx`
+- the projects come from the saved list (`publicProjects.ts`, read by `page.tsx`)
 - the Experience entries come from the saved list (`publicExperience.ts`, read by `page.tsx`)
 - the tech stack comes from the saved list (`publicTechStack.ts`, read by `page.tsx`)
 - `certifications[]` in `certifications.tsx`
@@ -389,21 +389,7 @@ interface Certification {
 
 ### Adding a New Project
 
-Edit `projects[]` in `src/app/components/project.tsx`:
-
-```typescript
-{
-  title: "My New Project",
-  shortDesc: "One-liner for card front.",
-  description: [
-    "Problem: ...",
-    "Solution: ...",
-  ],
-  tech: ["React", "Node.js"],
-  github: "https://github.com/user/repo",
-  demo: "https://demo.com",
-}
-```
+Open the admin panel's Projects section, add the project there, and press Publish. The landing page shows it when the next visitor arrives (`publicProjects.ts`, read by `page.tsx`).
 
 ### Adding a Blog Post
 

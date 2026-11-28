@@ -2,7 +2,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { expect, test } from "@playwright/test";
+import {
+  expect,
+  request as playwrightRequest,
+  test,
+  type APIRequestContext,
+} from "@playwright/test";
+import { encode } from "next-auth/jwt";
 
 const FIVE_DOCS = [
   "README.md",
@@ -514,4 +520,489 @@ test("E2E-11: no console call can log a setting", () => {
     bad.map((l) => l.split(":").slice(0, 2).join(":")),
     "console call outside the allowed files or touching a setting",
   ).toEqual([]);
+});
+
+
+// ---------------------------------------------------------------------------
+// Site checks (E2E-12 to E2E-18). E2E-19 and E2E-20 are manual rows: no test.
+// ---------------------------------------------------------------------------
+
+test.describe.configure({ mode: "serial" });
+test.setTimeout(150000);
+
+const STAND_IN_PREFIX = "stand-in:";
+const DB_URL = process.env.SUPABASE_DB_URL ?? "";
+const DB_FILE = DB_URL.startsWith(STAND_IN_PREFIX) ? DB_URL.slice(STAND_IN_PREFIX.length) : "";
+const SESSION_COOKIE = "authjs.session-token";
+const setting = (name: string): string => process.env[name] ?? "";
+
+type Claims = { sub: string; email: string; name: string; emailVerified: boolean };
+const OWNER = (): Claims => ({
+  sub: "owner-1",
+  email: setting("ADMIN_EMAIL"),
+  name: "Owner Test",
+  emailVerified: true,
+});
+const OTHER: Claims = {
+  sub: "other-1",
+  email: "mallory@example.test",
+  name: "Mallory",
+  emailVerified: true,
+};
+
+async function cookieOf(claims: Claims): Promise<string> {
+  const value = await encode({
+    token: { ...claims },
+    secret: setting("AUTH_SECRET"),
+    salt: SESSION_COOKIE,
+    maxAge: 3600,
+  });
+  return SESSION_COOKIE + "=" + value;
+}
+
+const baseUrlOf = (): string =>
+  String(test.info().project.use.baseURL ?? "http://localhost:3100");
+
+async function withRequest<T>(
+  base: string,
+  run: (request: APIRequestContext) => Promise<T>,
+): Promise<T> {
+  const request = await playwrightRequest.newContext({ baseURL: base });
+  try {
+    return await run(request);
+  } finally {
+    await request.dispose();
+  }
+}
+
+type Fetched = { status: number; headers: Record<string, string>; text: string; body: Buffer };
+
+async function fetchFile(base: string, url: string, cookie?: string): Promise<Fetched> {
+  return withRequest(base, async (request) => {
+    const response = await request.get(url, {
+      maxRedirects: 0,
+      ...(cookie ? { headers: { cookie } } : {}),
+    });
+    const body = await response.body();
+    return {
+      status: response.status(),
+      headers: response.headers(),
+      text: body.toString("utf8"),
+      body,
+    };
+  });
+}
+
+const textOf = async (base: string, url: string): Promise<string> =>
+  (await fetchFile(base, url)).text;
+
+async function waitHas(base: string, url: string, needle: string, present = true): Promise<void> {
+  await expect
+    .poll(async () => (await textOf(base, url)).includes(needle), { timeout: 60000 })
+    .toBe(present);
+}
+
+async function ownerSend(
+  base: string,
+  method: "get" | "post" | "put",
+  url: string,
+  data?: unknown,
+): Promise<{ status: number; json: unknown }> {
+  return withRequest(base, async (request) => {
+    const headers: Record<string, string> = { cookie: await cookieOf(OWNER()) };
+    if (data !== undefined) headers["content-type"] = "application/json";
+    const response = await request[method](url, {
+      headers,
+      maxRedirects: 0,
+      ...(data !== undefined ? { data: JSON.stringify(data) } : {}),
+    });
+    let json: unknown = null;
+    try {
+      json = await response.json();
+    } catch {
+      json = null;
+    }
+    return { status: response.status(), json };
+  });
+}
+
+async function publish(base: string): Promise<void> {
+  const r = await ownerSend(base, "post", "/api/admin/publish/");
+  expect(r.status).toBe(200);
+  expect(r.json).toEqual({ published: true });
+}
+
+async function blank(base: string): Promise<void> {
+  if (DB_FILE !== "" && fs.existsSync(DB_FILE)) fs.rmSync(DB_FILE, { force: true });
+  await publish(base);
+  await expect
+    .poll(
+      async () =>
+        !(await textOf(base, "/")).includes('id="experience"') &&
+        (await textOf(base, "/blog/")).includes("No posts yet"),
+      { timeout: 60000, intervals: [250] },
+    )
+    .toBe(true);
+}
+
+const PROFILE = {
+  name: "Retire Probe Person",
+  headline: "Probe Headline Engineer",
+  about: ["Probe about paragraph."],
+  photo: "",
+  email: "hello@example.com",
+  resumeLink: "",
+  socialLinks: [{ label: "GitHub", url: "https://github.com/example" }],
+};
+
+const EXPERIENCE = {
+  position: 0,
+  content: {
+    year: "2026",
+    title: "Probe Staff Engineer",
+    company: "Probe Works Ltd",
+    duration: "Jan 2026 - Present",
+    description: "Probe description.",
+    details: ["Probe detail one."],
+  },
+};
+const TECH = {
+  position: 0,
+  content: {
+    category: "Probe Category",
+    tools: [{ name: "ProbeKit", icon: "/icons/react.png" }],
+  },
+};
+const PROJECT = {
+  position: 0,
+  content: {
+    title: "Probe Project",
+    shortDesc: "Probe summary",
+    description: ["Probe paragraph."],
+    tech: ["React"],
+    github: "https://github.com/example/probe",
+    demo: "",
+  },
+};
+const CERT = {
+  position: 0,
+  content: {
+    name: "Probe Certificate",
+    icon: "/certs/scrum.png",
+    url: "https://example.com/credential/probe",
+  },
+};
+
+const POST = {
+  title: "Growing Pothos",
+  excerpt: "How to keep a pothos happy indoors",
+  date: "2026-05-15",
+  slug: "retire-growing-pothos",
+  tags: [] as string[],
+  draft: false,
+  featured: false,
+  coverImage: "",
+  coverAlt: "",
+  body: "Pothos body words.\n",
+};
+const DRAFT = {
+  ...POST,
+  title: "Half Written Pothos Notes",
+  excerpt: "Not ready yet",
+  date: "2026-04-01",
+  slug: "retire-half-written",
+  draft: true,
+  body: "Secret draft words.\n",
+};
+
+async function seedOk(base: string, url: string, body: unknown): Promise<void> {
+  const r = await ownerSend(base, "post", url, body);
+  expect(r.status, `POST ${url}`).toBe(200);
+}
+
+async function putProfile(base: string, profile: unknown): Promise<void> {
+  const r = await ownerSend(base, "put", "/api/admin/profile/", profile);
+  expect(r.status, "PUT profile").toBe(200);
+}
+
+async function seedPosts(base: string, posts: unknown[]): Promise<void> {
+  for (const post of posts) await seedOk(base, "/api/admin/blog-posts/", { content: post });
+}
+
+async function seedFull(base: string): Promise<void> {
+  await putProfile(base, PROFILE);
+  await seedOk(base, "/api/admin/experience/", EXPERIENCE);
+  await seedOk(base, "/api/admin/tech-stack/", TECH);
+  await seedOk(base, "/api/admin/projects/", PROJECT);
+  await seedOk(base, "/api/admin/certifications/", CERT);
+  await seedPosts(base, [POST]);
+}
+
+async function scenario(run: (base: string) => Promise<void>): Promise<void> {
+  const base = baseUrlOf();
+  await blank(base);
+  try {
+    await run(base);
+  } finally {
+    await blank(base);
+  }
+}
+
+test.afterAll(async () => {
+  await blank(baseUrlOf());
+});
+
+test("E2E-12: published content shows on the home page and the blog", async ({ browser }) => {
+  await scenario(async (base) => {
+    await seedFull(base);
+    await publish(base);
+    await expect
+      .poll(
+        async () => {
+          const home = await textOf(base, "/");
+          const blog = await textOf(base, "/blog/");
+          return home.includes("Probe Project") && blog.includes("Growing Pothos");
+        },
+        { timeout: 60000 },
+      )
+      .toBe(true);
+    const home = await textOf(base, "/");
+    for (const text of [
+      "Retire Probe Person",
+      "Probe Headline Engineer",
+      "Probe Staff Engineer",
+      "Probe Works Ltd",
+      "Probe Category",
+      "ProbeKit",
+      "Probe Project",
+      "Probe Certificate",
+    ]) {
+      expect(home, `home lacks ${text}`).toContain(text);
+    }
+    expect(await textOf(base, "/blog/")).toContain("Growing Pothos");
+
+    const context = await browser.newContext({ baseURL: base });
+    try {
+      const page = await context.newPage();
+      await page.goto("/");
+      const nav = page.locator('nav[aria-label="Main navigation"]');
+      for (const name of ["Experience", "Projects", "Certifications"]) {
+        await expect(nav.getByRole("link", { name, exact: true })).toBeVisible();
+      }
+    } finally {
+      await context.close();
+    }
+  });
+});
+
+test("E2E-13: a draft stays out of the blog, its address, the feed and the sitemap", async ({
+  browser,
+}) => {
+  await scenario(async (base) => {
+    await seedPosts(base, [POST, DRAFT]);
+    await publish(base);
+    await waitHas(base, "/blog/", "Growing Pothos");
+    expect(await textOf(base, "/blog/")).not.toContain("Half Written Pothos Notes");
+
+    const context = await browser.newContext({ baseURL: base });
+    try {
+      const page = await context.newPage();
+      const response = await page.goto("/blog/retire-half-written/");
+      expect(response?.status()).toBe(404);
+      await expect(
+        page.getByRole("heading", { level: 2, name: "This page could not be found.", exact: true }),
+      ).toBeVisible();
+      expect(await page.locator("body").innerText()).not.toContain("Secret draft words.");
+    } finally {
+      await context.close();
+    }
+
+    await waitHas(base, "/rss.xml", "Growing Pothos");
+    const rss = await textOf(base, "/rss.xml");
+    expect(rss).toContain("Growing Pothos");
+    expect(rss).not.toContain("Half Written Pothos Notes");
+    expect(rss).not.toContain("retire-half-written");
+
+    await waitHas(base, "/sitemap.xml", "retire-growing-pothos");
+    const sitemap = await textOf(base, "/sitemap.xml");
+    expect(sitemap).toContain("retire-growing-pothos");
+    expect(sitemap).not.toContain("retire-half-written");
+  });
+});
+
+test("E2E-14: the public pages and scripts carry no setting value or name", async () => {
+  await scenario(async (base) => {
+    await seedFull(base);
+    await publish(base);
+    await waitHas(base, "/", "Probe Project");
+    await waitHas(base, "/blog/", "Growing Pothos");
+
+    const home = await textOf(base, "/");
+    const blog = await textOf(base, "/blog/");
+    const srcs = new Set<string>();
+    for (const html of [home, blog]) {
+      for (const m of html.matchAll(/<script[^>]*\ssrc="(\/_next\/[^"]+)"/g)) srcs.add(m[1]);
+    }
+    expect(srcs.size, "no script was found").toBeGreaterThan(0);
+
+    const texts = [home, blog];
+    for (const src of srcs) {
+      const r = await fetchFile(base, src);
+      expect(r.status, src).toBe(200);
+      texts.push(r.text);
+    }
+
+    const values = ["ADMIN_EMAIL", "AUTH_SECRET", "AUTH_GOOGLE_SECRET", "SUPABASE_DB_URL"].map(
+      (n) => {
+        const v = setting(n);
+        expect(v.length, `${n} is not set in the test run`).toBeGreaterThan(0);
+        return v;
+      },
+    );
+    const names = [
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_DB_URL",
+      "postgres://",
+      "postgresql://",
+      "stand-in:",
+    ];
+    for (const text of texts) {
+      for (const needle of [...values, ...names]) {
+        expect(text.includes(needle), "a page or script holds a setting").toBe(false);
+      }
+    }
+  });
+});
+
+test("E2E-15: addresses, redirects, feeds and the slash setting hold", async () => {
+  await scenario(async (base) => {
+    await seedPosts(base, [POST]);
+    await publish(base);
+    await expect
+      .poll(async () => (await fetchFile(base, "/blog/retire-growing-pothos/")).status, {
+        timeout: 60000,
+      })
+      .toBe(200);
+    await waitHas(base, "/sitemap.xml", "retire-growing-pothos");
+
+    for (const [from, to] of [
+      ["/blog", "/blog/"],
+      ["/blog/retire-growing-pothos", "/blog/retire-growing-pothos/"],
+    ]) {
+      const r = await fetchFile(base, from);
+      expect([307, 308], `${from} status`).toContain(r.status);
+      expect(new URL(r.headers["location"] ?? "", base).pathname).toBe(to);
+    }
+    for (const url of [
+      "/",
+      "/blog/",
+      "/blog/retire-growing-pothos/",
+      "/rss.xml",
+      "/sitemap.xml",
+      "/robots.txt",
+    ]) {
+      expect((await fetchFile(base, url)).status, url).toBe(200);
+    }
+    expect((await fetchFile(base, "/rss.xml")).headers["content-type"]).toContain("rss");
+    const sitemap = await textOf(base, "/sitemap.xml");
+    expect([...sitemap.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => m[1])).toEqual([
+      "https://thegoldenpothos.xyz/",
+      "https://thegoldenpothos.xyz/blog/",
+      "https://thegoldenpothos.xyz/blog/retire-growing-pothos/",
+    ]);
+    expect(fs.readFileSync("next.config.ts", "utf8")).toContain("trailingSlash: true");
+    expect(JSON.parse(fs.readFileSync("vercel.json", "utf8")).trailingSlash).toBe(true);
+  });
+});
+
+test("E2E-16: a post date reads the same in every time zone with no console error", async ({
+  browser,
+}) => {
+  await scenario(async (base) => {
+    await seedPosts(base, [POST]);
+    await publish(base);
+    await waitHas(base, "/blog/", "Growing Pothos");
+    await expect
+      .poll(async () => (await fetchFile(base, "/blog/retire-growing-pothos/")).status, {
+        timeout: 60000,
+      })
+      .toBe(200);
+
+    for (const timezoneId of ["Pacific/Kiritimati", "Pacific/Pago_Pago", "UTC"]) {
+      const context = await browser.newContext({ baseURL: base, timezoneId });
+      try {
+        const page = await context.newPage();
+        const errors: string[] = [];
+        page.on("console", (m) => {
+          if (m.type() === "error") errors.push(m.text());
+        });
+        page.on("pageerror", (e) => errors.push(String(e)));
+        for (const address of ["/blog/", "/blog/retire-growing-pothos/"]) {
+          await page.goto(address);
+          const time = page.locator('time[datetime="2026-05-15"]').first();
+          await expect(time, `${timezoneId} ${address}`).toHaveText("15 May 2026");
+        }
+        expect(errors, `${timezoneId} errors`).toEqual([]);
+      } finally {
+        await context.close();
+      }
+    }
+  });
+});
+
+test("E2E-17: the profile photo is served as is, not through the image optimiser", async () => {
+  await scenario(async (base) => {
+    await putProfile(base, { ...PROFILE, photo: "/profile/placeholder.jpg" });
+    await publish(base);
+    await waitHas(base, "/", 'src="/profile/placeholder.jpg"');
+    const home = await textOf(base, "/");
+    expect(home).toContain('src="/profile/placeholder.jpg"');
+    expect(home).not.toContain("/_next/image");
+    const photo = await fetchFile(base, "/profile/placeholder.jpg");
+    expect(photo.status).toBe(200);
+    expect(photo.headers["content-type"]).toBe("image/jpeg");
+    expect(photo.body.equals(fs.readFileSync("public/profile/placeholder.jpg"))).toBe(true);
+    expect(fs.readFileSync("next.config.ts", "utf8")).toContain("unoptimized: true");
+  });
+});
+
+test("E2E-18: only the owner can read, change or publish; the panel asks for sign-in", async ({
+  browser,
+}) => {
+  await scenario(async (base) => {
+    await putProfile(base, PROFILE);
+    const defaced = { ...PROFILE, name: "Defaced Name" };
+    const attempts = async (cookie?: string): Promise<number[]> =>
+      withRequest(base, async (request) => {
+        const headers: Record<string, string> = cookie ? { cookie } : {};
+        const put = { ...headers, "content-type": "application/json" };
+        const get = await request.get("/api/admin/profile/", { headers, maxRedirects: 0 });
+        const putR = await request.put("/api/admin/profile/", {
+          headers: put,
+          data: JSON.stringify(defaced),
+          maxRedirects: 0,
+        });
+        const pub = await request.post("/api/admin/publish/", { headers, maxRedirects: 0 });
+        return [get.status(), putR.status(), pub.status()];
+      });
+    expect(await attempts()).toEqual([401, 401, 401]);
+    expect(await attempts(await cookieOf(OTHER))).toEqual([403, 403, 403]);
+
+    const context = await browser.newContext({ baseURL: base });
+    try {
+      const page = await context.newPage();
+      await page.goto("/bright-warm-greenhouse/");
+      await expect(
+        page.getByRole("button", { name: "Sign in with Google", exact: true }),
+      ).toBeVisible();
+      await expect(page.getByRole("button", { name: "Publish", exact: true })).toHaveCount(0);
+    } finally {
+      await context.close();
+    }
+
+    const owner = await ownerSend(base, "get", "/api/admin/profile/");
+    expect(owner.status).toBe(200);
+    expect(JSON.stringify(owner.json)).toContain("Retire Probe Person");
+    expect(JSON.stringify(owner.json)).not.toContain("Defaced Name");
+  });
 });

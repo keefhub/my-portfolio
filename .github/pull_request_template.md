@@ -10,6 +10,15 @@
 
 <!-- Steps a reviewer can follow, or the command to run. Name the page, viewport and theme for anything visual. -->
 
+## Standing rules rewritten
+
+<!-- Name every standing rule this change rewrites and the owner ruling that allows it. Write "None" if no rule changed. -->
+
+- Rules rewritten: say which (for example, public pages read the database and keep the last good copy; content lives only in the database).
+- Content removed from the repository: name the commits listed in `Reference.md` § Content removed from the repository, so the old text can be read from history.
+- Removing commits: `58b1d9f` (profile), `21b2aae` (experience), `b61ba7b` (tech stack), `adda6c3` (projects), `b057997` (certifications), `7a142c7` (blog posts). Read an old file with `git show <commit>^:<path>`.
+- Do not merge `develop` into `master` until the live database holds today's content.
+
 ## Settings to set in Vercel
 
 Set each one in Vercel, once for Production and once for SIT. Names only: never write a value here.

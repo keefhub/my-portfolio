@@ -1,6 +1,8 @@
 # Portfolio and blog
 
-Keith Lim's portfolio and blog, at https://thegoldenpothos.xyz. It is built with Next.js (App Router), React, TypeScript, Tailwind CSS and Framer Motion. The public pages are prerendered. Sign-in with Auth.js and Google and the owner's admin panel run on the server, with the content stored in Supabase PostgreSQL and the uploaded images in Supabase Storage. The site is hosted on Vercel.
+Keith Lim's portfolio and blog, at https://thegoldenpothos.xyz. It is built with Next.js (App Router), React, TypeScript, Tailwind CSS and Framer Motion. The public pages are static pages that read the published content from Supabase on the server and keep the last good copy. Sign-in with Auth.js and Google and the owner's admin panel run on the server, with the content stored in Supabase PostgreSQL and the uploaded images in Supabase Storage. The site is hosted on Vercel.
+
+Content lives only in the database and is refreshed when the owner presses Publish: the profile, experience, tech stack, projects, certifications and blog posts are saved in the admin panel, and the repository holds no copy of them.
 
 ## Commands
 

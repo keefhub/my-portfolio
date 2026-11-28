@@ -101,7 +101,7 @@ and the barrel [src/lib/blog/index.ts](src/lib/blog/index.ts) no longer touches 
 **4. Format dates with `timeZone: "UTC"`.**
 Use `formatDate()` from [src/lib/blog/types.ts](src/lib/blog/types.ts). `"2026-05-15"`
 parses as UTC midnight, so formatting in a local zone renders a different day on
-either side of UTC — the HTML baked at build time then disagrees with the client
+either side of UTC — the kept page's HTML then disagrees with the client
 re-render and React reports a hydration mismatch.
 
 **5. The origin lives in one constant.**
@@ -139,7 +139,7 @@ profile store, the storage module and the image store); `SUPABASE_URL` and `SUPA
 in one file there (`src/lib/server/storage.ts`). It is imported by `src/app/api/admin/**` and, for `publicProfile.ts`, `publicExperience.ts`, `publicTechStack.ts`, `publicProjects.ts` and `publicCertifications.ts` only, by `src/app/page.tsx`, and, for `publicPosts.ts` only, by `src/app/blog/page.tsx` and `src/app/blog/[slug]/page.tsx`, `src/app/rss.xml/route.ts` and `src/app/sitemap.ts`; never by a
 client component, a layout or any other public file. The owner decision stays in `src/lib/admin/access.ts` and `src/lib/auth.ts`. The shared list pattern is `ListEditor.tsx` with the browser store `createHttpListStore` (`src/lib/admin/listClient.ts`), the server `createListService` (`src/lib/server/listStore.ts`) and the list SQL (`src/lib/server/listSql.ts`); each later list slice adds its table name, a route file and an editor.
 
-**Content storage.** The profile, the images, the experience entries and the projects are stored in Supabase. The certifications are stored in Supabase the same way. The tech stack is stored in Supabase the same way. The blog posts are stored in Supabase the same way; a post is keyed by its slug. The landing page shows the published profile, and the blog pages show the published posts. Nothing else holds the panel's content and no second backend exists.
+**Content storage.** The profile, the images, the experience entries and the projects are stored in Supabase. The certifications are stored in Supabase the same way. The tech stack is stored in Supabase the same way. The blog posts are stored in Supabase the same way; a post is keyed by its slug. The landing page shows the published profile, and the blog pages show the published posts. Nothing else holds the panel's content and no second backend exists. Content lives only in the database and is refreshed on the public site when the owner presses Publish; the repository holds no copy of the profile, experience, tech stack, projects, certifications or posts.
 
 **Settings.** The site reads seven settings by name: `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
 `ADMIN_EMAIL`, `SUPABASE_DB_URL`, `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The owner sets them in Vercel for Production and SIT; they are never in the repo.

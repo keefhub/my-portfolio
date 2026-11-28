@@ -30,7 +30,7 @@ fact here when it changes.
 | --- | --- | --- |
 | `npm run typecheck` | Every task | Exits 0, no type errors |
 | `npm run lint:new` | Every task. Runs ESLint and ignores only the known baseline error (`ThemeProvider.tsx:25`, `react-hooks/set-state-in-effect`), so any other error fails it. `npm run lint` itself exits 1 on that baseline and is not used as a gate | Last line `lint:new: 0 error(s)…`; exits 0 |
-| `npm run build` | Every task (the mechanical gate runs it), and before a feature's plan is marked complete. It builds the site and is the only check that catches server/client boundary violations, `generateStaticParams` gaps, a public page that became dynamic, and blog frontmatter validation | Exits 0 |
+| `npm run build` | Every task (the mechanical gate runs it), and before a feature's plan is marked complete. It builds the site and is the only check that catches server/client boundary violations, `generateStaticParams` gaps and a public page that became dynamic | Exits 0 |
 | `npx playwright test e2e/<slug>.spec.ts -g "<E2E-id regex>"` | One browser row. No `npm run build &&` in front: the gate builds once before it runs the command, and a worker builds once before its first browser run and again only after changing code. Needs a current `.next/` build | Exits 0, the matching row passes |
 | `npx playwright test e2e/<slug>.spec.ts` | **The only whole-spec e2e run the pipeline requires**: at feature completion, and again before pushing to `develop`. After `npm run build` | Exits 0; every test in the feature's spec file passes |
 | `npm run test:e2e` | **Not a gate.** The full suite, optional and on request only. It is slow, so never per task, never at feature completion, never before a push, and **never in CI** | Exits 0, all tests pass |
@@ -85,7 +85,7 @@ human in a browser and is reported as pending until they do. Don't claim a UI or
 on the strength of typecheck, lint and build alone.
 
 **Verification methods for an `E2E-` row:** `e2e` (the norm for runtime behaviour), `compiler`
-(typecheck, lint or build proves it, for example a duplicate blog slug failing the build) or
+(typecheck, lint or build proves it, for example a type error) or
 `manual`.
 
 ## Feature docs
@@ -116,7 +116,7 @@ and stay as they are. The pipeline never reads or writes them.
   functional scenarios. New UI design direction goes through `design-taste-frontend`; reworking
   existing UI goes through `redesign-existing-projects`.
 - **Domain entry point:** the story's `domain:` line, if any. Otherwise start discovery from
-  `CLAUDE.md` § Invariants, `src/lib/site.ts`, `src/lib/blog/types.ts` and `content/blog/`.
+  `CLAUDE.md` § Invariants, `src/lib/site.ts`, `src/lib/blog/types.ts` and `src/lib/server/publicPosts.ts`.
 - **Verification vocabulary:** an `E2E-` check is `compiler`, `e2e` or `manual` (see § Behavioral
   gate). `e2e` is the norm for runtime behaviour; its test lives in the feature's spec file.
 - Another feature is read only through its `spec.md`; never open another feature's `story.md`.
@@ -128,7 +128,7 @@ tiers, not from the layer).
 
 | Layer | Covers |
 | --- | --- |
-| `data` | `content/blog/*.md`, `src/lib/blog/posts.ts`, `src/lib/blog/types.ts`, experience, project and certification data held in the components |
+| `data` | `src/lib/blog/types.ts`, `src/lib/server/public*.ts`, `src/lib/public*.ts` (the published reads and their mappers; the content itself lives in the database) |
 | `domain` | `src/lib/site.ts`, `src/lib/blog/markdown.ts`, `src/lib/blog/rss.ts`, `src/lib/blog/index.ts`, `formatDate()` |
 | `route` | `src/app/**/page.tsx`, `layout.tsx`, `src/app/rss.xml/route.ts`, `sitemap.ts`, `robots.ts`, `next.config.ts`, `vercel.json`, `.github/workflows/` |
 | `ui` | `src/app/components/**`, `src/app/globals.css` (tokens), `ThemeProvider.tsx` |
@@ -204,7 +204,7 @@ The tier is computed by the gate script, never judged.
   two itself; the orchestrator passes the others with `--escalate <reasons>` (comma-separated).
 
 **Low tier** — everything else: presentation-only changes in `src/app/components/**`, token and
-style changes in `globals.css`, blog content in `content/blog/*.md`, docs, and spec-only test
+style changes in `globals.css`, docs, and spec-only test
 changes under `e2e/`. Nothing reviews the task on its own: the mechanical gate passes it and the
 feature review reads its diff.
 

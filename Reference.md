@@ -30,7 +30,7 @@ The public routes are static pages kept by Vercel (the landing page reads the pu
 | --------------- | ----------------------------- | --------------------------------- |
 | `/`             | `src/app/page.tsx`            | Multi-section scroll landing page |
 | `/blog/`        | `src/app/blog/page.tsx`       | Post index                        |
-| `/blog/<slug>/` | `src/app/blog/[slug]/page.tsx`| `generateStaticParams` per post   |
+| `/blog/<slug>/` | `src/app/blog/[slug]/page.tsx`| a post address is rendered on its first visit and kept (`generateStaticParams` returns none) |
 | `/rss.xml`      | `src/app/rss.xml/route.ts`    | `dynamic = "force-static"`; reads the published posts through src/lib/server/publicPosts.ts; renewed by Publish |
 | `/sitemap.xml`  | `src/app/sitemap.ts`          | Next metadata route; reads the published posts through src/lib/server/publicPosts.ts; renewed by Publish |
 | `/robots.txt`   | `src/app/robots.ts`           | Next metadata route               |
@@ -77,6 +77,7 @@ User toggles theme → ThemeContext → localStorage + data-theme attr on <html>
 - **Landing page is anchor-scrolled, the blog is routed**: `/` is one page of sections; `/blog` and `/blog/<slug>` are real routes
 - **Mixed server/client components**: 8 of 17 are `"use client"`. The landing-page sections are client (animation + state); the blog tree and metadata routes are server components
 - **Kept-copy public pages**: public pages read Supabase on the server and Vercel keeps the last good copy (`revalidate = false`); only the owner's Publish (`/api/admin/publish/`, which marks the `keptRead` reads stale, stale-while-revalidate) or a deploy renews it. No middleware, no timer. The blog pages read the published posts through `src/lib/server/publicPosts.ts` (read through `keptRead` and marked stale by Publish with `revalidateTag`); a post address is rendered on its first visit and kept. Public route handlers stay `dynamic = "force-static"`. Only sign-in (`/api/auth/*`) and the panel (`/api/admin/*` and the panel page) are dynamic
+- **Content**: content lives only in the database and is refreshed when the owner presses Publish; the repository holds no copy of the profile, experience, tech stack, projects, certifications or posts.
 - **`trailingSlash: true`**: Each route is emitted as a directory (`blog/<slug>/`) and the host redirects the unslashed form to the slashed one. Coupled to `vercel.json` and `absoluteUrl()` in `src/lib/site.ts` — change all three together
 - **Published-posts pipeline**: posts are saved in the panel, stored in Supabase, and read by `src/lib/server/publicPosts.ts`; the Markdown is rendered on the server and kept until Publish
 - **CSS variables for theming**: Light/dark tokens in `:root` / `[data-theme="dark"]`
@@ -419,10 +420,27 @@ Update `[data-theme="dark"]` block in `globals.css` to add new token overrides.
 
 ---
 
+## Content removed from the repository
+
+The repository holds no copy of the content, and the old text can be read from history.
+
+| Content | Commit | What changed |
+| --- | --- | --- |
+| Profile | 58b1d9f | `hero.tsx`, `aboutme.tsx`, `footer.tsx`, `header.tsx` and `page.tsx` rewritten to read the published profile |
+| Experience | 21b2aae | `experienceTimeLine.tsx` rewritten to read the published entries |
+| Tech stack | b61ba7b | `techstack.tsx` and `header.tsx` rewritten to read the published tech stack |
+| Projects | adda6c3 | `project.tsx` and `header.tsx` rewritten to read the published projects |
+| Certifications | b057997 | `certifications.tsx` and `header.tsx` rewritten to read the published certifications |
+| Blog posts | 7a142c7 | deleted: the two post files in the post folder and the post loader `src/lib/blog/posts.ts`; the blog pages rewritten to read the published posts |
+
+List a commit's changed files with `git show --stat --format= <commit>` and read an old file with `git show <commit>^:<path>`.
+
+---
+
 ## Deployment
 
 ```
-next build          → public pages prerendered; panel and sign-in routes dynamic
+next build          → public pages are static pages that read the database and are kept by Vercel; panel and sign-in routes dynamic
 git push            → Vercel builds (vercel.json: `npm run build`) and deploys
 ```
 
@@ -456,8 +474,8 @@ OG, RSS, and sitemap URLs — while deliberately *not* slashing file paths like
 | Images unoptimized (free-plan constraint, CLAUDE.md Invariant 6) | No WebP/AVIF, no responsive srcset           |
 | No loading / error boundaries                  | No fallback UI for failures                  |
 | No analytics                                   | No visitor insights                          |
-| Portfolio data embedded in components          | Harder to maintain as data grows             |
+| Content lives only in the database | A paused Supabase project cannot be edited or published until it is restored; the site keeps the last published copy |
 | No search / filtering on projects or posts     | Fine at current volume, may not scale        |
 | No page transitions                            | Hard page jump between sections              |
-| No tests                                       | `npm run build` is the only safety net       |
+| No unit-test framework | Playwright specs in `e2e/` run against the built site; `npm run build` is the gate |
 | `ThemeProvider` trips `set-state-in-effect`    | `npm run lint` exits 1 on a clean tree       |

@@ -2,7 +2,7 @@
 
 - **Slug:** `public-site-reads-database`
 - **Owner:** Keith Lim (site owner)
-- **Status:** draft
+- **Status:** ready
 
 ## 1. Goal
 

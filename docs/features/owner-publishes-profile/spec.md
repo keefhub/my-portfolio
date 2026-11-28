@@ -5,7 +5,7 @@
 |                  |                                                                                  |
 | ---------------- | -------------------------------------------------------------------------------- |
 | Feature          | Owner publishes profile                                                          |
-| Version          | 0.2.0                                                                            |
+| Version          | 0.3.0                                                                            |
 | Spec source      | `docs/features/owner-publishes-profile/story.md`                                 |
 | Standing context | OVERVIEW §1–3 (`docs/features/OVERVIEW.md`), intent `docs/requirements/public-site-reads-database-intent.md` |
 | Domain entry     | `CLAUDE.md` § Invariants, `src/app/page.tsx` (the story names no `domain:` file) |
@@ -221,6 +221,7 @@ Publish response bodies: `{"published":true}` (200), `{"error":"not-signed-in"}`
 | D-20 | The feature's spec shares one stand-in database and one kept copy with the server, so its tests run one after another in one worker, begin with `dbReset()` and a publish of the empty database, and end (`afterAll`) by publishing the empty database so a later spec starts from the build's no-profile page. This spec is not run in the same invocation as another spec that reads `/` (the project runs specs with `fullyParallel` against one shared stand-in), which is why Step verifies name the spec file and a test filter. | [auto] |
 | D-21 | "Publishing on one site does not change the other" is a `manual` check on SIT and live (the run has one database); the code-level half (no outbound request, one invalidated path) is an automated source check. | [auto] |
 | D-22 | The `profile.photo` address is shown with the existing `next/image` (already `unoptimized` site-wide); the profile has no dates, so no date formatting is added. | [auto] |
+| D-24 | E2E-03 clicks the Publish button, which Step 3 creates, so E2E-03 is written and run by Step 3 (Step 3 now depends on Step 2 for the landing page it reads); Step 2's tests publish through the route (`publish()`). The spec file sets `test.setTimeout(150000)` from Step 2 on, because `blank()` may poll up to 60 s and a test calls it before its own work. (Raised by the blocked Step 2 report; no Step renumbered.) | [auto] |
 | D-23 | A photo address is shown only when it begins with `/`, `http://` or `https://`; `publicProfileFrom` sets any other value to `""` (the editor does not validate it, and `next/image` throws at render time on a bare relative path, which would fail the regeneration). The About section then follows `showsAbout` on the cleaned profile. | [auto] [derived] |
 
 ### 2.8 Do not touch
@@ -513,8 +514,8 @@ Scenario: The landing page has no timed refresh
 | AC-04 | BR-04a, BR-05a | TS-03, TS-05 | 2 | E2E-02 | Specified |
 | AC-05 | BR-06 | TS-07 | 2 | E2E-02 | Specified |
 | AC-06 | BR-07 | TS-04, TS-08 | 2 | E2E-02 | Specified |
-| AC-07 | BR-08a | TS-04 | 2 | E2E-03 | Specified |
-| AC-08 | BR-08b | TS-01, TS-04 | 2 | E2E-03 | Specified |
+| AC-07 | BR-08a | TS-04 | 3 | E2E-03 | Specified |
+| AC-08 | BR-08b | TS-01, TS-04 | 3 | E2E-03 | Specified |
 | AC-09 | BR-09a | TS-02, TS-04 | 2 | E2E-04 | Specified |
 | AC-10 | BR-09b | TS-04, TS-08 | 2 | E2E-04 | Specified |
 | AC-11 | BR-09c | TS-04 | 2 | E2E-04 | Specified |
@@ -614,7 +615,7 @@ Orphan BR clauses: none. Orphan TS: none. Uncovered scenarios: none. Uncovered `
 
 ## Phase B — The public landing page
 
-**Delivers:** TS-04, TS-05, TS-06, TS-07, TS-08; E2E-02, E2E-03, E2E-04, E2E-05, E2E-10, E2E-11, E2E-12, E2E-13, E2E-14, E2E-21, E2E-23
+**Delivers:** TS-04, TS-05, TS-06, TS-07, TS-08; E2E-02, E2E-04, E2E-05, E2E-10, E2E-11, E2E-12, E2E-13, E2E-14, E2E-21, E2E-23
 
 ### Step 2 — Landing page, hero, About, footer and header read the published profile
 
@@ -634,22 +635,22 @@ Orphan BR clauses: none. Orphan TS: none. Uncovered scenarios: none. Uncovered `
   - `aboutme.tsx` (stays `"use client"`): `export default function AboutMe(props: { profile: PublicProfile })`. Its root element becomes `<div className="py-16">` with no `id` and no `section` (the wrapper in `page.tsx` is the one `section#about`). Keep the "About Me" heading. Render `profile.about` as paragraphs in order, all with the same style (no special last paragraph). The photo block (the decorative rings, frame and accent dots) renders only when `profile.photo !== ""`, as `<Image src={profile.photo} alt={"Portrait of " + profile.name} fill … />` with the sizes and classes it has today; with no photo the text block is centred and fills the width. Long words wrap. Must NOT contain the old paragraphs or `/profile/placeholder.jpg`.
   - `footer.tsx` (stays `"use client"`): `export default function Footer(props: { name?: string; links?: ContactLink[] })`, both optional. The copyright line is `© {year} {name} — Built with Next.js & ❤️` with a name and `© {year} — Built with Next.js & ❤️` without one; the "thegoldenpothos" brand mark stays. The link group renders `links` in order with the same icon and attribute rules as the hero (size 18, existing classes) and is not rendered when `links` is missing or empty. The back-to-top button is unchanged. Must NOT contain the old addresses or name.
   - `header.tsx`: `export default function Header(props: { showAbout?: boolean })` where `showAbout` defaults to `true`. When `false`, "about" is removed from the list used by the scroll-spy, the desktop menu and the mobile menu; nothing else changes (the Blog link, the brand, the theme toggle and the non-home `Link` form stay).
-  - `e2e/owner-publishes-profile.spec.ts` gains `blank()` and the `afterAll` that calls it, and `E2E-02`, `E2E-03`, `E2E-04`, `E2E-05`, `E2E-10`, `E2E-11`, `E2E-12`, `E2E-13`, `E2E-14` and `E2E-21` as written in Section 4 (`E2E-23` is verified by the build, not by a test).
+  - `e2e/owner-publishes-profile.spec.ts` gains `blank()` and the `afterAll` that calls it, and `E2E-02`, `E2E-04`, `E2E-05`, `E2E-10`, `E2E-11`, `E2E-12`, `E2E-13`, `E2E-14` and `E2E-21` as written in Section 4 (the test that clicks the Publish button is written in Step 3; `E2E-23` is verified by the build, not by a test). It also sets a file-level `test.setTimeout(150000)` (D-24) so the `blank()` polls cannot time a test out.
   - From this Step until Step 4 the earlier specs that load `/` or check the `lib/server` rule fail; this Step's Verify and its gate run only this feature's spec file and the build, and Step 4 repairs the earlier specs.
 - **Risk:** high — implements the kept-copy and no-cookie safety facts of impact.md (the page must stay static, read only the saved profile and be the same for every visitor).
 - **Verify:**
-  - `npx playwright test e2e/owner-publishes-profile.spec.ts -g "E2E-02|E2E-03|E2E-04|E2E-05|E2E-10|E2E-11|E2E-12|E2E-13|E2E-14|E2E-21"` → 10 passed
+  - `npx playwright test e2e/owner-publishes-profile.spec.ts -g "E2E-02|E2E-04|E2E-05|E2E-10|E2E-11|E2E-12|E2E-13|E2E-14|E2E-21"` → 9 passed
   - `npm run build` with no `SUPABASE_DB_URL` set → exits 0 and the route list shows `/` as static (`○`) (E2E-23)
 - **Stop-if:** `GET /` under `next start` carries no `x-nextjs-cache` header at all (E2E-14 then cannot assert the kept copy; report it and assert the unchanged body across two requests instead); `npm run build` reports `/` as dynamic (`ƒ`) or fails on a missing database setting (the build-phase rule of D-06 is wrong); `Image` with an address that is not under `public/` fails the build or throws at render time (`unoptimized` is global in `next.config.ts`; if it is not, stop); a `GET /` made right after a successful `POST /api/admin/publish/` with a readable database returns a 5xx or an unchanged old page (the premise of impact.md SF-2 is false); the first request after Publish shows the old content (the refresh is not blocking, so the tests' polling and E2E-05's twice-visit check must be revised by the spec writer).
 
 ## Phase C — The panel control
 
-**Delivers:** TS-09, TS-10; E2E-01, E2E-06, E2E-07, E2E-08, E2E-15, E2E-16, E2E-17, E2E-18
+**Delivers:** TS-09, TS-10; E2E-01, E2E-03, E2E-06, E2E-07, E2E-08, E2E-15, E2E-16, E2E-17, E2E-18
 
 ### Step 3 — The Publish button in the panel
 
 - **Satisfies:** TS-09, TS-10
-- **Depends on:** Step 1
+- **Depends on:** Step 1, Step 2 (its Publish-click test reads the landing page of Step 2)
 - **Files:**
   - add `src/lib/admin/publish.ts`
   - add `src/app/components/admin/PublishButton.tsx`
@@ -660,10 +661,10 @@ Orphan BR clauses: none. Orphan TS: none. Uncovered scenarios: none. Uncovered `
   - `src/lib/admin/publish.ts` (client-safe; no `server-only`) exports `PUBLISH_URL: string = "/api/admin/publish/"`; `PUBLISH_MESSAGES = { publishing: "Publishing…", published: "Published. Visitors will see the profile within a minute.", failed: "The site could not be published because the database could not be reached. Try again later.", refused: "The site was not published. Check that you are signed in as the owner." }`; `type PublishOutcome = "published" | "failed" | "refused"`; and `publishSite(): Promise<PublishOutcome>`: `fetch(PUBLISH_URL, { method: "POST", signal: AbortSignal.timeout(15000) })` with no body; status 200 and a JSON body whose `published === true` → `"published"`; status 401 or 403 → `"refused"`; everything else (other statuses, a network error, a timeout, a body that is not JSON) → `"failed"`. It never throws and never returns or shows response text.
   - `src/app/components/admin/PublishButton.tsx` (`"use client"`) default-exports `PublishButton(): React.JSX.Element`. A `<button type="button">` whose accessible name is exactly `Publish` at all times, `disabled` while a publish runs, styled with `buttonStyle`. A `useRef` guard makes a second press before the first finishes do nothing, so one request is sent. On press: clear any message, show `<p role="status">` with `PUBLISH_MESSAGES.publishing`, call `publishSite()`; then replace the message with `<p role="status">` `PUBLISH_MESSAGES.published` (published), `<p role="alert">` `PUBLISH_MESSAGES.failed` (failed) or `<p role="alert">` `PUBLISH_MESSAGES.refused` (refused), and enable the button. Only one message is on screen at a time; after an unmount no state is set. Styles: the button uses `buttonStyle` imported from `./formParts`, a `role="status"` message uses `statusStyle`, a `role="alert"` message uses `errorStyle`; `AdminPanel.tsx`'s local `buttonStyle` is not used. `var(--…)` tokens only; no raw colour.
   - `AdminPanel.tsx`: in the signed-in body (the `else` branch) render `<PublishButton />` first, above `<nav aria-label="Admin sections">`. Not in the signed-out or not-allowed branches. The section menu, the editors and Sign out are unchanged.
-  - `e2e/owner-publishes-profile.spec.ts` gains `E2E-01`, `E2E-06`, `E2E-07`, `E2E-15`, `E2E-16`, `E2E-17`, `E2E-18` as written in Section 4 (`E2E-08` is manual).
+  - `e2e/owner-publishes-profile.spec.ts` gains `E2E-01`, `E2E-03`, `E2E-06`, `E2E-07`, `E2E-15`, `E2E-16`, `E2E-17`, `E2E-18` as written in Section 4 (`E2E-08` is manual).
 - **Risk:** low — a presentational control; every access decision is on the server (Step 1) and the mechanical gate plus the feature review cover this Step.
 - **Verify:**
-  - `npx playwright test e2e/owner-publishes-profile.spec.ts -g "E2E-01|E2E-06|E2E-07|E2E-15|E2E-16|E2E-17|E2E-18"` → 7 passed
+  - `npx playwright test e2e/owner-publishes-profile.spec.ts -g "E2E-01|E2E-03|E2E-06|E2E-07|E2E-15|E2E-16|E2E-17|E2E-18"` → 8 passed
   - manual E2E-08: on SIT, sign in as the owner, save Name `Keith Test`, press "Publish", then open the SIT landing page and the live landing page → SIT shows `Keith Test` within a minute, live still shows `Keith Lim`; report as pending until the owner has done it.
 - **Stop-if:** `ProfileEditor.tsx` no longer has the `savingRef` / `mounted` pattern (read it before copying); `AdminPanel.tsx` has no signed-in `else` branch; a signed-out request to `/api/admin/publish/` returns 200.
 
@@ -716,4 +717,5 @@ Orphan BR clauses: none. Orphan TS: none. Uncovered scenarios: none. Uncovered `
 | Version | Date | Change |
 | ------- | ---- | ------ |
 | 0.1.0 | 2026-11-28 | First full specification written from `story.md` |
+| 0.3.0 | 2026-11-28 | Blocked Step 2 decided (D-24): E2E-03 moved to Step 3, Step 3 depends on Step 2, file-level 150 s test timeout |
 | 0.2.0 | 2026-11-28 | Review round applied: the `lib/server` rule of eight earlier specs added to TS-11, Step 4 and E2E-24; Step 1 no `afterAll` until Step 2; one `section#about`; types, `reply()` helper, document literals and OVERVIEW §1 text spelled out; photo address rule D-23 |
